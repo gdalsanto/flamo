@@ -1,4 +1,4 @@
 # flamo
-FLAMO: An Open-Source Library for Frequency-Domain Differentiable Audio Processing 
+FLAMO: An Open-Source Frequency-sampling Library for Audio-Module Optimization
 
 More about it soon! 
