@@ -3,14 +3,28 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to FLAMO's documentation!
+FLAMO
 =================================
+
+``FLAMO`` is an open-source frequecy-sampling library for audio-module optimization in ``PyTorch``.
+The code can be found in `this github repository <https://github.com/gdalsanto/flamo>`_.
+
+Installation
+---------------------------
+
+.. code-block:: bash
+    
+    pip install flamo
+
+
+Contents 
+--------------------------
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Differentiable Digitial Signal Processor:
 
-
+   processor/dsp
 
 Indices and tables
 ==================

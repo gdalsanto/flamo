@@ -1,3 +1,10 @@
+import os
+import sys
+
+dirname = os.path.dirname(__file__)
+basedir = os.path.abspath(os.path.join(dirname, ".."))
+sys.path.insert(0, basedir)
+print("sys.path:", sys.path)
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -9,12 +16,17 @@
 project = 'FLAMO'
 copyright = '2024, Gloria Dal Santo; Gian Marco De Bortoli; Sebastian J. Schlecht'
 author = 'Gloria Dal Santo; Gian Marco De Bortoli; Sebastian J. Schlecht'
-release = '0.0.1'
+release = '0.0.3'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.intersphinx",
+    ]
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']

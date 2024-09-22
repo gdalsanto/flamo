@@ -6,7 +6,7 @@
 FLAMO
 =================================
 
-:python:`FLAMO` is an open-source frequecy-sampling library for audio-module optimization in :python:`PyTorch`.
+``FLAMO`` is an open-source frequecy-sampling library for audio-module optimization in ``PyTorch``.
 The code can be found in `this github repository <https://github.com/gdalsanto/flamo>`_.
 
 Installation
@@ -15,16 +15,16 @@ Installation
 .. code-block:: bash
     
     pip install flamo
-    
+
 
 Contents 
 --------------------------
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Differentiable Digitial Signal Processor:
 
-
+   processor/dsp
 
 Indices and tables
 ==================
