@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
-    <title>&lt;no title&gt; &#8212; FLAMO 0.0.3 documentation</title>
+    <title>Processor &#8212; FLAMO 0.0.3 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=61cd365c" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
     <script src="../_static/documentation_options.js?v=47de8214"></script>
@@ -33,21 +33,80 @@
             
   <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Transform">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transform=&lt;function</span> <span class="pre">Transform.&lt;lambda&gt;&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Transform" title="Link to this definition">¶</a></dt>
-<dd><dl class="py method">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transform:</span> <span class="pre">callable</span> <span class="pre">=</span> <span class="pre">&lt;function</span> <span class="pre">Transform.&lt;lambda&gt;&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Transform" title="Link to this definition">¶</a></dt>
+<dd><p>Base class for all transformations.</p>
+<p>The transformation is a callable, e.g., <code class="xref py py-class docutils literal notranslate"><span class="pre">lambda</span></code> expression, function, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>Args:</dt><dd><p>transform (callable): The transformation function to be applied to the input. Default: lambda x: x</p>
+</dd>
+<dt>Attributes:</dt><dd><p>transform (callable): The transformation function to be applied to the input.</p>
+</dd>
+<dt>Methods:</dt><dd><p>forward(x): Applies the transformation function to the input.</p>
+</dd>
+</dl>
+<p>Examples:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">pow2</span> <span class="o">=</span> <span class="n">Transform</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pow2</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+<span class="go">tensor([1, 4, 9])</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Transform.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Transform.forward" title="Link to this definition">¶</a></dt>
-<dd><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
+<dd><p>Applies the transformation to the input tensor.</p>
+<dl class="simple">
+<dt>Parameters:</dt><dd><p>x (Tensor): The input tensor.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Tensor: The transformed tensor.</p>
+</dd>
+</dl>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.FFT">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">FFT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'backward'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.FFT" title="Link to this definition">¶</a></dt>
+<dd><p>Real Fast Fourier Transform (FFT) class.</p>
+<p>The <a class="reference internal" href="#flamo.processor.dsp.FFT" title="flamo.processor.dsp.FFT"><code class="xref py py-class docutils literal notranslate"><span class="pre">FFT</span></code></a> class is an instance of the <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a> class. The transformation function is the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.rfft()</span></code> function.
+Computes the one dimensional Fourier transform of real-valued input. The input is interpreted as a real-valued signal in time domain. The output contains only the positive frequencies below the Nyquist frequency.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>Args:</dt><dd><p>nfft (int): The number of points to compute the FFT. Default: 2**11.
+norm (str): The normalization mode for the FFT. Default: “backward”.</p>
+</dd>
+<dt>Attributes:</dt><dd><p>nfft (int): The number of points to compute the FFT.
+norm (str): The normalization mode for the FFT.</p>
+</dd>
+<dt>Methods:</dt><dd><p>foward(x): Apply the FFT to the input tensor x and return the one sided FFT.</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>For details on the FFT function, see <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.fft.rfft.html">torch.fft.rfft documentation</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.iFFT">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">iFFT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'backward'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.iFFT" title="Link to this definition">¶</a></dt>
+<dd><p>Inverse Fast Fourier Transform (iFFT) class.</p>
+<p>The <a class="reference internal" href="#flamo.processor.dsp.iFFT" title="flamo.processor.dsp.iFFT"><code class="xref py py-class docutils literal notranslate"><span class="pre">iFFT</span></code></a> class is an instance of the <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a> class. The transformation function is the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.irfft()</span></code> function.
+Computes the inverse of the Fourier transform of a real-valued tensor. The input is interpreted as a one-sided Hermitian signal in the Fourier domain. The output is a real-valued signal in the time domain.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>Args:</dt><dd><p>nfft (int): The size of the FFT. Default: 2**11.
+norm (str): The normalization mode. Default: “backward”.</p>
+</dd>
+<dt>Attributes:</dt><dd><p>nfft (int): The size of the FFT.
+norm (str): The normalization mode.</p>
+</dd>
+<dt>Methods:</dt><dd><p>foward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor.</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>For details on the inverse FFT function, see <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.fft.irfft.html">torch.fft.irfft documentation</a>.</p>
 </dd></dl>
 
 
@@ -74,6 +133,8 @@ registered hooks while the latter silently ignores them.</p>
 <li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Transform.forward"><code class="docutils literal notranslate"><span class="pre">Transform.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
 </ul>
 
 <div class="relations">
