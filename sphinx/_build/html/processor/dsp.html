@@ -140,7 +140,7 @@ fft (function): The FFT function. Calls the <code class="xref py py-func docutil
 ifft (function): The Inverse FFT function. Calls the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.irfft()</span></code>.
 gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p>
 </dd>
-<dt><strong>Methods</strong>:</dt><dd><p>forward(x): Applies the processor core module to the input tensor x.
+<dt><strong>Methods</strong>:</dt><dd><p>forward(x): Applies the processor core module to the input tensor x by multiplication.
 init_param(): Initializes the parameters of the DSP module.
 get_gamma(): Computes the gamma value used for time anti-aliasing envelope.
 assign_value(new_value, indx): Assigns new values to the parameters.</p>
@@ -228,7 +228,7 @@ fft (function): The FFT function. Calls the torch.fft.rfft function.
 ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
 gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p>
 </dd>
-<dt><strong>Methods</strong>:</dt><dd><p>forward(x): Applies the Gain module to the input tensor x.
+<dt><strong>Methods</strong>:</dt><dd><p>forward(x): Applies the Gain module to the input tensor x by multiplication.
 check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
 check_param_shape(): Checks if the shape of the gain parameters is valid.
 get_freq_convolve(): Computes the frequency convolution function.
@@ -292,6 +292,55 @@ initialize_class(): Initializes the Gain module.</p>
 
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Matrix">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size:</span> <span class="pre">tuple</span> <span class="pre">=</span> <span class="pre">(1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map=&lt;function</span> <span class="pre">Matrix.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'random'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Matrix" title="Link to this definition">¶</a></dt>
+<dd><p>A class representing a matrix. inherits from <a class="reference internal" href="#flamo.processor.dsp.Gain" title="flamo.processor.dsp.Gain"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gain</span></code></a>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>size (tuple, optional): The size of the matrix. Default: (1, 1).
+nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+map (function, optional): The mapping function to apply to the raw matrix elements. Default: lambda x: x.
+matrix_type (str, optional): The type of matrix to generate. Default: “random”.
+requires_grad (bool, optional): Whether the matrix requires gradient computation. Default: False.
+alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><p>size (tuple): The size of the matrix.
+nfft (int): The number of FFT points required to compute the frequency response.
+map (function): The mapping function to apply to the raw matrix elements.
+matrix_type (str): The type of matrix to generate.
+requires_grad (bool): Whether the matrix requires gradient computation.
+alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+param (nn.Parameter): The parameters of the Matrix module.
+fft (function): The FFT function. Calls the torch.fft.rfft function.
+ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
+gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><p>forward(x): Applies the Matrix module to the input tensor x by multiplication.
+check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
+check_param_shape(): Checks if the shape of the matrix parameters is valid.
+get_freq_convolve(): Computes the frequency convolution function.
+initialize_class(): Initializes the Matrix module.
+matrix_gallery(): Generates the matrix based on the specified matrix type.</p>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Matrix.initialize_class">
+<span class="sig-name descname"><span class="pre">initialize_class</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Matrix.initialize_class" title="Link to this definition">¶</a></dt>
+<dd><p>Initializes the Matrix module.</p>
+<p>This method checks the shape of the matrix parameters, sets the matrix type, generates the matrix, and computes the frequency convolution function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Matrix.matrix_gallery">
+<span class="sig-name descname"><span class="pre">matrix_gallery</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Matrix.matrix_gallery" title="Link to this definition">¶</a></dt>
+<dd><p>Generates the matrix based on the specified matrix type.
+The <code class="xref py py-attr docutils literal notranslate"><span class="pre">map</span></code> attribute will be overwritten based on the matrix type.</p>
+</dd></dl>
+
+</dd></dl>
+
 
 
           </div>
@@ -331,6 +380,11 @@ initialize_class(): Initializes the Gain module.</p>
 <li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.forward"><code class="docutils literal notranslate"><span class="pre">Gain.forward()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">Gain.get_freq_convolve()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.initialize_class"><code class="docutils literal notranslate"><span class="pre">Gain.initialize_class()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Matrix.initialize_class"><code class="docutils literal notranslate"><span class="pre">Matrix.initialize_class()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Matrix.matrix_gallery"><code class="docutils literal notranslate"><span class="pre">Matrix.matrix_gallery()</span></code></a></li>
 </ul>
 </li>
 </ul>

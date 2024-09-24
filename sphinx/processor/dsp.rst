@@ -14,3 +14,7 @@
 
 .. autoclass:: flamo.processor.dsp.Gain
    :members:
+
+.. autoclass:: flamo.processor.dsp.Matrix
+   :members:
+
