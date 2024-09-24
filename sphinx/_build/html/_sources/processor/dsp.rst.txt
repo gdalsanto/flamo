@@ -8,3 +8,6 @@
 
 .. autoclass:: flamo.processor.dsp.iFFT
    :members:
+
+.. autoclass:: flamo.processor.dsp.DSP
+   :members:

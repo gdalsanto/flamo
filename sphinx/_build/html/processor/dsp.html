@@ -11,6 +11,7 @@
     <script src="../_static/documentation_options.js?v=47de8214"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="prev" title="FLAMO" href="../index.html" />
@@ -38,11 +39,11 @@
 <p>The transformation is a callable, e.g., <code class="xref py py-class docutils literal notranslate"><span class="pre">lambda</span></code> expression, function, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>.</p>
 <blockquote>
 <div><dl class="simple">
-<dt>Args:</dt><dd><p>transform (callable): The transformation function to be applied to the input. Default: lambda x: x</p>
+<dt><strong>Args</strong>:</dt><dd><p>transform (callable): The transformation function to be applied to the input. Default: lambda x: x</p>
 </dd>
-<dt>Attributes:</dt><dd><p>transform (callable): The transformation function to be applied to the input.</p>
+<dt><strong>Attributes</strong>:</dt><dd><p>transform (callable): The transformation function to be applied to the input.</p>
 </dd>
-<dt>Methods:</dt><dd><p>forward(x): Applies the transformation function to the input.</p>
+<dt><strong>Methods</strong>:</dt><dd><p>forward(x): Applies the transformation function to the input.</p>
 </dd>
 </dl>
 <p>Examples:</p>
@@ -75,13 +76,13 @@
 Computes the one dimensional Fourier transform of real-valued input. The input is interpreted as a real-valued signal in time domain. The output contains only the positive frequencies below the Nyquist frequency.</p>
 <blockquote>
 <div><dl class="simple">
-<dt>Args:</dt><dd><p>nfft (int): The number of points to compute the FFT. Default: 2**11.
+<dt><strong>Args</strong>:</dt><dd><p>nfft (int): The number of points to compute the FFT. Default: 2**11.
 norm (str): The normalization mode for the FFT. Default: “backward”.</p>
 </dd>
-<dt>Attributes:</dt><dd><p>nfft (int): The number of points to compute the FFT.
+<dt><strong>Attributes</strong>:</dt><dd><p>nfft (int): The number of points to compute the FFT.
 norm (str): The normalization mode for the FFT.</p>
 </dd>
-<dt>Methods:</dt><dd><p>foward(x): Apply the FFT to the input tensor x and return the one sided FFT.</p>
+<dt><strong>Methods</strong>:</dt><dd><p>foward(x): Apply the FFT to the input tensor x and return the one sided FFT.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -96,17 +97,98 @@ norm (str): The normalization mode for the FFT.</p>
 Computes the inverse of the Fourier transform of a real-valued tensor. The input is interpreted as a one-sided Hermitian signal in the Fourier domain. The output is a real-valued signal in the time domain.</p>
 <blockquote>
 <div><dl class="simple">
-<dt>Args:</dt><dd><p>nfft (int): The size of the FFT. Default: 2**11.
+<dt><strong>Args</strong>:</dt><dd><p>nfft (int): The size of the FFT. Default: 2**11.
 norm (str): The normalization mode. Default: “backward”.</p>
 </dd>
-<dt>Attributes:</dt><dd><p>nfft (int): The size of the FFT.
+<dt><strong>Attributes</strong>:</dt><dd><p>nfft (int): The size of the FFT.
 norm (str): The normalization mode.</p>
 </dd>
-<dt>Methods:</dt><dd><p>foward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor.</p>
+<dt><strong>Methods</strong>:</dt><dd><p>foward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor.</p>
 </dd>
 </dl>
 </div></blockquote>
 <p>For details on the inverse FFT function, see <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.fft.irfft.html">torch.fft.irfft documentation</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.DSP">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">DSP</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size:</span> <span class="pre">tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map=&lt;function</span> <span class="pre">DSP.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP" title="Link to this definition">¶</a></dt>
+<dd><p>Processor core module consisting of learnable parameters representing a Linear Time-Invariant (LTI) system, which is then convolved with the input signal.</p>
+<p>The parameters are stored in <code class="xref py py-attr docutils literal notranslate"><span class="pre">param</span></code> tensor whose values at initialization 
+are drawn from the normal distribution <span class="math notranslate nohighlight">\(\mathcal{N}(0, 1)\)</span> and can be 
+modified using the <a class="reference internal" href="#flamo.processor.dsp.DSP.assign_value" title="flamo.processor.dsp.DSP.assign_value"><code class="xref py py-meth docutils literal notranslate"><span class="pre">assign_value()</span></code></a> method.</p>
+<p>The anti aliasing envelope is computed using the <a class="reference internal" href="#flamo.processor.dsp.DSP.get_gamma" title="flamo.processor.dsp.DSP.get_gamma"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_gamma()</span></code></a> method from 
+the <code class="xref py py-attr docutils literal notranslate"><span class="pre">alias_decay_db</span></code> attribute which determines the decay in dB reached 
+by the exponentially decaying envelope <span class="math notranslate nohighlight">\(\gamma(n)\)</span> after <code class="xref py py-attr docutils literal notranslate"><span class="pre">nfft</span></code> samples. 
+The envelope <span class="math notranslate nohighlight">\(\gamma(n)\)</span> is then applied to the time domain signal before computing the FFT</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>size (tuple): The shape of the parameters before mapping.
+nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+map (function, optional): The mapping function applied to the raw parameters. Default: lambda x: x.
+requires_grad (bool, optional): Whether the parameters require gradients. Default: False.
+alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><p>size (tuple): The shape of the parameters.
+nfft (int): The number of FFT points required to compute the frequency response.
+map (function): The mapping function applied to the raw parameters.
+requires_grad (bool): Whether the parameters require gradients.
+alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+param (nn.Parameter): The parameters of the DSP module.
+fft (function): The FFT function. Calls the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.rfft()</span></code> function.
+ifft (function): The Inverse FFT function. Calls the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.irfft()</span></code>.
+gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><p>forward(x): Applies the processor core module to the input tensor x.
+init_param(): Initializes the parameters of the DSP module.
+get_gamma(): Computes the gamma value used for time anti-aliasing envelope.
+assign_value(new_value, indx): Assigns new values to the parameters.</p>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.DSP.assign_value">
+<span class="sig-name descname"><span class="pre">assign_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(slice(None,</span> <span class="pre">None,</span> <span class="pre">None),)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.assign_value" title="Link to this definition">¶</a></dt>
+<dd><p>Assigns new values to the parameters.</p>
+<dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>new_value (torch.Tensor): New values to be assigned.
+indx (tuple, optional): Index to specify the subset of values to be assigned. Default: tuple([slice(None)]).</p>
+</dd>
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>the gradient calulcation is disable when assigning new values to <code class="xref py py-attr docutils literal notranslate"><span class="pre">param</span></code>.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.DSP.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Forward method.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Forward method not implemented. Input is returned.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.DSP.get_gamma">
+<span class="sig-name descname"><span class="pre">get_gamma</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.get_gamma" title="Link to this definition">¶</a></dt>
+<dd><p>Calculate the gamma value based on the alias decay in dB and the number of FFT points.
+The gamma value is computed as follows and saved in the attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">gamma</span></code>.</p>
+<div class="math notranslate nohighlight">
+\[\gamma = 10^{\frac{-|\alpha_{\text{dB}}|}{20 \cdot \text{nfft}}}\; \text{and}\; \gamma(n) = \gamma^{n}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\alpha_{\text{dB}}\)</span> is the alias decay in dB, <span class="math notranslate nohighlight">\(\text{nfft}\)</span> is the number of FFT points, 
+and <span class="math notranslate nohighlight">\(n\)</span> is the descrete time index <span class="math notranslate nohighlight">\(0\leq n &lt; N\)</span>, where N is the length of the signal.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.DSP.init_param">
+<span class="sig-name descname"><span class="pre">init_param</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.init_param" title="Link to this definition">¶</a></dt>
+<dd><p>Initializes the parameters of the model using a normal distribution.
+It uses the <cite>torch.nn.init.normal_</cite> function to set the values of <cite>self.param</cite>.</p>
+</dd></dl>
+
 </dd></dl>
 
 
@@ -135,6 +217,13 @@ norm (str): The normalization mode.</p>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.assign_value"><code class="docutils literal notranslate"><span class="pre">DSP.assign_value()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.forward"><code class="docutils literal notranslate"><span class="pre">DSP.forward()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.get_gamma"><code class="docutils literal notranslate"><span class="pre">DSP.get_gamma()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.init_param"><code class="docutils literal notranslate"><span class="pre">DSP.init_param()</span></code></a></li>
+</ul>
+</li>
 </ul>
 
 <div class="relations">

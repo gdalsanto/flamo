@@ -14,8 +14,8 @@ print("sys.path:", sys.path)
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'FLAMO'
-copyright = '2024, Gloria Dal Santo; Gian Marco De Bortoli; Sebastian J. Schlecht'
-author = 'Gloria Dal Santo; Gian Marco De Bortoli; Sebastian J. Schlecht'
+copyright = '2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht'
+author = 'Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht'
 release = '0.0.3'
 
 # -- General configuration ---------------------------------------------------
@@ -26,6 +26,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.githubpages",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
     ]
 
 templates_path = ['_templates']
