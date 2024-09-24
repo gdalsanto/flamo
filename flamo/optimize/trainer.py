@@ -218,20 +218,19 @@ class Trainer:
                 return True
         return False
 
-def get_str_results(epoch=None, train_loss=None, valid_loss=None, time=None, lossF = None, lossT = None):
-    """
-    Construct the string that has to be printed at the end of the epoch.
+def get_str_results(epoch=None, train_loss=None, valid_loss=None, time=None):
+    r"""
+    Construct the string that has to be printed at the end of the epoch containing 
+    information relative to the training performance.
 
-    Args:
-        epoch (int): The epoch number.
-        train_loss (list): List of training loss values.
-        valid_loss (list): List of validation loss values.
-        time (float): The time taken for the epoch.
-        lossF (float): The lossF value.
-        lossT (float): The lossT value.
+        **Args**:
+            epoch (int): The epoch number.
+            train_loss (list): List of training loss values.
+            valid_loss (list): List of validation loss values.
+            time (float): The time taken for the epoch.
 
-    Returns:
-        str: The formatted string to be printed.
+        **Returns**:
+            str: The formatted string to be printed.
     """
     to_print=''
 
@@ -246,11 +245,5 @@ def get_str_results(epoch=None, train_loss=None, valid_loss=None, time=None, los
 
     if time is not None:
         to_print += '- time: {:6.4f} s'.format(time)
-
-    if lossF is not None:
-        to_print += '- lossF: {:6.4f}'.format(lossF) 
-
-    if lossT is not None:
-        to_print += '- lossT: {:6.4f}'.format(lossT) 
 
     return to_print

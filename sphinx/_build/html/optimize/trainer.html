@@ -169,6 +169,24 @@ valid_dataset (torch.utils.data.Dataset): The validation dataset.</p>
 
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.get_str_results">
+<span class="sig-prename descclassname"><span class="pre">trainer.</span></span><span class="sig-name descname"><span class="pre">get_str_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train_loss</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_loss</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.get_str_results" title="Link to this definition">¶</a></dt>
+<dd><p>Construct the string that has to be printed at the end of the epoch containing 
+information relative to the training performance.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>epoch (int): The epoch number.
+train_loss (list): List of training loss values.
+valid_loss (list): List of validation loss values.
+time (float): The time taken for the epoch.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>str: The formatted string to be printed.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
 
 
           </div>
@@ -207,6 +225,7 @@ valid_dataset (torch.utils.data.Dataset): The validation dataset.</p>
 <li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.valid_step"><code class="docutils literal notranslate"><span class="pre">Trainer.valid_step()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
 </ul>
 
 <div class="relations">
