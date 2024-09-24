@@ -26,6 +26,12 @@ Contents
 
    processor/dsp
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Optimization:
+
+   optimize/trainer
+
 Indices and tables
 ==================
 
