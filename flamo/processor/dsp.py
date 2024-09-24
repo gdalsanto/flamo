@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from flamo.utils import to_complex
+from flamo.functional import skew_matrix
 
 # ============================= TRANSFORMS ================================
 
@@ -142,7 +143,7 @@ class DSP(nn.Module):
             gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
 
         **Methods**:
-            forward(x): Applies the processor core module to the input tensor x.
+            forward(x): Applies the processor core module to the input tensor x by multiplication.
             init_param(): Initializes the parameters of the DSP module.
             get_gamma(): Computes the gamma value used for time anti-aliasing envelope.
             assign_value(new_value, indx): Assigns new values to the parameters.
@@ -268,7 +269,7 @@ class Gain(DSP):
             gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
 
         **Methods**:
-            forward(x): Applies the Gain module to the input tensor x.
+            forward(x): Applies the Gain module to the input tensor x by multiplication.
             check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
             check_param_shape(): Checks if the shape of the gain parameters is valid.
             get_freq_convolve(): Computes the frequency convolution function.
@@ -346,6 +347,90 @@ class Gain(DSP):
         This method checks the shape of the gain parameters and computes the frequency convolution function.
         """
         self.check_param_shape()
+        self.get_freq_convolve()
+
+
+# ============================= MATRICES ================================
+
+
+class Matrix(Gain):
+    """
+    A class representing a matrix. inherits from :class:`Gain`.
+
+        **Args**:
+            size (tuple, optional): The size of the matrix. Default: (1, 1).
+            nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            map (function, optional): The mapping function to apply to the raw matrix elements. Default: lambda x: x.
+            matrix_type (str, optional): The type of matrix to generate. Default: "random".
+            requires_grad (bool, optional): Whether the matrix requires gradient computation. Default: False.
+            alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+
+        **Attributes**:
+            size (tuple): The size of the matrix.
+            nfft (int): The number of FFT points required to compute the frequency response.
+            map (function): The mapping function to apply to the raw matrix elements.
+            matrix_type (str): The type of matrix to generate.
+            requires_grad (bool): Whether the matrix requires gradient computation.
+            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+            param (nn.Parameter): The parameters of the Matrix module.
+            fft (function): The FFT function. Calls the torch.fft.rfft function.
+            ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+
+        **Methods**:
+            forward(x): Applies the Matrix module to the input tensor x by multiplication.
+            check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
+            check_param_shape(): Checks if the shape of the matrix parameters is valid.
+            get_freq_convolve(): Computes the frequency convolution function.
+            initialize_class(): Initializes the Matrix module.
+            matrix_gallery(): Generates the matrix based on the specified matrix type.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        nfft: int = 2**11,
+        map=lambda x: x,
+        matrix_type: str = "random",
+        requires_grad=False,
+        alias_decay_db: float = 0.0,
+    ):
+        self.matrix_type = matrix_type
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def matrix_gallery(self):
+        r"""
+        Generates the matrix based on the specified matrix type.
+        The :attr:`map` attribute will be overwritten based on the matrix type.
+        """
+        Warning(
+            f"you asked for {self.matrix_type} matrix type, map will be overwritten"
+        )
+        match self.matrix_type:
+            case "random":
+                self.map = lambda x: x
+            case "orthogonal":
+                assert (
+                    self.size[0] == self.size[1]
+                ), "Matrix must be square to be orthogonal"
+                self.map = lambda x: torch.matrix_exp(skew_matrix(x))
+
+    def initialize_class(self):
+        r"""
+        Initializes the Matrix module.
+
+        This method checks the shape of the matrix parameters, sets the matrix type, generates the matrix, and computes the frequency convolution function.
+
+        """
+        self.check_param_shape()
+        self.matrix_type = self.matrix_type
+        self.matrix_gallery()
         self.get_freq_convolve()
 
 
