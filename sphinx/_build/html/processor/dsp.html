@@ -192,6 +192,106 @@ It uses the <code class="xref py py-func docutils literal notranslate"><span cla
 
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Gain">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Gain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size:</span> <span class="pre">tuple</span> <span class="pre">=</span> <span class="pre">(1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map=&lt;function</span> <span class="pre">Gain.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain" title="Link to this definition">¶</a></dt>
+<dd><p>A class representing a set of gains. Inherits from <a class="reference internal" href="#flamo.processor.dsp.DSP" title="flamo.processor.dsp.DSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">DSP</span></code></a>.
+The input tensor is expected to be a complex-valued tensor representing the 
+frequency response of the input signal. The input tensor is then multiplied
+with the gain parameters to produce the output tensor.</p>
+<dl class="simple">
+<dt>Shape:</dt><dd><ul class="simple">
+<li><p>input: <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span></p></li>
+<li><p>param: <span class="math notranslate nohighlight">\((N_{out}, N_{in})\)</span></p></li>
+<li><p>output: <span class="math notranslate nohighlight">\((B, M, N_{out}, ...)\)</span></p></li>
+</ul>
+</dd>
+</dl>
+<p>where <span class="math notranslate nohighlight">\(B\)</span> is the batch size, <span class="math notranslate nohighlight">\(M\)</span> is the number of frequency bins,
+<span class="math notranslate nohighlight">\(N_{in}\)</span> is the number of input channels, and <span class="math notranslate nohighlight">\(N_{out}\)</span> is the number of output channels.
+Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>size (tuple): The size of the gain parameters. Default: (1, 1).
+nfft (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+map (function): A mapping function applied to the raw parameters. Default: lambda x: x.
+requires_grad (bool): Whether the parameters requires gradients. Default: False.
+alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><p>size (tuple): The size of the gain parameters.
+nfft (int): The number of FFT points required to compute the frequency response.
+map (function): A mapping function applied to the raw parameters.
+requires_grad (bool): Whether the parameters requires gradients.
+alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+param (nn.Parameter): The parameters of the Gain module.
+fft (function): The FFT function. Calls the torch.fft.rfft function.
+ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
+gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><p>forward(x): Applies the Gain module to the input tensor x.
+check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
+check_param_shape(): Checks if the shape of the gain parameters is valid.
+get_freq_convolve(): Computes the frequency convolution function.
+initialize_class(): Initializes the Gain module.</p>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Gain.check_input_shape">
+<span class="sig-name descname"><span class="pre">check_input_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain.check_input_shape" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if the dimensions of the input tensor x are compatible with the module.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Gain.check_param_shape">
+<span class="sig-name descname"><span class="pre">check_param_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain.check_param_shape" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if the shape of the gain parameters is valid.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Gain.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Applies the Gain module to the input tensor x.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{out}, ...)\)</span>.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Gain.get_freq_convolve">
+<span class="sig-name descname"><span class="pre">get_freq_convolve</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain.get_freq_convolve" title="Link to this definition">¶</a></dt>
+<dd><p>Computes the frequency convolution function.</p>
+<p>The frequency convolution is computed using the einsum function.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor after frequency convolution.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Gain.initialize_class">
+<span class="sig-name descname"><span class="pre">initialize_class</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain.initialize_class" title="Link to this definition">¶</a></dt>
+<dd><p>Initializes the Gain module.</p>
+<p>This method checks the shape of the gain parameters and computes the frequency convolution function.</p>
+</dd></dl>
+
+</dd></dl>
+
 
 
           </div>
@@ -225,10 +325,19 @@ It uses the <code class="xref py py-func docutils literal notranslate"><span cla
 <li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.init_param"><code class="docutils literal notranslate"><span class="pre">DSP.init_param()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.check_input_shape"><code class="docutils literal notranslate"><span class="pre">Gain.check_input_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.check_param_shape"><code class="docutils literal notranslate"><span class="pre">Gain.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.forward"><code class="docutils literal notranslate"><span class="pre">Gain.forward()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">Gain.get_freq_convolve()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.initialize_class"><code class="docutils literal notranslate"><span class="pre">Gain.initialize_class()</span></code></a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
 </ul>
 
 <div class="relations">

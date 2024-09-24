@@ -11,3 +11,6 @@
 
 .. autoclass:: flamo.processor.dsp.DSP
    :members:
+
+.. autoclass:: flamo.processor.dsp.Gain
+   :members:
