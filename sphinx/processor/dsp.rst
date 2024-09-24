@@ -18,3 +18,8 @@
 .. autoclass:: flamo.processor.dsp.Matrix
    :members:
 
+.. autoclass:: flamo.processor.dsp.Delay
+   :members:
+
+.. autoclass:: flamo.processor.dsp.parallelDelay
+   :members:
