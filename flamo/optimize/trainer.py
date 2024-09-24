@@ -14,39 +14,39 @@ class Trainer:
         requires the model as an input, which might be needed when the loss depends on the model's parameters.
         
             **Args**:
-                net (nn.Module): The neural network model to be trained.
-                max_epochs (int): Maximum number of training epochs. Default: 10.
-                lr (float): Learning rate for the optimizer. Default: 1e-3.
-                patience (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.
-                patience_delta (float): Minimum improvement in validation loss to be considered as an improvement. Default: 0.01.
-                step_size (int): Period of learning rate decay. Default: 50.
-                step_factor (float): Multiplicative factor of learning rate decay. Default: 0.1.
-                train_dir (str): The directory for saving training outputs. Default: None.
-                device (str): Device to use for training. Default: 'cpu'.
+                - net (nn.Module): The neural network model to be trained.
+                - max_epochs (int): Maximum number of training epochs. Default: 10.
+                - lr (float): Learning rate for the optimizer. Default: 1e-3.
+                - patience (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.
+                - patience_delta (float): Minimum improvement in validation loss to be considered as an improvement. Default: 0.01.
+                - step_size (int): Period of learning rate decay. Default: 50.
+                - step_factor (float): Multiplicative factor of learning rate decay. Default: 0.1.
+                - train_dir (str): The directory for saving training outputs. Default: None.
+                - device (str): Device to use for training. Default: 'cpu'.
 
             **Attributes**:
-                device (str): Device to use for training.
-                net (nn.Module): The neural network model.
-                max_epochs (int): Maximum number of training epochs.
-                lr (float): Learning rate for the optimizer.
-                patience (int): Number of epochs to wait for improvement in validation loss before early stopping.
-                patience_delta (float): Minimum improvement in validation loss to be considered as an improvement.
-                min_val_loss (float): Minimum validation loss to be updated by the early stopper.
-                optimizer (torch.optim.Optimizer): The optimizer.
-                train_dir (str): The directory for saving training outputs.
-                criterion (list): List of loss functions.
-                alpha (list): List of weights for the loss functions.
-                requires_model (list): List of flags indicating whether the loss functions require the model as an input.
-                scheduler (torch.optim.lr_scheduler.StepLR): The learning rate scheduler.    
+                - device (str): Device to use for training.
+                - net (nn.Module): The neural network model.
+                - max_epochs (int): Maximum number of training epochs.
+                - lr (float): Learning rate for the optimizer.
+                - patience (int): Number of epochs to wait for improvement in validation loss before early stopping.
+                - patience_delta (float): Minimum improvement in validation loss to be considered as an improvement.
+                - min_val_loss (float): Minimum validation loss to be updated by the early stopper.
+                - optimizer (torch.optim.Optimizer): The optimizer.
+                - train_dir (str): The directory for saving training outputs.
+                - criterion (list): List of loss functions.
+                - alpha (list): List of weights for the loss functions.
+                - requires_model (list): List of flags indicating whether the loss functions require the model as an input.
+                - scheduler (torch.optim.lr_scheduler.StepLR): The learning rate scheduler.    
 
             **Methods**:
-                register_criterion(criterion, alpha, requires_model=False): Register a loss function and its weight.
-                train(train_dataset, valid_dataset): Train the neural network model.
-                train_step(data): Perform a single training step.
-                valid_step(data): Perform a single validation step.
-                print_results(epoch, time): Print the training results for an epoch.
-                get_train_dir(): Get the directory path for saving training outputs.
-                save_model(epoch): Save the model parameters to a file.
+                - register_criterion(criterion, alpha, requires_model=False): Register a loss function and its weight.
+                - train(train_dataset, valid_dataset): Train the neural network model.
+                - train_step(data): Perform a single training step.
+                - valid_step(data): Perform a single validation step.
+                - print_results(epoch, time): Print the training results for an epoch.
+                - get_train_dir(): Get the directory path for saving training outputs.
+                - save_model(epoch): Save the model parameters to a file.
 
             Examples::
 
@@ -78,9 +78,9 @@ class Trainer:
         Register a loss function and its weight in the loss function.
 
             **Args**:
-                criterion (nn.Module): The loss function.
-                alpha (float): The weight of the loss function. Default: 1.
-                requires_model (bool): Whether the loss function requires the model as an input. Default: False.
+                - criterion (nn.Module): The loss function.
+                - alpha (float): The weight of the loss function. Default: 1.
+                - requires_model (bool): Whether the loss function requires the model as an input. Default: False.
         """
         self.criterion.append(criterion.to(self.device))
         self.alpha.append(alpha)
@@ -91,8 +91,8 @@ class Trainer:
         Train the neural network model.
 
             **Args**:
-                train_dataset (torch.utils.data.Dataset): The training dataset.
-                valid_dataset (torch.utils.data.Dataset): The validation dataset.
+                - train_dataset (torch.utils.data.Dataset): The training dataset.
+                - valid_dataset (torch.utils.data.Dataset): The validation dataset.
         """
         self.train_loss, self.valid_loss = [], []
         
@@ -131,10 +131,10 @@ class Trainer:
         Perform a single training step.
 
             **Args**:
-                data (tuple): A tuple containing the input data and the target data :code:`(inputs, targets)`.
+                - data (tuple): A tuple containing the input data and the target data :code:`(inputs, targets)`.
 
             **Returns**:
-                float: The loss value of the training step.
+                - float: The loss value of the training step.
         """
         inputs, targets = data
         # batch processing
@@ -155,10 +155,10 @@ class Trainer:
         Perform a single validation step.
 
         Args:
-            data (tuple): A tuple containing the input data and the target data.
+            - data (tuple): A tuple containing the input data and the target data.
 
         Returns:
-            float: The loss value for the validation step.
+            - float: The loss value for the validation step.
         """
         # batch processing
         inputs, targets = data
@@ -224,13 +224,13 @@ def get_str_results(epoch=None, train_loss=None, valid_loss=None, time=None):
     information relative to the training performance.
 
         **Args**:
-            epoch (int): The epoch number.
-            train_loss (list): List of training loss values.
-            valid_loss (list): List of validation loss values.
-            time (float): The time taken for the epoch.
+            - epoch (int): The epoch number.
+            - train_loss (list): List of training loss values.
+            - valid_loss (list): List of validation loss values.
+            - time (float): The time taken for the epoch.
 
         **Returns**:
-            str: The formatted string to be printed.
+            - str: The formatted string to be printed.
     """
     to_print=''
 

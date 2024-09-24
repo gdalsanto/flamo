@@ -13,11 +13,11 @@ class Transform(nn.Module):
     The transformation is a callable, e.g., :class:`lambda` expression, function, :class:`nn.Module`. 
 
         **Args**:
-            transform (callable): The transformation function to be applied to the input. Default: lambda x: x
+            - transform (callable): The transformation function to be applied to the input. Default: lambda x: x  
         **Attributes**:
-            transform (callable): The transformation function to be applied to the input.
+            - transform (callable): The transformation function to be applied to the input.  
         **Methods**:
-            forward(x): Applies the transformation function to the input.
+            - forward(x): Applies the transformation function to the input.  
 
         Examples::
 
@@ -51,13 +51,14 @@ class FFT(Transform):
     Computes the one dimensional Fourier transform of real-valued input. The input is interpreted as a real-valued signal in time domain. The output contains only the positive frequencies below the Nyquist frequency. 
     
         **Args**:
-            nfft (int): The number of points to compute the FFT. Default: 2**11.
-            norm (str): The normalization mode for the FFT. Default: "backward".
+            - nfft (int): The number of points to compute the FFT.
+            - norm (str): The normalization mode for the FFT.  
+
         **Attributes**:
-            nfft (int): The number of points to compute the FFT.
-            norm (str): The normalization mode for the FFT.
+            - nfft (int): The number of points to compute the FFT.
+            - norm (str): The normalization mode for the FFT.
         **Methods**:
-            foward(x): Apply the FFT to the input tensor x and return the one sided FFT.
+            - foward(x): Apply the FFT to the input tensor x and return the one sided FFT.
 
     For details on the FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
     """
@@ -77,13 +78,13 @@ class iFFT(Transform):
     Computes the inverse of the Fourier transform of a real-valued tensor. The input is interpreted as a one-sided Hermitian signal in the Fourier domain. The output is a real-valued signal in the time domain.
     
         **Args**:
-            nfft (int): The size of the FFT. Default: 2**11.
-            norm (str): The normalization mode. Default: "backward".
+            - nfft (int): The size of the FFT. Default: 2**11.
+            - norm (str): The normalization mode. Default: "backward".
         **Attributes**:
-            nfft (int): The size of the FFT.
-            norm (str): The normalization mode.
+            - nfft (int): The size of the FFT.
+            - norm (str): The normalization mode.
         **Methods**:
-            foward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor.
+            - foward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor.
 
     For details on the inverse FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
     """
@@ -125,28 +126,28 @@ class DSP(nn.Module):
     The envelope :math:`\gamma(n)` is then applied to the time domain signal before computing the FFT
 
         **Args**:
-            size (tuple): The shape of the parameters before mapping.
-            nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
-            map (function, optional): The mapping function applied to the raw parameters. Default: lambda x: x.
-            requires_grad (bool, optional): Whether the parameters require gradients. Default: False.
-            alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - size (tuple): The shape of the parameters before mapping.
+            - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - map (function, optional): The mapping function applied to the raw parameters. Default: lambda x: x.
+            - requires_grad (bool, optional): Whether the parameters require gradients. Default: False.
+            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
 
         **Attributes**:
-            size (tuple): The shape of the parameters.
-            nfft (int): The number of FFT points required to compute the frequency response.
-            map (function): The mapping function applied to the raw parameters.
-            requires_grad (bool): Whether the parameters require gradients.
-            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
-            param (nn.Parameter): The parameters of the DSP module.
-            fft (function): The FFT function. Calls the :func:`torch.fft.rfft` function.
-            ifft (function): The Inverse FFT function. Calls the :func:`torch.fft.irfft`.
-            gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - size (tuple): The shape of the parameters.
+            - nfft (int): The number of FFT points required to compute the frequency response.
+            - map (function): The mapping function applied to the raw parameters.
+            - requires_grad (bool): Whether the parameters require gradients.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+            - param (nn.Parameter): The parameters of the DSP module.
+            - fft (function): The FFT function. Calls the :func:`torch.fft.rfft` function.
+            - ifft (function): The Inverse FFT function. Calls the :func:`torch.fft.irfft`.
+            - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
 
         **Methods**:
-            forward(x): Applies the processor core module to the input tensor x by multiplication.
-            init_param(): Initializes the parameters of the DSP module.
-            get_gamma(): Computes the gamma value used for time anti-aliasing envelope.
-            assign_value(new_value, indx): Assigns new values to the parameters.
+            - forward(x): Applies the processor core module to the input tensor x by multiplication.
+            - init_param(): Initializes the parameters of the DSP module.
+            - get_gamma(): Computes the gamma value used for time anti-aliasing envelope.
+            - assign_value(new_value, indx): Assigns new values to the parameters.
     """
 
     def __init__(
@@ -214,8 +215,8 @@ class DSP(nn.Module):
         Assigns new values to the parameters.
 
         **Args**:
-            new_value (torch.Tensor): New values to be assigned.
-            indx (tuple, optional): Index to specify the subset of values to be assigned. Default: tuple([slice(None)]).
+            - new_value (torch.Tensor): New values to be assigned.
+            - indx (tuple, optional): Index to specify the subset of values to be assigned. Default: tuple([slice(None)]).
 
         .. warning::
             the gradient calulcation is disable when assigning new values to :attr:`param`.
@@ -251,29 +252,29 @@ class Gain(DSP):
     Ellipsis :math:`(...)` represents additional dimensions.
 
         **Args**:
-            size (tuple): The size of the gain parameters. Default: (1, 1).
-            nfft (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
-            map (function): A mapping function applied to the raw parameters. Default: lambda x: x.
-            requires_grad (bool): Whether the parameters requires gradients. Default: False.
-            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - size (tuple): The size of the gain parameters. Default: (1, 1).
+            - nfft (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - map (function): A mapping function applied to the raw parameters. Default: lambda x: x.
+            - requires_grad (bool): Whether the parameters requires gradients. Default: False.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
 
         **Attributes**:
-            size (tuple): The size of the gain parameters.
-            nfft (int): The number of FFT points required to compute the frequency response.
-            map (function): A mapping function applied to the raw parameters.
-            requires_grad (bool): Whether the parameters requires gradients.
-            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
-            param (nn.Parameter): The parameters of the Gain module.
-            fft (function): The FFT function. Calls the torch.fft.rfft function.
-            ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
-            gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - size (tuple): The size of the gain parameters.
+            - nfft (int): The number of FFT points required to compute the frequency response.
+            - map (function): A mapping function applied to the raw parameters.
+            - requires_grad (bool): Whether the parameters requires gradients.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+            - param (nn.Parameter): The parameters of the Gain module.
+            - fft (function): The FFT function. Calls the torch.fft.rfft function.
+            - ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
 
         **Methods**:
-            forward(x): Applies the Gain module to the input tensor x by multiplication.
-            check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
-            check_param_shape(): Checks if the shape of the gain parameters is valid.
-            get_freq_convolve(): Computes the frequency convolution function.
-            initialize_class(): Initializes the Gain module.
+            - forward(x): Applies the Gain module to the input tensor x by multiplication.
+            - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
+            - check_param_shape(): Checks if the shape of the gain parameters is valid.
+            - get_freq_convolve(): Computes the frequency convolution function.
+            - initialize_class(): Initializes the Gain module.
     """
 
     def __init__(
@@ -358,32 +359,32 @@ class Matrix(Gain):
     A class representing a matrix. inherits from :class:`Gain`.
 
         **Args**:
-            size (tuple, optional): The size of the matrix. Default: (1, 1).
-            nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
-            map (function, optional): The mapping function to apply to the raw matrix elements. Default: lambda x: x.
-            matrix_type (str, optional): The type of matrix to generate. Default: "random".
-            requires_grad (bool, optional): Whether the matrix requires gradient computation. Default: False.
-            alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - size (tuple, optional): The size of the matrix. Default: (1, 1).
+            - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - map (function, optional): The mapping function to apply to the raw matrix elements. Default: lambda x: x.
+            - matrix_type (str, optional): The type of matrix to generate. Default: "random".
+            - requires_grad (bool, optional): Whether the matrix requires gradient computation. Default: False.
+            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
 
         **Attributes**:
-            size (tuple): The size of the matrix.
-            nfft (int): The number of FFT points required to compute the frequency response.
-            map (function): The mapping function to apply to the raw matrix elements.
-            matrix_type (str): The type of matrix to generate.
-            requires_grad (bool): Whether the matrix requires gradient computation.
-            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
-            param (nn.Parameter): The parameters of the Matrix module.
-            fft (function): The FFT function. Calls the torch.fft.rfft function.
-            ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
-            gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - size (tuple): The size of the matrix.
+            - nfft (int): The number of FFT points required to compute the frequency response.
+            - map (function): The mapping function to apply to the raw matrix elements.
+            - matrix_type (str): The type of matrix to generate.
+            - requires_grad (bool): Whether the matrix requires gradient computation.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+            - param (nn.Parameter): The parameters of the Matrix module.
+            - fft (function): The FFT function. Calls the torch.fft.rfft function.
+            - ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
 
         **Methods**:
-            forward(x): Applies the Matrix module to the input tensor x by multiplication.
-            check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
-            check_param_shape(): Checks if the shape of the matrix parameters is valid.
-            get_freq_convolve(): Computes the frequency convolution function.
-            initialize_class(): Initializes the Matrix module.
-            matrix_gallery(): Generates the matrix based on the specified matrix type.
+            - forward(x): Applies the Matrix module to the input tensor x by multiplication.
+            - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
+            - check_param_shape(): Checks if the shape of the matrix parameters is valid.
+            - get_freq_convolve(): Computes the frequency convolution function.
+            - initialize_class(): Initializes the Matrix module.
+            - matrix_gallery(): Generates the matrix based on the specified matrix type.
     """
 
     def __init__(
@@ -467,35 +468,35 @@ class Delay(DSP):
     where :math:`\texttt{nfft}` is the number of FFT points, and :math:`m` is the frequency index :math:`m=0, 1, \dots, \lfloor\texttt{nfft}/2 +1\rfloor` .
 
         **Args**:
-            size (tuple, optional): Size of the delay module. Default: (1, 1).
-            max_len (int, optional): Maximum length of the delay in samples. Default: 2000.
-            isint (bool, optional): Flag indicating whether the delay length should be rounded to the nearest integer. Default: False.
-            nfft (int, optional): Number of FFT points. Default: 2 ** 11.
-            fs (int, optional): Sampling frequency. Default: 48000.
-            requires_grad (bool, optional): Flag indicating whether the module parameters require gradients. Default: False.
-            alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to 0.
+            - size (tuple, optional): Size of the delay module. Default: (1, 1).
+            - max_len (int, optional): Maximum length of the delay in samples. Default: 2000.
+            - isint (bool, optional): Flag indicating whether the delay length should be rounded to the nearest integer. Default: False.
+            - nfft (int, optional): Number of FFT points. Default: 2 ** 11.
+            - fs (int, optional): Sampling frequency. Default: 48000.
+            - requires_grad (bool, optional): Flag indicating whether the module parameters require gradients. Default: False.
+            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to 0.
 
         **Attributes**:
-            fs (int): Sampling frequency.
-            max_len (int): Maximum length of the delay in samples.
-            unit (int): Unit value used for second-to-sample conversion.
-            isint (bool): Flag indicating whether the delay length should be rounded to the nearest integer.
-            omega (torch.Tensor): The frequency values used for the FFT.
-            freq_response (torch.Tensor): The frequency response of the delay module.
-            order (int): The order of the delay.
-            freq_convolve (function): The frequency convolution function.
-            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+            - fs (int): Sampling frequency.
+            - max_len (int): Maximum length of the delay in samples.
+            - unit (int): Unit value used for second-to-sample conversion.
+            - isint (bool): Flag indicating whether the delay length should be rounded to the nearest integer.
+            - omega (torch.Tensor): The frequency values used for the FFT.
+            - freq_response (torch.Tensor): The frequency response of the delay module.
+            - order (int): The order of the delay.
+            - freq_convolve (function): The frequency convolution function.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
         
         **Methods**:
-            forward(x): Applies the Delay module to the input tensor x.
-            init_param(): Initializes the delay parameters.
-            s2sample(delay): Converts a delay value from seconds to samples.
-            sample2s(delay): Converts a delay value from samples to seconds.
-            get_freq_response(): Computes the frequency response of the delay module.
-            check_input_shape(x): Checks if the input dimensions are compatible with the delay parameters.
-            check_param_shape(): Checks if the shape of the delay parameters is valid.
-            get_freq_convolve(): Computes the frequency convolution function.
-            initialize_class(): Initializes the Delay module.
+            - forward(x): Applies the Delay module to the input tensor x.
+            - init_param(): Initializes the delay parameters.
+            - s2sample(delay): Converts a delay value from seconds to samples.
+            - sample2s(delay): Converts a delay value from samples to seconds.
+            - get_freq_response(): Computes the frequency response of the delay module.
+            - check_input_shape(x): Checks if the input dimensions are compatible with the delay parameters.
+            - check_param_shape(): Checks if the shape of the delay parameters is valid.
+            - get_freq_convolve(): Computes the frequency convolution function.
+            - initialize_class(): Initializes the Delay module.
     """
 
     def __init__(
