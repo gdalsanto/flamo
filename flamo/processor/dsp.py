@@ -70,7 +70,7 @@ class FFT(Transform):
 
 
 class iFFT(Transform):
-    """
+    r"""
     Inverse Fast Fourier Transform (iFFT) class.
 
     The :class:`iFFT` class is an instance of the :class:`Transform` class. The transformation function is the :func:`torch.fft.irfft` function.
@@ -193,15 +193,15 @@ class DSP(nn.Module):
         torch.nn.init.normal_(self.param)
 
     def get_gamma(self):
-        """
+        r"""
         Calculate the gamma value based on the alias decay in dB and the number of FFT points.
         The gamma value is computed as follows and saved in the attribute :attr:`gamma`:
 
         .. math::
 
-            \\gamma = 10^{\\frac{-|\\alpha_{\\text{dB}}|}{20 \\cdot \\text{nfft}}}\\; \\text{and}\\; \\gamma(n) = \\gamma^{n}
+            \gamma = 10^{\frac{-|\alpha_{\text{dB}}|}{20 \cdot \texttt{nfft}}}\; \text{and}\; \gamma(n) = \gamma^{n}
 
-        where :math:`\\alpha_{\\text{dB}}` is the alias decay in dB, :math:`\\text{nfft}` is the number of FFT points, 
+        where :math:`\alpha_{\textrm{dB}}` is the alias decay in dB, :math:`\texttt{nfft}` is the number of FFT points, 
         and :math:`n` is the descrete time index :math:`0\\leq n < N`, where N is the length of the signal.
         """
 
@@ -436,3 +436,257 @@ class Matrix(Gain):
 
 # ============================= FILTERS ================================
 
+
+
+
+# ============================= DELAYS ================================
+
+
+class Delay(DSP):
+    r"""
+    Delay module that applies in frequency domain a time delay to the input signal. Inherits from :class:`DSP`.
+    To improve update effectiveness, the unit of time can be adjusted via the :attr:`unit` attribute to use subdivisions or multiples of time.
+    For integer Delays, the :attr:`isint` attribute can be set to True to round the delay to the nearest integer before computing the frequency response. 
+    
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(M, N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, and :math:`N_{out}` is the number of output channels.
+    Ellipsis :math:`(...)` represents additional dimensions.
+
+    For a delay of :math:`d` seconds, the frequency response of the delay without anti-aliasing is computed as:
+
+    .. math::
+
+        e^{-j \omega d}\; \text{for}\; \omega = 2\pi \frac{m}{\texttt{nfft}}
+
+
+    where :math:`\texttt{nfft}` is the number of FFT points, and :math:`m` is the frequency index :math:`m=0, 1, \dots, \lfloor\texttt{nfft}/2 +1\rfloor` .
+
+        **Args**:
+            size (tuple, optional): Size of the delay module. Default: (1, 1).
+            max_len (int, optional): Maximum length of the delay in samples. Default: 2000.
+            isint (bool, optional): Flag indicating whether the delay length should be rounded to the nearest integer. Default: False.
+            nfft (int, optional): Number of FFT points. Default: 2 ** 11.
+            fs (int, optional): Sampling frequency. Default: 48000.
+            requires_grad (bool, optional): Flag indicating whether the module parameters require gradients. Default: False.
+            alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to 0.
+
+        **Attributes**:
+            fs (int): Sampling frequency.
+            max_len (int): Maximum length of the delay in samples.
+            unit (int): Unit value used for second-to-sample conversion.
+            isint (bool): Flag indicating whether the delay length should be rounded to the nearest integer.
+            omega (torch.Tensor): The frequency values used for the FFT.
+            freq_response (torch.Tensor): The frequency response of the delay module.
+            order (int): The order of the delay.
+            freq_convolve (function): The frequency convolution function.
+            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+        
+        **Methods**:
+            forward(x): Applies the Delay module to the input tensor x.
+            init_param(): Initializes the delay parameters.
+            s2sample(delay): Converts a delay value from seconds to samples.
+            sample2s(delay): Converts a delay value from samples to seconds.
+            get_freq_response(): Computes the frequency response of the delay module.
+            check_input_shape(x): Checks if the input dimensions are compatible with the delay parameters.
+            check_param_shape(): Checks if the shape of the delay parameters is valid.
+            get_freq_convolve(): Computes the frequency convolution function.
+            initialize_class(): Initializes the Delay module.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        max_len: int = 2000,
+        isint: bool = False,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad=False,
+        alias_decay_db: float = 0.0,
+    ):
+        self.fs = fs  
+        self.max_len = max_len  
+        self.unit = 100  
+        self.isint = isint  
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+        self.initialize_class()
+        if self.alias_decay_db != 0 and (not self.isint):
+            print(
+                "Warning: Anti time-aliasiang might not work properly under these conditions. We need to debug it"
+            )
+
+    def forward(self, x):
+        r"""
+        Applies the Delay module to the input tensor x.
+
+            **Args**:
+                x (torch.Tensor): Input tensor of shape (B, M, N_in, ...).
+
+            **Returns**:
+                torch.Tensor: Output tensor of shape (B, M, N_out, ...).
+        """
+        self.check_input_shape(x)
+        if self.requires_grad or self.new_value:
+            self.get_freq_response()
+        return self.freq_convolve(x)
+
+    def init_param(self):
+        r"""
+        Initializes the delay parameters.
+        """
+        if self.isint:
+            delay_len = torch.randint(1, self.max_len, self.size)
+        else:
+            delay_len = torch.rand(self.size) * self.max_len
+        self.assign_value(self.sample2s(delay_len))
+        self.order = (delay_len).max() + 1
+
+    def s2sample(self, delay):
+        r"""
+        Converts a delay value from seconds to samples.
+
+            **Args**:
+                delay (float): The delay value in seconds.
+        """
+        return delay * self.fs / self.unit
+
+    def sample2s(self, delay):
+        r"""
+        Converts a delay value from samples to seconds.
+
+            **Args**:
+                delay (torch.Tensor): The delay value in samples.
+        """
+        return delay / self.fs * self.unit
+
+    def get_freq_response(self):
+        r"""
+        Computes the frequency response of the delay module.
+        """
+        m = self.s2sample(self.map(self.param))
+        self.freq_response = (self.gamma**m) * torch.exp(
+            -1j
+            * torch.einsum(
+                "fo, omn -> fmn",
+                self.omega,
+                m.unsqueeze(0),
+            )
+        )
+
+    def check_input_shape(self, x):
+        r"""
+        Checks if the input dimensions are compatible with the delay parameters.
+
+            **Args**:
+                x (torch.Tensor): The input signal.
+        """
+        if (int(self.nfft / 2 + 1), self.size[-1]) != (x.shape[1], x.shape[2]):
+            raise ValueError(
+                f"parameter shape = {self.freq_response.shape} not compatible with input signal of shape = ({x.shape})."
+            )
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the delay parameters is valid.
+        """
+        assert (
+            len(self.size) == 2
+        ), "delay must be 2D, for 1D (parallel) delay use parallelDelay module."
+
+    def get_freq_convolve(self):
+        r"""
+        Computes the frequency convolution function.
+        """
+        self.freq_convolve = lambda x: torch.einsum(
+            "fmn,bfn...->bfm...", self.freq_response, x
+        )
+
+    def initialize_class(self):
+        r"""
+        Initializes the Delay module.
+
+        This method checks the shape of the delay parameters, computes the frequency response, and initializes the frequency convolution function.
+        """
+        self.check_param_shape()
+        if self.requires_grad:
+            if self.isint:
+                self.map = lambda x: nn.functional.softplus(x).round()
+            else:
+                self.map = lambda x: nn.functional.softplus(x)
+        self.omega = (
+            2 * torch.pi * torch.arange(0, self.nfft // 2 + 1) / self.nfft
+        ).unsqueeze(1)
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+
+class parallelDelay(Delay):
+    """
+    Parallel counterpart of the :class:`Delay` class.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(M, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N` is the number of input channels.
+    Ellipsis :math:`(...)` represents additional dimensions.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1,),
+        max_len=2000,
+        isint: bool = False,
+        nfft=2**11,
+        fs: int = 48000,
+        requires_grad=False,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            max_len=max_len,
+            isint=isint,
+            nfft=nfft,
+            fs=fs,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def check_param_shape(self):
+        """
+        Checks if the shape of the delay parameters is valid.
+        """
+        assert len(self.size) == 1, "delays must be 1D, for 2D delays use Delay module."
+
+    def get_freq_convolve(self):
+        """
+        Computes the frequency convolution function.
+        """
+        self.freq_convolve = lambda x: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response, x
+        )
+
+    def get_freq_response(self):
+        """
+        Computes the frequency response of the delay module.
+        """
+        m = self.s2sample(self.map(self.param))
+        self.freq_response = (self.gamma**m) * torch.exp(
+            -1j
+            * torch.einsum(
+                "fo, on -> fn",
+                self.omega,
+                m.unsqueeze(0),
+            )
+        )
