@@ -175,7 +175,7 @@ indx (tuple, optional): Index to specify the subset of values to be assigned. De
 <dt class="sig sig-object py" id="flamo.processor.dsp.DSP.get_gamma">
 <span class="sig-name descname"><span class="pre">get_gamma</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.get_gamma" title="Link to this definition">¶</a></dt>
 <dd><p>Calculate the gamma value based on the alias decay in dB and the number of FFT points.
-The gamma value is computed as follows and saved in the attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">gamma</span></code>.</p>
+The gamma value is computed as follows and saved in the attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">gamma</span></code>:</p>
 <div class="math notranslate nohighlight">
 \[\gamma = 10^{\frac{-|\alpha_{\text{dB}}|}{20 \cdot \text{nfft}}}\; \text{and}\; \gamma(n) = \gamma^{n}\]</div>
 <p>where <span class="math notranslate nohighlight">\(\alpha_{\text{dB}}\)</span> is the alias decay in dB, <span class="math notranslate nohighlight">\(\text{nfft}\)</span> is the number of FFT points, 
@@ -185,8 +185,8 @@ and <span class="math notranslate nohighlight">\(n\)</span> is the descrete time
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.DSP.init_param">
 <span class="sig-name descname"><span class="pre">init_param</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.init_param" title="Link to this definition">¶</a></dt>
-<dd><p>Initializes the parameters of the model using a normal distribution.
-It uses the <cite>torch.nn.init.normal_</cite> function to set the values of <cite>self.param</cite>.</p>
+<dd><p>Initializes the parameters of the model using a normal distribution <span class="math notranslate nohighlight">\(\mathcal{N}(0, 1)\)</span>.
+It uses the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.nn.init.normal_()</span></code> function to set the values of <code class="xref py py-attr docutils literal notranslate"><span class="pre">param</span></code>.</p>
 </dd></dl>
 
 </dd></dl>
@@ -257,7 +257,7 @@ It uses the <cite>torch.nn.init.normal_</cite> function to set the values of <ci
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &#169;2024, Gloria Dal Santo; Gian Marco De Bortoli; Sebastian J. Schlecht.
+      &#169;2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht.
       
       |
       Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.3.7</a>
