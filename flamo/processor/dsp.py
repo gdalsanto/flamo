@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from flamo.utils import to_complex
 
 # ============================= TRANSFORMS ================================
 
@@ -105,7 +106,8 @@ if __name__ == "__main__":
     # Print the transformed tensor
     print(output_tensor)
 
-    # ============================= CORE ================================
+
+# ============================= CORE ================================
 
 
 class DSP(nn.Module):
@@ -226,3 +228,126 @@ class DSP(nn.Module):
         with torch.no_grad():
             self.param[indx].copy_(new_value)
             self.new_value = 1  # flag indicating new values have been assigned
+
+
+# ============================= GAINS ================================
+
+
+class Gain(DSP):
+    r"""
+    A class representing a set of gains. Inherits from :class:`DSP`.
+    The input tensor is expected to be a complex-valued tensor representing the 
+    frequency response of the input signal. The input tensor is then multiplied
+    with the gain parameters to produce the output tensor. 
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, and :math:`N_{out}` is the number of output channels.
+    Ellipsis :math:`(...)` represents additional dimensions.
+
+        **Args**:
+            size (tuple): The size of the gain parameters. Default: (1, 1).
+            nfft (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            map (function): A mapping function applied to the raw parameters. Default: lambda x: x.
+            requires_grad (bool): Whether the parameters requires gradients. Default: False.
+            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+
+        **Attributes**:
+            size (tuple): The size of the gain parameters.
+            nfft (int): The number of FFT points required to compute the frequency response.
+            map (function): A mapping function applied to the raw parameters.
+            requires_grad (bool): Whether the parameters requires gradients.
+            alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+            param (nn.Parameter): The parameters of the Gain module.
+            fft (function): The FFT function. Calls the torch.fft.rfft function.
+            ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+
+        **Methods**:
+            forward(x): Applies the Gain module to the input tensor x.
+            check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
+            check_param_shape(): Checks if the shape of the gain parameters is valid.
+            get_freq_convolve(): Computes the frequency convolution function.
+            initialize_class(): Initializes the Gain module.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        nfft: int = 2**11,
+        map=lambda x: x,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+        self.initialize_class()
+
+    def forward(self, x):
+        r"""
+        Applies the Gain module to the input tensor x.
+
+            **Args**:
+                x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+
+            **Returns**:
+                torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
+        """
+        self.check_input_shape(x)
+        return self.freq_convolve(x)
+
+    def check_input_shape(self, x):
+        r"""
+        Checks if the dimensions of the input tensor x are compatible with the module.
+
+            **Args**:
+                x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+        """
+        if (self.size[-1]) != (x.shape[2]):
+            raise ValueError(
+                f"parameter shape = {self.size} not compatible with input signal of shape = ({x.shape})."
+            )
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the gain parameters is valid.
+        """
+        assert len(self.size) == 2, "gains must be 2D."
+
+    def get_freq_convolve(self):
+        """
+        Computes the frequency convolution function.
+
+        The frequency convolution is computed using the einsum function.
+
+            **Args**:
+                x (torch.Tensor): Input tensor.
+
+            **Returns**:
+                torch.Tensor: Output tensor after frequency convolution.
+        """
+        self.freq_convolve = lambda x: torch.einsum(
+            "mn,bfn...->bfm...", to_complex(self.map(self.param)), x
+        )
+
+    def initialize_class(self):
+        r"""
+        Initializes the Gain module.
+
+        This method checks the shape of the gain parameters and computes the frequency convolution function.
+        """
+        self.check_param_shape()
+        self.get_freq_convolve()
+
+
+# ============================= FILTERS ================================
+
