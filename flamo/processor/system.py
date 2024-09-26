@@ -3,7 +3,8 @@ import torch.nn as nn
 import warnings
 from collections import OrderedDict
 from flamo.utils import to_complex
-
+from flamo.processor.dsp import FFT, iFFT
+from flamo.functional import signal_gallery
 
 # ============================= SERIES ================================
 
@@ -254,3 +255,261 @@ class Recursion(nn.Module):
         assert(fb_out_ch == ff_in_ch), "Feedforward input channels and feedback output channels must have the same."
 
         return ff_in_ch, ff_out_ch
+
+
+# ============================= SHELL ================================
+
+
+class Shell(nn.Module):
+    r"""
+    DSP wrapper class. Interface between DSP and loss function. Inherits from :class:`nn.Module`.
+
+        **Args**:
+            - core (nn.Module | nn.Sequential): DSP.
+            - input_layer (nn.Module, optional): between Dataset input and DSP. Default: Transform(lambda x: x).
+            - output_layer (nn.Module, optional): between DSP and Dataset target. Default: Transform(lambda x: x).
+    """
+    def __init__(self,
+                 core: nn.Module | Recursion | nn.Sequential,
+                 input_layer: Recursion | Series | nn.Module=nn.Identity(),
+                 output_layer: Recursion | Series | nn.Module=nn.Identity(),
+                 gamma: float=None,
+                ):
+        # Prepare the core, input layer, and output layer
+        if isinstance(core, (nn.Sequential, OrderedDict)) and not isinstance(core, Series):
+            core = Series(core)
+            warnings.warn('Core has been converted to a Series class instance.')
+        if isinstance(input_layer, (nn.Sequential, OrderedDict)) and not isinstance(input_layer, Series):
+            input_layer = Series(input_layer)
+            warnings.warn('Input layer has been converted to a Series class instance.')
+        if isinstance(output_layer, (nn.Sequential, OrderedDict)) and not isinstance(output_layer, Series):
+            output_layer = Series(output_layer)
+            warnings.warn('Output layer has been converted to a Series class instance.')
+
+        nn.Module.__init__(self)        
+        self.__input_layer = input_layer
+        self.__core = core
+        self.__output_layer = output_layer
+
+        # Check model nfft and alpha values
+        self.nfft = self.__check_attribute('nfft')
+        self.gamma = self.__check_attribute('gamma', gamma)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        r"""
+        Forward pass through the input layer, the core, and the output layer. Keeps the three components separated.
+
+            **Args**:
+                - x (torch.Tensor): input Tensor
+
+            **Returns**:
+                - torch.Tensor: output Tensor
+        """
+        x = self.__input_layer(x)
+        x = self.__core(x)
+        x = self.__output_layer(x)
+        return x
+    
+    # ---------------------- Get and set methods ----------------------
+    def get_inputLayer(self) -> nn.Module | nn.Sequential:
+        return self.__input_layer
+    
+    def set_inputLayer(self, input_layer: nn.Module=None) -> None:
+        self.__input_layer = input_layer
+
+    def get_outputLayer(self) -> nn.Module | nn.Sequential:
+        return self.__output_layer
+    
+    def set_outputLayer(self, output_layer: nn.Module=None) -> None:
+        self.__output_layer = output_layer
+
+    def get_core(self) -> nn.Module | nn.Sequential:
+        return self.__core
+    
+    def set_core(self, core: nn.Module) -> None:
+        self.__core = core
+
+    # ---------------------- Check methods ----------------------
+    def __check_attribute(self, attr: str, new_value: float=None) -> int | float:
+        r"""
+        Check if all the modules in model, input layer, and output layer have the same value for the requested attribute.
+        If a new value is provided, it is assigned to all modules.
+
+            **Args**:
+                - attr (str): The attribute to check.
+                - new_value (float, optional): The new value to assign to the attribute. Default: None.
+            **Returns**:
+                - int: The attribute value.
+            **Raises**:
+                - ValueError: The core component does not possess the requested attribute.
+                - AssertionError: Core, input layer, and output layer must have the same value of the requested attribute
+        """
+
+        # Check that core, input layer, and output layer all possess the nfft attribute.
+        if getattr(self.__core, attr, None) is None:
+            raise ValueError(f"The core does not possess the attribute {attr}.")
+        if getattr(self.__input_layer, attr, None) is not None:
+            assert getattr(self.__core, attr) == getattr(self.__input_layer, attr), f"Core and input layer must have the same {attr} value."
+        if getattr(self.__output_layer, attr, None) is not None:
+            assert getattr(self.__core, attr) == getattr(self.__output_layer, attr), f"Core and output layer must have the same {attr} value."
+
+        # Get current value
+        current_value = getattr(self.__core, attr)
+
+        # If new value is given, assign it to all modules that have a different value from it
+        if new_value is not None and new_value != current_value:
+            assert isinstance(new_value, (int, float)), "New value must be a int or float."
+            self.__change_attr_value('core', self.__core, attr, new_value)
+            if getattr(self.__input_layer, attr, None) is not None:
+                self.__change_attr_value('input layer', self.__input_layer, attr, new_value)
+            if getattr(self.__output_layer, attr, None) is not None:
+                self.__change_attr_value('output layer', self.__output_layer, attr, new_value)
+        
+        return new_value if new_value is not None else current_value
+
+    def __change_attr_value(self, layer_name: str, layer: nn.Module | Recursion | Series, attr: str, new_value: float) -> None:
+        """
+        Change the attribute value of the provided layer to the requested value.
+
+            **Args**:
+                - layer (nn.Module | Recursion | Series): provided layer
+                - gamma (float): requested attribute value
+        """
+        warnings.warn(f"As of now, this method change only the given attribute, not the attributes and values that depends on it.")
+
+        if isinstance(layer, Series):
+            for module in layer:
+                if getattr(module, attr, None) is not None:
+                    setattr(module, attr, new_value)
+        elif isinstance(layer, Recursion):
+            if isinstance(layer.feedforward, Series):
+                for module in layer.feedforward:
+                    if getattr(module, attr, None) is not None:
+                        setattr(module, attr, new_value)
+            else:
+                if getattr(layer.feedforward, attr, None) is not None:
+                    setattr(layer.feedforward, attr, new_value)
+            if isinstance(layer.feedback, Series):
+                for module in layer.feedback:
+                    if getattr(module, attr, None) is not None:
+                        setattr(module, attr, new_value)
+            else:
+                if getattr(layer.feedback, attr, None) is not None:
+                    setattr(layer.feedback, attr, new_value)
+                
+        setattr(layer, attr, new_value)
+        warnings.warn(f"The value of the attribute {attr} in the {layer_name} has been modified to {new_value}.")
+
+    # ---------------------- Responses methods ----------------------
+    def get_time_response(self, fs: int=48000, interior: bool=False) -> torch.Tensor:
+        r"""
+        Generate the impulse response of the DSP.
+
+            **Args**:
+                - nfft (int, optional): Number of frequency points. Defaults to 2**11.
+                - fs (int, optional): Sampling frequency. Defaults to 48000.
+                - ir_len (int, optional): Number of samples of the returned impulse response. Defaults to 96000.
+                - interior (bool, optional): If False, return the input-to-output impulse responses of the DSP.
+                                        If True, return the input-free impulse responses of the DSP.
+                                        Defaults to False.
+                
+            **NOTE**: Definition of 'input-to-output' and 'input-free'
+                Let :math:`A \in \mathbb{R}^{T \times  N_{out} \times N_{in}}` be a time filter matrix. If :math:`x \in \mathbb{R}^{T \times  N_{in}}` is an :math:`N_{in}`-dimensional time signal having
+                a unit impulse at time :math:`t=0` for each element along :math:`N_{in}`. Let :math:`I \in R^{T \times  N \times N}` be an diagonal matrix across
+                second and third dimension, with unit impulse at time :math:`t=0`for each element along such diagonal.
+                If :math:`*` represent the signal-wise matrix convolution operator, then:
+                    - :math:`y = A * x` is the 'input-to-output' impulse response of :math:`A`.
+                    - :math:`A * I` is the 'input-free' impulse response of :math:`A`.
+
+            **Returns**:
+                - torch.Tensor: generated DSP impulse response.
+        """
+
+        # get parameters from the model
+        if isinstance(self.__core, nn.Sequential):
+            nfft = self.__core[0].nfft
+            input_channels = self.__core[0].size[-1]
+        else:
+            nfft = self.__core.nfft
+            input_channels = self.__core.size[-1]
+
+        # save input/output layers
+        input_save = self.get_inputLayer()
+        output_save = self.get_outputLayer()
+
+        # update input/output layers
+        self.set_inputLayer(FFT(nfft))
+        self.set_outputLayer(iFFT(nfft))
+
+        # generate input signal
+        x = signal_gallery(
+            batch_size=1, n_samples=nfft, n=input_channels, signal_type="impulse", fs=fs
+        )
+        if interior:
+            x = x.diag_embed()
+
+        # generate impulse response
+        with torch.no_grad():
+            y = self.forward(x)
+
+        # restore input/output layers
+        self.set_inputLayer(input_save)
+        self.set_outputLayer(output_save)
+
+        return y
+    
+    def get_freq_response(self, fs: int=48000, interior: bool=False) -> torch.Tensor:
+
+        r"""
+        Generate the frequency response of the DSP.
+
+            **Args**:
+                - nfft (int, optional): Number of frequency points. Defaults to 2**11.
+                - fs (int, optional): Sampling frequency. Defaults to 48000.
+                - interior (bool, optional): If False, return the input-to-output frequency responses of the DSP.
+                                        If True, return the input-free frequency responses of the DSP.
+                                        Defaults to False.
+            
+            **NOTE**: Definition of 'input-to-output' and 'input-free'
+                Let :math:`A \in \mathbb{R}^{F \times  N_{out} \times N_{in}}` be a frequency filter matrix. If :math:`x \in \mathbb{R}^{F \times  N_{in}}` is an :math:`N_{in}`-dimensional signal having
+                a unit impulse at time :math:`t=0` spectrum for each element along :math:`N_{in}`. Let :math:`I \in R^{F \times  N \times N}` be an diagonal matrix across
+                second and third dimension, with unit impulse at time :math:`t=0` spectra for each element along such diagonal.
+                If :math:`*` represent the signal-wise matrix product operator, then:
+                    - :math:`y = A * x` is the 'input-to-output' frequency response of :math:`A`.
+                    - :math:`A * I`is the 'input-free' frequency response of :math:`A`.
+
+            **Returns**:
+                torch.Tensor: generated DSP frequency response.
+        """
+        # get parameters from the model
+        if isinstance(self.__core, nn.Sequential):
+            nfft = self.__core[0].nfft
+            input_channels = self.__core[0].size[-1]
+        else:
+            nfft = self.__core.nfft
+            input_channels = self.__core.size[-1]
+
+        # save input/output layers
+        input_save = self.get_inputLayer()
+        output_save = self.get_outputLayer()
+
+        # update input/output layers
+        self.set_inputLayer(FFT(nfft))
+        self.set_outputLayer(nn.Identity())
+
+        # generate input signal
+        x = signal_gallery(
+            batch_size=1, n_samples=nfft, n=input_channels, signal_type="impulse", fs=fs
+        )
+        if interior:
+            x = x.diag_embed()
+
+        # generate frequency response
+        with torch.no_grad():
+            y = self.forward(x)
+
+        # restore input/output layers
+        self.set_inputLayer(input_save)
+        self.set_outputLayer(output_save)
+
+        return y
