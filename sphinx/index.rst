@@ -25,6 +25,7 @@ Contents
    :caption: Differentiable Digitial Signal Processor:
 
    processor/dsp
+   processor/system
 
 .. toctree::
    :maxdepth: 2
@@ -32,9 +33,3 @@ Contents
 
    optimize/trainer
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
