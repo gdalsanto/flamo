@@ -143,18 +143,38 @@ class Recursion(nn.Module):
     r"""
     Recursion module for computing closed-loop transfer function. Inherits from :class:`nn.Module`.
     The feedforward and feedback paths if are given as a :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`,
-    they are converted to a :class:`Series` instance. 
+    they are converted to a :class:`Series` instance.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, and :math:`N_{out}` is the number of output channels.
+    Ellipsis :math:`(...)` represents additional dimensions.
 
         **Args**:
-            - fF: The feedforward path with size (nfft, m, n).
-            - fB: The feedback path with size (nfft, n, m).
-            - alpha (float, optional): The alpha value. Defaults to None.
+            - fF: The feedforward path with size (M, N_{out}, N_{in}).
+            - fB: The feedback path with size (M, N_{in}, N_{out}).
+            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to None.
+
+        **Attributes**:
+            - feedforward (nn.Module | Series): The feedforward path.
+            - feedback (nn.Module | Series): The feedback path.
+            - nfft (int): The number of frequency points.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.
+
+        **Methods**:
+            - forward(x): Applies the closed-loop transfer function to the input tensor x by convolution in frequency domain.
+            - __check_attribute(attr): Checks if feedforward and feedback paths have the same value of the requested attribute.
+            - __check_io(): Check if the feedforward and feedback paths have compatible input/output shapes.
 
     For details on the closed-loop transfer function: <https://en.wikipedia.org/wiki/Closed-loop_transfer_function>`_.
     """
     def __init__(self,
                  fF: nn.Module | nn.Sequential | OrderedDict | Series,
                  fB: nn.Module | nn.Sequential | OrderedDict | Series,
+                 # NOTE: alias_decay_db: float=None, do we add it here?
                 ):
         # Prepare the feedforward and feedback paths
         if isinstance(fF, (nn.Sequential, OrderedDict)) and not isinstance(fF, Series):
@@ -168,23 +188,23 @@ class Recursion(nn.Module):
         self.feedforward = fF
         self.feedback = fB
 
-        # Check nfft and alpha values
+        # Check nfft and alias_decay_db values
         self.nfft = self.__check_attribute('nfft')
-        # self.alpha = self.__check_attribute('gamma')
+        # self.alias_decay_db = self.__check_attribute('alias_decay_db')
 
         # Check I/O compatibility
         # self.input_channels, self.output_channels = self.__check_io()
 
 
     def forward(self, X):
-        """
-        Forward pass of the Recursion module.
+        r"""
+        Applies the closed-loop transfer function to the input tensor X.
 
-        Args:
-            - X (torch.Tensor): The input tensor with shape (batch, nfft, n, ..).
+            **Args**:
+                X (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
 
-        Returns:
-            - torch.Tensor: The output tensor with shape (batch, nfft, m, ..).
+            **Returns**:
+                torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
         B = self.feedforward(X)
        
@@ -206,17 +226,17 @@ class Recursion(nn.Module):
     
     # ---------------------- Check methods ----------------------
     def __check_attribute(self, attr: str) -> int | float:
-        """
-        Checks if feedforward and feedback paths have the same value of the requested attribute
+        r"""
+        Checks if feedforward and feedback paths have the same value of the requested attribute.
 
-        Args:
-            - attr (str): The attribute to check.
+            **Args**:
+                attr (str): The attribute to check.
 
-        Returns:
-            - int | float: The attribute value.
+            **Returns**:
+                int | float: The attribute value.
 
-        Raises:
-            ValueError: The two paths have different values of the requested attribute.
+            **Raises**:
+                ValueError: The two paths have different values of the requested attribute.
         """
         # First, check that both feedforward and feedback paths possess the attribute.
         if getattr(self.feedforward, attr, None) is None:
@@ -229,11 +249,13 @@ class Recursion(nn.Module):
         return getattr(self.feedforward, attr)
     
     def __check_io(self) -> tuple:
+        r"""
+        Checks if the feedforward and feedback paths have compatible input/output shapes.
+
+        Still work in progress.
+        """
         # NOTE: still work in progress
         # NOTE: does not work for SVF
-        """
-        Check if the feedforward and feedback paths have compatible input/output shapes.
-        """
         # Get input channels of both feedforward and feedback
         if isinstance(self.feedforward, Series):
             ff_in_ch = self.feedforward[0].size[-1]
@@ -251,8 +273,8 @@ class Recursion(nn.Module):
         fb_out_ch = self.feedback(x).shape[-1]
 
         # Check if the input/output channels are compatible
-        assert(ff_out_ch == fb_in_ch), "Feedforward output channels and feedback input channels must have the same."
-        assert(fb_out_ch == ff_in_ch), "Feedforward input channels and feedback output channels must have the same."
+        assert ff_out_ch == fb_in_ch, "Feedforward output channels and feedback input channels must have the same."
+        assert fb_out_ch == ff_in_ch, "Feedforward input channels and feedback output channels must have the same."
 
         return ff_in_ch, ff_out_ch
 
@@ -262,18 +284,45 @@ class Recursion(nn.Module):
 
 class Shell(nn.Module):
     r"""
-    DSP wrapper class. Interface between DSP and loss function. Inherits from :class:`nn.Module`.
+    DSP wrapper class. Interfaces the DSP with dataset and loss function. Inherits from :class:`nn.Module`.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels (defined by the `core` and the `input_layer`),
+    and :math:`N_{out}` is the number of output channels (defined by the `core` and the `output_layer`).
+    Ellipsis :math:`(...)` represents additional dimensions.
 
         **Args**:
             - core (nn.Module | nn.Sequential): DSP.
-            - input_layer (nn.Module, optional): between Dataset input and DSP. Default: Transform(lambda x: x).
-            - output_layer (nn.Module, optional): between DSP and Dataset target. Default: Transform(lambda x: x).
+            - input_layer (nn.Module, optional): layer preceeding the DSP and correctly preparing the Dataset input before the DSP processing. Default: Transform(lambda x: x).
+            - output_layer (nn.Module, optional): layer following the DSP and preparing its output for the comparison with the Dataset target. Default: Transform(lambda x: x).
+
+        **Attributes**:
+            - core (nn.Module | Series): DSP.
+            - input_layer (nn.Module | Series): layer preceeding the DSP.
+            - output_layer (nn.Module | Series): layer following the DSP.
+            - nfft (int): Number of frequency points.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.
+
+        **Methods**:
+            - forward(x): Forward pass through the input layer, the core, and the output layer.
+            - get_inputLayer(): Returns the current input layer.
+            - set_inputLayer(input_layer): Substitutes the current input layer with a given new one.
+            - get_outputLayer(): Returns the output layer.
+            - set_outputLayer(output_layer): Substitutes the current output layer with a given new one.
+            - get_core(): Returns the core.
+            - set_core(core): Substitutes the current core with a given new one.
+            - get_time_response(fs, interior): Generates the impulse response of the DSP.
+            - get_freq_response(fs, interior): Generates the frequency response of the DSP.
     """
     def __init__(self,
                  core: nn.Module | Recursion | nn.Sequential,
                  input_layer: Recursion | Series | nn.Module=nn.Identity(),
                  output_layer: Recursion | Series | nn.Module=nn.Identity(),
-                 gamma: float=None,
+                 alias_decay_db: float=None,
                 ):
         # Prepare the core, input layer, and output layer
         if isinstance(core, (nn.Sequential, OrderedDict)) and not isinstance(core, Series):
@@ -293,17 +342,17 @@ class Shell(nn.Module):
 
         # Check model nfft and alpha values
         self.nfft = self.__check_attribute('nfft')
-        self.gamma = self.__check_attribute('gamma', gamma)
+        self.alias_decay_db = self.__check_attribute('alias_db_decay', alias_decay_db)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         r"""
         Forward pass through the input layer, the core, and the output layer. Keeps the three components separated.
 
             **Args**:
-                - x (torch.Tensor): input Tensor
+                - x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
 
             **Returns**:
-                - torch.Tensor: output Tensor
+                - torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
         x = self.__input_layer(x)
         x = self.__core(x)
@@ -338,11 +387,13 @@ class Shell(nn.Module):
             **Args**:
                 - attr (str): The attribute to check.
                 - new_value (float, optional): The new value to assign to the attribute. Default: None.
+            
             **Returns**:
-                - int: The attribute value.
+                int: The attribute value.
+            
             **Raises**:
                 - ValueError: The core component does not possess the requested attribute.
-                - AssertionError: Core, input layer, and output layer must have the same value of the requested attribute
+                - AssertionError: Core, input layer, and output layer must have the same value of the requested attribute.
         """
 
         # Check that core, input layer, and output layer all possess the nfft attribute.
@@ -369,11 +420,13 @@ class Shell(nn.Module):
 
     def __change_attr_value(self, layer_name: str, layer: nn.Module | Recursion | Series, attr: str, new_value: float) -> None:
         """
-        Change the attribute value of the provided layer to the requested value.
+        Changes the value of a requested attribute in a given layer to a given value.
 
             **Args**:
-                - layer (nn.Module | Recursion | Series): provided layer
-                - gamma (float): requested attribute value
+                - layer_name (str): Name of the given layer.
+                - layer (nn.Module | Recursion | Series): Given layer.
+                - attr (float): Requested attribute value.
+                - new_value (float): New value to assign to the attribute.
         """
         warnings.warn(f"As of now, this method change only the given attribute, not the attributes and values that depends on it.")
 
@@ -403,12 +456,10 @@ class Shell(nn.Module):
     # ---------------------- Responses methods ----------------------
     def get_time_response(self, fs: int=48000, interior: bool=False) -> torch.Tensor:
         r"""
-        Generate the impulse response of the DSP.
+        Generates the impulse response of the DSP.
 
             **Args**:
-                - nfft (int, optional): Number of frequency points. Defaults to 2**11.
                 - fs (int, optional): Sampling frequency. Defaults to 48000.
-                - ir_len (int, optional): Number of samples of the returned impulse response. Defaults to 96000.
                 - interior (bool, optional): If False, return the input-to-output impulse responses of the DSP.
                                         If True, return the input-free impulse responses of the DSP.
                                         Defaults to False.
@@ -422,7 +473,7 @@ class Shell(nn.Module):
                 - :math:`A * I` is the 'input-free' impulse response of :math:`A`.
 
             **Returns**:
-                - torch.Tensor: generated DSP impulse response.
+                - torch.Tensor: Generated DSP impulse response.
         """
 
         # get parameters from the model
@@ -461,10 +512,9 @@ class Shell(nn.Module):
     def get_freq_response(self, fs: int=48000, interior: bool=False) -> torch.Tensor:
 
         r"""
-        Generate the frequency response of the DSP.
+        Generates the frequency response of the DSP.
 
             **Args**:
-                - nfft (int, optional): Number of frequency points. Defaults to 2**11.
                 - fs (int, optional): Sampling frequency. Defaults to 48000.
                 - interior (bool, optional): If False, return the input-to-output frequency responses of the DSP.
                                         If True, return the input-free frequency responses of the DSP.
@@ -479,7 +529,7 @@ class Shell(nn.Module):
                 - :math:`A * I`is the 'input-free' frequency response of :math:`A`.
 
             **Returns**:
-                torch.Tensor: generated DSP frequency response.
+                torch.Tensor: Generated DSP frequency response.
         """
         # get parameters from the model
         if isinstance(self.__core, nn.Sequential):
