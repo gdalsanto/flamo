@@ -14,7 +14,7 @@
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Optimize" href="../optimize/trainer.html" />
+    <link rel="next" title="System" href="system.html" />
     <link rel="prev" title="FLAMO" href="../index.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -524,7 +524,8 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.parallelDelay">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">parallelDelay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_len</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelDelay" title="Link to this definition">¶</a></dt>
-<dd><p>Parallel counterpart of the <a class="reference internal" href="#flamo.processor.dsp.Delay" title="flamo.processor.dsp.Delay"><code class="xref py py-class docutils literal notranslate"><span class="pre">Delay</span></code></a> class.</p>
+<dd><p>Parallel counterpart of the <a class="reference internal" href="#flamo.processor.dsp.Delay" title="flamo.processor.dsp.Delay"><code class="xref py py-class docutils literal notranslate"><span class="pre">Delay</span></code></a> class.
+For information about <strong>attributes</strong> and <strong>methods</strong> see <a class="reference internal" href="#flamo.processor.dsp.Delay" title="flamo.processor.dsp.Delay"><code class="xref py py-class docutils literal notranslate"><span class="pre">Delay</span></code></a>.</p>
 <dl class="simple">
 <dt>Shape:</dt><dd><ul class="simple">
 <li><p>input: <span class="math notranslate nohighlight">\((B, M, N, ...)\)</span></p></li>
@@ -534,7 +535,7 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 </dd>
 </dl>
 <p>where <span class="math notranslate nohighlight">\(B\)</span> is the batch size, <span class="math notranslate nohighlight">\(M\)</span> is the number of frequency bins,
-<span class="math notranslate nohighlight">\(N\)</span> is the number of input channels.
+and <span class="math notranslate nohighlight">\(N\)</span> is the number of input channels.
 Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.parallelDelay.check_param_shape">
@@ -620,6 +621,9 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelDelay.get_freq_response"><code class="docutils literal notranslate"><span class="pre">parallelDelay.get_freq_response()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
 <ul>
@@ -632,7 +636,7 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <ul>
   <li><a href="../index.html">Documentation overview</a><ul>
       <li>Previous: <a href="../index.html" title="previous chapter">FLAMO</a></li>
-      <li>Next: <a href="../optimize/trainer.html" title="next chapter">Optimize</a></li>
+      <li>Next: <a href="system.html" title="next chapter">System</a></li>
   </ul></li>
 </ul>
 </div>
