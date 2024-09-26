@@ -207,11 +207,11 @@ class Trainer:
         r"""
         Early stopping criterion.
         """
-        if self.valid_loss[-1] < (self.min_val_loss - self.patience_delta):
+        if self.valid_loss[-1] < (self.min_val_loss - self.patience_delta): 
             # update min validation loss
-            self.valid_loss = self.valid_loss[-1]
+            self.min_val_loss = self.valid_loss[-1]
             self.counter = 0
-        elif ((self.min_val_loss - self.min_delta) < self.valid_loss[-1]) and (self.valid_loss[-1] < (self.min_val_loss + self.min_delta)):
+        elif ((self.min_val_loss - self.patience_delta) < self.valid_loss[-1]) and (self.valid_loss[-1] < (self.min_val_loss + self.patience_delta)):
             # no improvement, so update counter
             self.counter += 1
             if self.counter >= self.patience:
