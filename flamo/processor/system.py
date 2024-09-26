@@ -14,7 +14,7 @@ class Series(nn.Sequential):
     Module for cascading multiple DSP modules in series. Inherits from :class:`nn.Sequential`.
     This class serves as a container for a series of DSP modules, allowing them 
     to be cascaded in a single module. It ensures that all included modules 
-    share the same values for the `nfft` and `gamma` attributes, hence all parsed 
+    share the same values for the `nfft` and `alias_decay_db` attributes, hence all parsed 
     modules are expected to have these attributes.
 
         **Args**:
@@ -25,7 +25,7 @@ class Series(nn.Sequential):
         
         # Check nfft and alpha values
         self.nfft = self.__check_attribute('nfft')
-        self.gamma = self.__check_attribute('gamma')
+        self.alias_decay_db = self.__check_attribute('alias_decay_db')
 
     def __unpack_modules(self, modules: tuple, current_keys: list) -> OrderedDict:
         r"""
@@ -342,7 +342,7 @@ class Shell(nn.Module):
 
         # Check model nfft and alpha values
         self.nfft = self.__check_attribute('nfft')
-        self.alias_decay_db = self.__check_attribute('alias_db_decay', alias_decay_db)
+        self.alias_decay_db = self.__check_attribute('alias_decay_db', alias_decay_db)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         r"""
