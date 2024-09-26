@@ -323,10 +323,10 @@ class Gain(DSP):
         r"""
         Checks if the shape of the gain parameters is valid.
         """
-        assert len(self.size) == 2, "gains must be 2D."
+        assert len(self.size) == 2, "gains must be 2D. For 1D (parallel) gains use parallelGain module."
 
     def get_freq_convolve(self):
-        """
+        r"""
         Computes the frequency convolution function.
 
         The frequency convolution is computed using the einsum function.
@@ -349,6 +349,60 @@ class Gain(DSP):
         """
         self.check_param_shape()
         self.get_freq_convolve()
+
+
+class parallelGain(Gain):
+    """
+    Parallel counterpart of the :class:`Gain` class.
+    For information about **attributes** and **methods** see :class:`Gain`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    and :math:`N` is the number of input channels.
+    Ellipsis :math:`(...)` represents additional dimensions.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1,),
+        nfft: int = 2**11,
+        map=lambda x: x,
+        requires_grad=False,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the gain parameters is valid.
+        """
+        assert len(self.size) == 1, "gains must be 1D, for 2D gains use Gain module."
+
+    def get_freq_convolve(self):
+        r"""
+        Computes the frequency convolution function.
+
+        The frequency convolution is computed using the einsum function.
+
+            **Args**:
+                x (torch.Tensor): Input tensor.
+
+            **Returns**:
+                torch.Tensor: Output tensor after frequency convolution.
+        """
+        self.freq_convolve = lambda x: torch.einsum(
+            "n,bfn...->bfn...", to_complex(self.map(self.param)), x
+        )
 
 
 # ============================= MATRICES ================================
@@ -437,7 +491,201 @@ class Matrix(Gain):
 
 # ============================= FILTERS ================================
 
+class Filter(DSP):
+    r"""
+    A class representing a set of FIR filters. Inherits from :class:`DSP`.
+    The input tensor is expected to be a complex-valued tensor representing the
+    frequency response of the input signal. The input tensor is then convolved in
+    frequency domain with the filter frequency responses to produce the output tensor.
+    The filter parameters correspond to the filter impulse responses in case the mapping
+    function is map=lambda x: x.
 
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(N_{taps}, N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
+    and :math:`N_{taps}` is the number of filter parameters per input-output channel pair.
+    Ellipsis :math:`(...)` represents additional dimensions.
+
+        **Args**:
+            - size (tuple): The size of the filter parameters. Default: (1, 1, 1).
+            - nfft (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - map (function): A mapping function applied to the raw parameters. Default: lambda x: x.
+            - requires_grad (bool): Whether the filter parameters require gradients. Default: False.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+    
+        **Attributes**:
+            - size (tuple): The size of the filter parameters.
+            - nfft (int): The number of FFT points required to compute the frequency response.
+            - map (function): A mapping function applied to the raw parameters.
+            - requires_grad (bool): Whether the filter parameters require gradients.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+            - param (nn.Parameter): The parameters of the Filter module.
+            - fft (function): The FFT function. Calls the torch.fft.rfft function.
+            - ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - freq_response (torch.Tensor): The frequency response of the filter.
+            - freq_convolve (function): The frequency convolution function.
+
+        **Methods**:
+            - forward(x): Applies the Filter module to the input tensor x by convolution in frequency domain.
+            - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
+            - check_param_shape(): Checks if the shape of the filter parameters is valid.
+            - get_freq_response(): Computes the frequency response of the filter.
+            - get_freq_convolve(): Computes the frequency convolution function.
+            - initialize_class(): Initializes the Filter module.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1, 1),
+        nfft: int = 2**11,
+        map=lambda x: x,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+        self.initialize_class()
+
+    def forward(self, x):
+        r"""
+        Applies the Filter module to the input tensor x.
+
+            **Args**:
+                x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+
+            **Returns**:
+                torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
+        """
+        self.check_input_shape(x)
+        if self.requires_grad or self.new_value:
+            self.get_freq_response()
+            self.new_value = 0
+        return self.freq_convolve(x)
+
+    def check_input_shape(self, x):
+        r"""
+        Checks if the dimensions of the input tensor x are compatible with the module.
+
+            **Args**:
+                x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+        """
+        if (int(self.nfft / 2 + 1), self.size[-1]) != (x.shape[1], x.shape[2]):
+            raise ValueError(
+                f"parameter shape = {self.freq_response.shape} not compatible with input signal of shape = ({x.shape})."
+            )
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the filter parameters is valid.
+        """
+        assert len(self.size) == 3, "Filter must be 3D, for 2D (parallel) filters use ParallelFilter module."
+
+    def get_freq_response(self):
+        r"""
+        Computes the frequency response of the filter.
+
+        The mapping function is applied to the filter parameters to obtain the filter impulse responses.
+        Then, the time anti-aliasing envelope is computed and applied to the impulse responses. Finally,
+        the frequency response is obtained by computing the FFT of the filter impulse responses.
+        """
+        self.ir = self.map(self.param)
+        self.decaying_envelope = (self.gamma ** torch.arange(0, self.ir.shape[0])).view(
+            -1, *tuple([1 for i in self.ir.shape[1:]])
+        )
+        self.freq_response = self.fft(self.ir * self.decaying_envelope)
+
+    def get_freq_convolve(self):
+        r"""
+        Computes the frequency convolution function.
+
+        The frequency convolution is computed using the einsum function.
+
+            **Args**:
+                x (torch.Tensor): Input tensor.
+
+            **Returns**:
+                torch.Tensor: Output tensor after frequency convolution.
+        """
+        self.freq_convolve = lambda x: torch.einsum(
+            "fmn,bfn...->bfm...", self.freq_response, x
+        )
+
+    def initialize_class(self):
+        r"""
+        Initializes the Gain module.
+
+        This method checks the shape of the gain parameters, computes the frequency response of the filter, 
+        and computes the frequency convolution function.
+        """
+        self.check_param_shape()
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+
+class parallelFilter(Filter):
+    """
+    Parallel counterpart of the :class:`Filter` class.
+    For information about **attributes** and **methods** see :class:`Filter`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(N_{taps}, N, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N` is the number of input channels, and :math:`N_{taps}` is the number of
+    filter parameters per input-output channel pair.
+    Ellipsis :math:`(...)` represents additional dimensions.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        nfft: int = 2**11,
+        map=lambda x: x,
+        requires_grad=False,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the filter parameters is valid.
+        """
+        assert len(self.size) == 2, "Filter must be 1D, for 2D filters use Filter module."
+
+    def get_freq_convolve(self):#NOTE: is it correct to say that there is an input argument in this case?
+                                #      Same, is it correct to say that it returns something?
+        r"""
+        Computes the frequency convolution function.
+
+        The frequency convolution is computed using the einsum function.
+
+            **Args**:
+                x (torch.Tensor): Input tensor.
+
+            **Returns**:
+                torch.Tensor: Output tensor after frequency convolution.
+        """
+        self.freq_convolve = lambda x: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response, x
+        )
 
 
 # ============================= DELAYS ================================
@@ -633,6 +881,7 @@ class Delay(DSP):
 class parallelDelay(Delay):
     """
     Parallel counterpart of the :class:`Delay` class.
+    For information about **attributes** and **methods** see :class:`Delay`.
 
     Shape:
         - input: :math:`(B, M, N, ...)`
@@ -640,7 +889,7 @@ class parallelDelay(Delay):
         - output: :math:`(B, M, N, ...)`
 
     where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
-    :math:`N` is the number of input channels.
+    and :math:`N` is the number of input channels.
     Ellipsis :math:`(...)` represents additional dimensions.
     """
 
