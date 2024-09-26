@@ -40,12 +40,12 @@ class Dataset(torch.utils.data.Dataset):
 class DatasetColorless(Dataset):
     r"""
     A dataset class for colorless optimization. Inherits from :class:`Dataset`.
-    The input tensor is an impulse of length :attr:`in_shape`.
+    The input tensor is an impulse of length :attr:`input_shape`.
     The target is an instance of torch.ones with the shape :attr:`target_shape`, 
     corresponding to a flat magnitude spectrum.
 
         **Args**:
-            in_shape (tuple): The shape of the input data.
+            input_shape (tuple): The shape of the input data.
             target_shape (tuple): The shape of the target data.
             expand (int, optional): The number of times to expand the dataset. Defaults to 1000.
             device (str, optional): The device to use for computation. Defaults to 'cpu'.
@@ -57,8 +57,8 @@ class DatasetColorless(Dataset):
     For details on the colorless optimization, see `<https://arxiv.org/abs/2402.11216v2>`_.
     """
 
-    def __init__(self, in_shape, target_shape, expand=1000, device='cpu'):
-        input = torch.zeros(in_shape)
+    def __init__(self, input_shape, target_shape, expand=1000, device='cpu'):
+        input = torch.zeros(input_shape)
         input[0] = 1
         target = torch.ones(target_shape)
         super().__init__(input=input, target=target, expand=expand, device=device)
