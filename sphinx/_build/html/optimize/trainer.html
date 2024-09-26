@@ -44,37 +44,43 @@ To each loss it is possible to assign a weigth <span class="math notranslate noh
 requires the model as an input, which might be needed when the loss depends on the model’s parameters.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>net (nn.Module): The neural network model to be trained.
-max_epochs (int): Maximum number of training epochs. Default: 10.
-lr (float): Learning rate for the optimizer. Default: 1e-3.
-patience (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.
-patience_delta (float): Minimum improvement in validation loss to be considered as an improvement. Default: 0.01.
-step_size (int): Period of learning rate decay. Default: 50.
-step_factor (float): Multiplicative factor of learning rate decay. Default: 0.1.
-train_dir (str): The directory for saving training outputs. Default: None.
-device (str): Device to use for training. Default: ‘cpu’.</p>
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>net (nn.Module): The neural network model to be trained.</p></li>
+<li><p>max_epochs (int): Maximum number of training epochs. Default: 10.</p></li>
+<li><p>lr (float): Learning rate for the optimizer. Default: 1e-3.</p></li>
+<li><p>patience (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.</p></li>
+<li><p>patience_delta (float): Minimum improvement in validation loss to be considered as an improvement. Default: 0.01.</p></li>
+<li><p>step_size (int): Period of learning rate decay. Default: 50.</p></li>
+<li><p>step_factor (float): Multiplicative factor of learning rate decay. Default: 0.1.</p></li>
+<li><p>train_dir (str): The directory for saving training outputs. Default: None.</p></li>
+<li><p>device (str): Device to use for training. Default: ‘cpu’.</p></li>
+</ul>
 </dd>
-<dt><strong>Attributes</strong>:</dt><dd><p>device (str): Device to use for training.
-net (nn.Module): The neural network model.
-max_epochs (int): Maximum number of training epochs.
-lr (float): Learning rate for the optimizer.
-patience (int): Number of epochs to wait for improvement in validation loss before early stopping.
-patience_delta (float): Minimum improvement in validation loss to be considered as an improvement.
-min_val_loss (float): Minimum validation loss to be updated by the early stopper.
-optimizer (torch.optim.Optimizer): The optimizer.
-train_dir (str): The directory for saving training outputs.
-criterion (list): List of loss functions.
-alpha (list): List of weights for the loss functions.
-requires_model (list): List of flags indicating whether the loss functions require the model as an input.
-scheduler (torch.optim.lr_scheduler.StepLR): The learning rate scheduler.</p>
+<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
+<li><p>device (str): Device to use for training.</p></li>
+<li><p>net (nn.Module): The neural network model.</p></li>
+<li><p>max_epochs (int): Maximum number of training epochs.</p></li>
+<li><p>lr (float): Learning rate for the optimizer.</p></li>
+<li><p>patience (int): Number of epochs to wait for improvement in validation loss before early stopping.</p></li>
+<li><p>patience_delta (float): Minimum improvement in validation loss to be considered as an improvement.</p></li>
+<li><p>min_val_loss (float): Minimum validation loss to be updated by the early stopper.</p></li>
+<li><p>optimizer (torch.optim.Optimizer): The optimizer.</p></li>
+<li><p>train_dir (str): The directory for saving training outputs.</p></li>
+<li><p>criterion (list): List of loss functions.</p></li>
+<li><p>alpha (list): List of weights for the loss functions.</p></li>
+<li><p>requires_model (list): List of flags indicating whether the loss functions require the model as an input.</p></li>
+<li><p>scheduler (torch.optim.lr_scheduler.StepLR): The learning rate scheduler.</p></li>
+</ul>
 </dd>
-<dt><strong>Methods</strong>:</dt><dd><p>register_criterion(criterion, alpha, requires_model=False): Register a loss function and its weight.
-train(train_dataset, valid_dataset): Train the neural network model.
-train_step(data): Perform a single training step.
-valid_step(data): Perform a single validation step.
-print_results(epoch, time): Print the training results for an epoch.
-get_train_dir(): Get the directory path for saving training outputs.
-save_model(epoch): Save the model parameters to a file.</p>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>register_criterion(criterion, alpha, requires_model=False): Register a loss function and its weight.</p></li>
+<li><p>train(train_dataset, valid_dataset): Train the neural network model.</p></li>
+<li><p>train_step(data): Perform a single training step.</p></li>
+<li><p>valid_step(data): Perform a single validation step.</p></li>
+<li><p>print_results(epoch, time): Print the training results for an epoch.</p></li>
+<li><p>get_train_dir(): Get the directory path for saving training outputs.</p></li>
+<li><p>save_model(epoch): Save the model parameters to a file.</p></li>
+</ul>
 </dd>
 </dl>
 <p>Examples:</p>
@@ -111,9 +117,11 @@ save_model(epoch): Save the model parameters to a file.</p>
 <dd><p>Register a loss function and its weight in the loss function.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>criterion (nn.Module): The loss function.
-alpha (float): The weight of the loss function. Default: 1.
-requires_model (bool): Whether the loss function requires the model as an input. Default: False.</p>
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>criterion (nn.Module): The loss function.</p></li>
+<li><p>alpha (float): The weight of the loss function. Default: 1.</p></li>
+<li><p>requires_model (bool): Whether the loss function requires the model as an input. Default: False.</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
@@ -134,8 +142,10 @@ requires_model (bool): Whether the loss function requires the model as an input.
 <dd><p>Train the neural network model.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>train_dataset (torch.utils.data.Dataset): The training dataset.
-valid_dataset (torch.utils.data.Dataset): The validation dataset.</p>
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>train_dataset (torch.utils.data.Dataset): The training dataset.</p></li>
+<li><p>valid_dataset (torch.utils.data.Dataset): The validation dataset.</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
@@ -147,9 +157,13 @@ valid_dataset (torch.utils.data.Dataset): The validation dataset.</p>
 <dd><p>Perform a single training step.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>data (tuple): A tuple containing the input data and the target data <code class="code docutils literal notranslate"><span class="pre">(inputs,</span> <span class="pre">targets)</span></code>.</p>
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>data (tuple): A tuple containing the input data and the target data <code class="code docutils literal notranslate"><span class="pre">(inputs,</span> <span class="pre">targets)</span></code>.</p></li>
+</ul>
 </dd>
-<dt><strong>Returns</strong>:</dt><dd><p>float: The loss value of the training step.</p>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>float: The loss value of the training step.</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
@@ -160,9 +174,13 @@ valid_dataset (torch.utils.data.Dataset): The validation dataset.</p>
 <span class="sig-name descname"><span class="pre">valid_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.valid_step" title="Link to this definition">¶</a></dt>
 <dd><p>Perform a single validation step.</p>
 <dl class="simple">
-<dt>Args:</dt><dd><p>data (tuple): A tuple containing the input data and the target data.</p>
+<dt>Args:</dt><dd><ul class="simple">
+<li><p>data (tuple): A tuple containing the input data and the target data.</p></li>
+</ul>
 </dd>
-<dt>Returns:</dt><dd><p>float: The loss value for the validation step.</p>
+<dt>Returns:</dt><dd><ul class="simple">
+<li><p>float: The loss value for the validation step.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
@@ -176,12 +194,16 @@ valid_dataset (torch.utils.data.Dataset): The validation dataset.</p>
 information relative to the training performance.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>epoch (int): The epoch number.
-train_loss (list): List of training loss values.
-valid_loss (list): List of validation loss values.
-time (float): The time taken for the epoch.</p>
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>epoch (int): The epoch number.</p></li>
+<li><p>train_loss (list): List of training loss values.</p></li>
+<li><p>valid_loss (list): List of validation loss values.</p></li>
+<li><p>time (float): The time taken for the epoch.</p></li>
+</ul>
 </dd>
-<dt><strong>Returns</strong>:</dt><dd><p>str: The formatted string to be printed.</p>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>str: The formatted string to be printed.</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
@@ -212,6 +234,9 @@ time (float): The time taken for the epoch.</p>
 <li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
 <ul class="current">

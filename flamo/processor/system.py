@@ -18,7 +18,7 @@ class Series(nn.Sequential):
     modules are expected to have these attributes.
 
         **Args**:
-            - *args: A variable number of DSP modules of the type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
+            - \*args: A variable number of DSP modules of the type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
     """
     def __init__(self, *args):
         super().__init__(self.__unpack_modules(modules=args, current_keys=[]))
@@ -45,15 +45,15 @@ class Series(nn.Sequential):
                 * rule 4 is applied
 
         **Args**:
-            modules (tuple): The input modules.
-            current_keys (list): The current keys of the already unpacked modules.
+            - modules (tuple): The input modules.
+            - current_keys (list): The current keys of the already unpacked modules.
 
         **Returns**:
-            The unpacked modules (:class:`OrderedDict`).
+            - The unpacked modules (:class:`OrderedDict`).
 
         **Raises**:
-            ValueError: If modules are not of type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
-            ValueError: If a custom key is not unique.
+            - ValueError: If modules are not of type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
+            - ValueError: If a custom key is not unique.
         """
         # initialize the unpacked modules as empty OrderedDict
         unpacked_modules = OrderedDict()
@@ -117,7 +117,7 @@ class Series(nn.Sequential):
                 - int | float | None: The attribute value.
 
             **Raises**:
-                ValueError: At least one module with incorrect attribute value was found.
+                - ValueError: If at least one module with incorrect attribute value was found.
         """
         value = None
         # First, store the value of the attribute if found in any of modules.
@@ -469,8 +469,8 @@ class Shell(nn.Module):
                 a unit impulse at time :math:`t=0` for each element along :math:`N_{in}`. Let :math:`I \in R^{T \times  N \times N}` be an diagonal matrix across
                 second and third dimension, with unit impulse at time :math:`t=0`for each element along such diagonal.
                 If :math:`*` represent the signal-wise matrix convolution operator, then:
-                    - :math:`y = A * x` is the 'input-to-output' impulse response of :math:`A`.
-                    - :math:`A * I` is the 'input-free' impulse response of :math:`A`.
+                - :math:`y = A * x` is the 'input-to-output' impulse response of :math:`A`.
+                - :math:`A * I` is the 'input-free' impulse response of :math:`A`.
 
             **Returns**:
                 - torch.Tensor: Generated DSP impulse response.
@@ -525,8 +525,8 @@ class Shell(nn.Module):
                 a unit impulse at time :math:`t=0` spectrum for each element along :math:`N_{in}`. Let :math:`I \in R^{F \times  N \times N}` be an diagonal matrix across
                 second and third dimension, with unit impulse at time :math:`t=0` spectra for each element along such diagonal.
                 If :math:`*` represent the signal-wise matrix product operator, then:
-                    - :math:`y = A * x` is the 'input-to-output' frequency response of :math:`A`.
-                    - :math:`A * I`is the 'input-free' frequency response of :math:`A`.
+                - :math:`y = A * x` is the 'input-to-output' frequency response of :math:`A`.
+                - :math:`A * I`is the 'input-free' frequency response of :math:`A`.
 
             **Returns**:
                 torch.Tensor: Generated DSP frequency response.

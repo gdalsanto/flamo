@@ -1,5 +1,2 @@
-from .dsp import (
-    Transform, 
-    FFT,
-    iFFT,
-)
+from .dsp import *
+from .system import *
