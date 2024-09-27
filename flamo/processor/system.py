@@ -487,8 +487,7 @@ class Shell(nn.Module):
             output_channels = self.__core.size[-2]
 
         # contruct anti aliasing reconstruction envelope
-        gamma = torch.tensor(
-            10 ** (-torch.abs(torch.tensor(self.alias_decay_db)) / (self.nfft) / 20))
+        gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
         self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(-1, output_channels)
         # save input/output layers
         input_save = self.get_inputLayer()
@@ -497,9 +496,9 @@ class Shell(nn.Module):
         # update input/output layers
         self.set_inputLayer(FFT(nfft))
         self.set_outputLayer(
-            Series(nn.Sequential(
+            nn.Sequential(
                 iFFT(nfft),
-                Transform(lambda x: x*self.alias_envelope))))
+                Transform(lambda x: x*self.alias_envelope)))
 
         # generate input signal
         x = signal_gallery(
