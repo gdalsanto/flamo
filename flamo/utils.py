@@ -1,4 +1,5 @@
 import torch 
+import soundfile as sf
 
 def get_device():
     r""" Output 'cuda' if gpu is available, 'cpu' otherwise """
@@ -15,3 +16,6 @@ def to_complex(x):
             torch.Tensor: The complex tensor with the same shape as the input tensor.
     """
     return torch.complex(x, torch.zeros_like(x))
+
+def save_audio(filepath, x, fs=48000):
+    sf.write(filepath, x.cpu().numpy(), fs)
