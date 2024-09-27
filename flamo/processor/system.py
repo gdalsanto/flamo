@@ -3,7 +3,7 @@ import torch.nn as nn
 import warnings
 from collections import OrderedDict
 from flamo.utils import to_complex
-from flamo.processor.dsp import FFT, iFFT
+from flamo.processor.dsp import FFT, iFFT, Transform
 from flamo.functional import signal_gallery
 
 # ============================= SERIES ================================
@@ -480,17 +480,26 @@ class Shell(nn.Module):
         if isinstance(self.__core, nn.Sequential):
             nfft = self.__core[0].nfft
             input_channels = self.__core[0].size[-1]
+            output_channels = self.__core[-1].size[-2]
         else:
             nfft = self.__core.nfft
             input_channels = self.__core.size[-1]
+            output_channels = self.__core.size[-2]
 
+        # contruct anti aliasing reconstruction envelope
+        gamma = torch.tensor(
+            10 ** (-torch.abs(torch.tensor(self.alias_decay_db)) / (self.nfft) / 20))
+        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(-1, output_channels)
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
 
         # update input/output layers
         self.set_inputLayer(FFT(nfft))
-        self.set_outputLayer(iFFT(nfft))
+        self.set_outputLayer(
+            Series(nn.Sequential(
+                iFFT(nfft),
+                Transform(lambda x: x*self.alias_envelope))))
 
         # generate input signal
         x = signal_gallery(
