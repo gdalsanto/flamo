@@ -22,6 +22,7 @@ dependencies = [
     "torch>=2.4.0",
     "numpy>=2.1.0",
     "scipy>=1.12.0",
+    "pysoundfile>=0.12.0",
     "tqdm",
 ]
 
