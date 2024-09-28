@@ -169,7 +169,7 @@ class Recursion(nn.Module):
             - __check_attribute(attr): Checks if feedforward and feedback paths have the same value of the requested attribute.
             - __check_io(): Check if the feedforward and feedback paths have compatible input/output shapes.
 
-    For details on the closed-loop transfer function: <https://en.wikipedia.org/wiki/Closed-loop_transfer_function>`_.
+    For details on the closed-loop transfer function see `Wikipedia page <https://en.wikipedia.org/wiki/Closed-loop_transfer_function>`_.
     """
     def __init__(self,
                  fF: nn.Module | nn.Sequential | OrderedDict | Series,
@@ -488,7 +488,7 @@ class Shell(nn.Module):
 
         # contruct anti aliasing reconstruction envelope
         gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(-1, output_channels)
+        self.alias_envelope_exp = (gamma ** torch.arange(0, -self.nfft, -1)).view(-1, output_channels)
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
@@ -498,7 +498,7 @@ class Shell(nn.Module):
         self.set_outputLayer(
             nn.Sequential(
                 iFFT(nfft),
-                Transform(lambda x: x*self.alias_envelope)))
+                Transform(lambda x: x*self.alias_envelope_exp)))
 
         # generate input signal
         x = signal_gallery(
@@ -543,17 +543,27 @@ class Shell(nn.Module):
         if isinstance(self.__core, nn.Sequential):
             nfft = self.__core[0].nfft
             input_channels = self.__core[0].size[-1]
+            output_channels = self.__core[-1].size[-2]
         else:
             nfft = self.__core.nfft
             input_channels = self.__core.size[-1]
+            output_channels = self.__core.size[-2]
 
+        # contruct anti aliasing reconstruction envelope
+        gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
+        self.alias_envelope_exp = (gamma ** torch.arange(0, -self.nfft, -1)).unsqueeze(-1).expand(-1, output_channels)
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
 
         # update input/output layers
         self.set_inputLayer(FFT(nfft))
-        self.set_outputLayer(nn.Identity())
+        self.set_outputLayer(
+            nn.Sequential(
+                nn.Identity(),
+                iFFT(nfft),
+                Transform(lambda x: torch.einsum('...fm, ...fm -> ...fm', x, self.alias_envelope_exp)),
+                FFT(nfft))) #TODO, this is a very suboptimal way to do this, we need to find a better way 
 
         # generate input signal
         x = signal_gallery(
