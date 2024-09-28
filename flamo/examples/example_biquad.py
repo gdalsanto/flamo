@@ -9,7 +9,7 @@ from collections import OrderedDict
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
-from flamo.functional import signal_gallery, bandpass_filter
+from flamo.functional import signal_gallery, highpass_filter
 
 torch.manual_seed(130709)
 
@@ -22,11 +22,10 @@ def example_biquad(args):
         None
     """
     in_ch, out_ch = 1, 2
-    n_filters = 4
+    n_filters = 2
     ## ---------------- TARGET ---------------- ##
-    b, a = bandpass_filter(
-        fc1=torch.randint(0, args.samplerate//2, size=(n_filters, in_ch, out_ch)), 
-        fc2=torch.randint(0, args.samplerate//2, size=(n_filters, in_ch, out_ch)), 
+    b, a = highpass_filter(
+        fc=torch.randint(0, args.samplerate//2, size=(n_filters, in_ch, out_ch)), 
         gain=torch.randint(-1, 1, size=(n_filters, in_ch, out_ch)), 
         fs=args.samplerate)
     B = torch.fft.rfft(b, args.nfft, dim=0)
@@ -39,11 +38,11 @@ def example_biquad(args):
     filt = dsp.Biquad(
         size=(out_ch, in_ch), 
         n_filters=n_filters,
-        filter_type='bandpass',
+        filter_type='highpass',
         nfft=args.nfft, 
         fs=args.samplerate,
         requires_grad=True,
-        alias_decay_db=0,
+        alias_decay_db=30,
     )   
     # Create the model with Shell
     input_layer = dsp.FFT(args.nfft)
