@@ -23,3 +23,6 @@
 
 .. autoclass:: flamo.processor.dsp.parallelDelay
    :members:
+
+.. autoclass:: flamo.processor.dsp.Biquad
+   :members:
