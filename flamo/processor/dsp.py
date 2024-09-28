@@ -709,8 +709,20 @@ class Biquad(Filter):
 
     The mapping from learnable parameters :math:`\mathbf{f_c}` and :math:`\mathbf{g}` are defined by :meth:`flamo.functional.lowpass_filter`, :meth:`flamo.functional.highpass_filter`, :meth:`flamo.functional.bandpass_filter`.
 
+    Shape:
+        - input: :math:`(B, M, N_{\text{in}}, ...)`
+        - param: :math:`(K, C, N_{\text{out}}, N_{\text{in}})`
+        - freq_response: :math:`(M, N_{\text{out}}, N_{\text{in}})`
+        - output: :math:`(B, M, N_{\text{out}}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    and :math:`N_{\text{in}}` is the number of input channels, and :math:`N_{\text{out}}` is the number of output channels.
+    The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of filters :math:`K`, the second dimension corresponds to the number of biquad coefficients :math:`C` (3).
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).
+
         **Args**:
             - size (tuple, optional): Size of the filter. Default: (1, 1).
+            - n_filters (int, optional): Number of filters. Default: 1.
             - filter_type (str, optional): Type of the filter. Must be one of "lowpass", "highpass", or "bandpass". Default: "lowpass".
             - nfft (int, optional): Number of points for FFT. Default: 2048.
             - fs (int, optional): Sampling frequency. Default: 48000.
@@ -721,6 +733,7 @@ class Biquad(Filter):
             - filter_type (str): Type of the filter.
             - fs (int): Sampling frequency.
             - freq_response (torch.Tensor): Frequency response of the filter.
+            - param (nn.Parameter): Parameters of the Biquad filter.
 
         **Methods**:
             - get_size(): Get the size of the filter based on the filter type.
@@ -810,25 +823,23 @@ class Biquad(Filter):
                 self.map = lambda x: torch.clamp(
                     x,
                     min=torch.tensor([0, -60]).view(-1, 1, 1).expand_as(x),
-                    max=torch.tensor([torch.pi, 60]).view(-1, 1, 1).expand_as(x),
+                    max=torch.tensor([1, 60]).view(-1, 1, 1).expand_as(x),
                 )
             case "bandpass":   
                 self.map = lambda x: torch.clamp(
                     x,
                     min=torch.tensor([0, 0, -60]).view(-1, 1, 1).expand_as(x),
-                    max=torch.tensor([torch.pi, torch.pi, 60])
-                    .view(-1, 1, 1)
-                    .expand_as(x),
+                    max=torch.tensor([1, 1, 60]).view(-1, 1, 1).expand_as(x),
                 )
 
     def init_param(self):
         r"""
         Initialize the filter parameters.
         """
-        torch.nn.init.uniform_(self.param[:, 0, :, :], a=0, b=1)
+        torch.nn.init.uniform_(self.param[:, 0, :], a=0, b=1)
         if self.filter_type == "bandpass":
-            torch.nn.init.uniform_(self.param[:, 1, :, :], a=self.param[:, 0, :, :].max().item(), b=1)
-        torch.nn.init.uniform_(self.param[:, -1, :, :], a=-1, b=1)
+            torch.nn.init.uniform_(self.param[:, 1, :], a=self.param[:, 0, :, :].max().item(), b=1)
+        torch.nn.init.uniform_(self.param[:, -1, :], a=-1, b=1)
     
     def check_param_shape(self):
         r"""
@@ -848,6 +859,94 @@ class Biquad(Filter):
         )
         self.get_freq_response()
         self.get_freq_convolve()
+
+
+class parallelBiquad(Biquad):
+    r"""
+    Parallel counterpart of the :class:`Biquad` class.
+    For information about **attributes** and **methods** see :class:`flamo.processor.dsp.Biquad`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(K, C, N, N)`
+        - freq_response: :math:`(M, N, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    and :math:`N` is the number of input/output channels.
+    The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of filters :math:`K`, the second dimension corresponds to the number of biquad coefficients :math:`C` (3).
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).
+    """
+    def __init__(
+        self,
+        size: tuple = (1,),
+        n_filters: int = 1,
+        filter_type: str = "lowpass",
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad=True,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            n_filters=n_filters,
+            filter_type=filter_type,
+            nfft=nfft,
+            fs=fs,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 3
+        ), "Parameter size must be 3D, for 3D sapce use Biquad module."
+
+    def get_map(self):
+        r"""
+        Get the mapping function :attr:`map` to parameter values that ensure stability.
+        The type of mapping is based on the filter type.
+        """
+        match self.filter_type:
+            case "lowpass" | "highpass":
+                self.map = lambda x: torch.clamp(
+                    x,
+                    min=torch.tensor([0, -60]).view(-1, 1).expand_as(x),
+                    max=torch.tensor([1, 60]).view(-1, 1).expand_as(x),
+                )
+            case "bandpass":
+                self.map = lambda x: torch.clamp(
+                    x,
+                    min=torch.tensor([0, 0, -60]).view(-1, 1).expand_as(x),
+                    max=torch.tensor([1, 1, 60]).view(-1, 1).expand_as(x),
+                )
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
+        """
+        param = self.map(self.param)
+        match self.filter_type:
+            case "lowpass":
+                b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs)
+            case "highpass":
+                b, a = highpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs)
+            case "bandpass":
+                b, a = bandpass_filter(
+                    fc1=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), fc2=rad2hertz(param[:, 1, :]*torch.pi, fs=self.fs), gain=param[:, 2, :], fs=self.fs
+                )
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1) + torch.tensor(1e-12))
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response, x
+        )
+
 
 
 # ============================= DELAYS ================================
