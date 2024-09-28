@@ -22,22 +22,23 @@ def example_biquad(args):
         None
     """
     in_ch, out_ch = 1, 2
-
+    n_filters = 4
     ## ---------------- TARGET ---------------- ##
     b, a = bandpass_filter(
-        fc1=torch.randint(0, args.samplerate//2, size=(in_ch, out_ch)), 
-        fc2=torch.randint(0, args.samplerate//2, size=(in_ch, out_ch)), 
-        gain=torch.randint(-1, 1, size=(in_ch, out_ch)), 
+        fc1=torch.randint(0, args.samplerate//2, size=(n_filters, in_ch, out_ch)), 
+        fc2=torch.randint(0, args.samplerate//2, size=(n_filters, in_ch, out_ch)), 
+        gain=torch.randint(-1, 1, size=(n_filters, in_ch, out_ch)), 
         fs=args.samplerate)
     B = torch.fft.rfft(b, args.nfft, dim=0)
     A = torch.fft.rfft(a, args.nfft, dim=0)
-    target_filter = B / A
+    target_filter = torch.prod(B, dim=1) / torch.prod(A, dim=1)
 
     ## ---------------- CONSTRUCT FDN ---------------- ##
 
     # create another instance of the model 
     filt = dsp.Biquad(
         size=(out_ch, in_ch), 
+        n_filters=n_filters,
         filter_type='bandpass',
         nfft=args.nfft, 
         fs=args.samplerate,
