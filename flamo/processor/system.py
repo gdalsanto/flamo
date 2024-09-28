@@ -9,7 +9,7 @@ from flamo.functional import signal_gallery
 # ============================= SERIES ================================
 
 
-class Series(nn.Sequential):        
+class Series(nn.Sequential):
     r"""
     Module for cascading multiple DSP modules in series. Inherits from :class:`nn.Sequential`.
     This class serves as a container for a series of DSP modules, allowing them 
@@ -26,6 +26,9 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute('nfft')
         self.alias_decay_db = self.__check_attribute('alias_decay_db')
+
+        # Check I/O compatibility
+        self.input_channels, self.output_channels = self.__check_io()
 
     def __unpack_modules(self, modules: tuple, current_keys: list) -> OrderedDict:
         r"""
@@ -55,6 +58,7 @@ class Series(nn.Sequential):
             - ValueError: If modules are not of type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
             - ValueError: If a custom key is not unique.
         """
+        # TODO: Consider .modules() method
         # initialize the unpacked modules as empty OrderedDict
         unpacked_modules = OrderedDict()
         # iterate over the modules
@@ -111,13 +115,13 @@ class Series(nn.Sequential):
         Checks if all modules have the same value of the requested attribute.
 
             **Args**:
-                - attr (str): The attribute to check.
+                attr (str): The attribute to check.
 
             **Returns**:
-                - int | float | None: The attribute value.
+                int | float | None: The attribute value.
 
             **Raises**:
-                - ValueError: If at least one module with incorrect attribute value was found.
+                ValueError: If at least one module with incorrect attribute value was found.
         """
         value = None
         # First, store the value of the attribute if found in any of modules.
@@ -128,12 +132,43 @@ class Series(nn.Sequential):
         if value is None:
             warnings.warn(f"Attribute {attr} not found in any of the modules.")
         # Then, check if all modules have the same value of the attribute. If any module has a different value, raise an error.
-        for i,module in enumerate(self):
-            if hasattr(module, attr):
-                if getattr(module, attr) != value:
+        else:
+            for i,module in enumerate(self):
+                if hasattr(module, attr) and getattr(module, attr) != value:
                     raise ValueError(f"All modules must have the same {attr} value. Module at index {i} is incoherent with the part of the Series preceding it.")
         
         return value
+    
+    def __check_io(self):
+        r"""
+        Checks if the modules in the Series have compatible input/output shapes.
+
+            **Returns**:
+                tuple(int,int): The number of input and output channels.
+        """
+        found = False
+        input_channels = None
+        prev_out_channels = None
+
+        for i,module in enumerate(self):
+            try:
+                input_channels = getattr(module, 'input_channels')
+                found = True
+                break
+            except:
+                continue
+        
+        if found:
+            prev_out_channels = self[i].output_channels
+
+            for j,module in enumerate(self):
+                if j <= i:
+                    continue
+                if hasattr(module, 'input_channels'):
+                    assert getattr(module, 'input_channels') == prev_out_channels, f"Input channels and output channels of module {self[j-1].__class__.__name__} in position {j-1} and module {self[j].__class__.__name__} in position {j} are incompatible."
+                    prev_out_channels = getattr(module, 'output_channels', None)
+        
+        return input_channels, prev_out_channels
 
 
 # ============================= RECURSION ================================
@@ -174,26 +209,28 @@ class Recursion(nn.Module):
     def __init__(self,
                  fF: nn.Module | nn.Sequential | OrderedDict | Series,
                  fB: nn.Module | nn.Sequential | OrderedDict | Series,
-                 # NOTE: alias_decay_db: float=None, do we add it here?
                 ):
         # Prepare the feedforward and feedback paths
         if isinstance(fF, (nn.Sequential, OrderedDict)) and not isinstance(fF, Series):
-            fF = Series(fF)
+            self.feedforward = Series(fF)
             warnings.warn('Feedforward path has been converted to a Series class instance.')
+        else:
+            self.feedforward = fF
         if isinstance(fB, (nn.Sequential, OrderedDict)) and not isinstance(fB, Series):
-            fB = Series(fB)
+            self.feedback = Series(fB)
             warnings.warn('Feedback path has been converted to a Series class instance.')
+        else:
+            self.feedback = fB
 
-        super().__init__()
-        self.feedforward = fF
-        self.feedback = fB
-
-        # Check nfft and alias_decay_db values
+        # Check nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute('nfft')
-        # self.alias_decay_db = self.__check_attribute('alias_decay_db')
+        self.alias_decay_db = self.__check_attribute('alias_decay_db')
 
         # Check I/O compatibility
-        # self.input_channels, self.output_channels = self.__check_io()
+        self.input_channels, self.output_channels = self.__check_io()
+
+        # Identity matrix for the forward computation
+        self.I = self.__generate_identity()
 
 
     def forward(self, X):
@@ -207,22 +244,27 @@ class Recursion(nn.Module):
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
         B = self.feedforward(X)
-       
-        # Identity matrix
-        if not hasattr(self, "I"):
-            self.I = torch.zeros(
-                B.shape[1], B.shape[-1], B.shape[-1], dtype=torch.complex64
-            )
-            for i in range(B.shape[-1]):
-                self.I[:, i, i] = 1
 
-        # expand identity matrix to batch size
+        # Expand identity matrix to batch size
         expand_dim = [X.shape[0]] + [d for d in self.I.shape]
         I = self.I.expand(tuple(expand_dim))
 
         HH = self.feedback(I)
         A = I - self.feedforward(HH)
         return torch.linalg.solve(A, B)
+    
+    def __generate_identity(self) -> torch.Tensor:
+        r"""
+        Generates the identity matrix necessary for the forward computation.
+
+            **Returns**:
+                torch.Tensor: The identity matrix.
+        """
+        size = (self.nfft//2+1, self.output_channels, self.output_channels)
+        I = torch.zeros(*size, dtype=torch.complex64)
+        for i in range(self.output_channels):
+            I[:, i, i] = 1
+        return I
     
     # ---------------------- Check methods ----------------------
     def __check_attribute(self, attr: str) -> int | float:
@@ -238,43 +280,50 @@ class Recursion(nn.Module):
             **Raises**:
                 ValueError: The two paths have different values of the requested attribute.
         """
-        # First, check that both feedforward and feedback paths possess the attribute.
-        if getattr(self.feedforward, attr, None) is None:
-            raise ValueError(f"The feedforward pass does not possess the attribute {attr}.")
-        if getattr(self.feedback, attr, None) is None:
-            raise ValueError(f"The feedback pass does not possess the attribute {attr}.")
+        ff_attr = getattr(self.feedforward, attr, None)
+        if ff_attr is None:
+            warnings.warn(f"The feedforward pass does not possess the attribute {attr}.")
+        fb_attr = getattr(self.feedback, attr, None)
+        if fb_attr is None:
+            warnings.warn(f"The feedback pass does not possess the attribute {attr}.")
         # Then, check that the two paths have the same value of the attribute.
-        assert getattr(self.feedforward, attr) == getattr(self.feedback, attr), f"Feedforward and feedback paths must have the same {attr} value."
+        if ff_attr is not None and fb_attr is not None:
+            assert ff_attr == fb_attr, f"The feedforward pass has {attr} = {ff_attr} and feedback pass has {attr} = {fb_attr}, they must have the same value instead."
 
-        return getattr(self.feedforward, attr)
+        # Return the attribute value
+        attr_value = ff_attr if ff_attr is not None else fb_attr
+
+        return attr_value
     
     def __check_io(self) -> tuple:
         r"""
         Checks if the feedforward and feedback paths have compatible input/output shapes.
 
-        Still work in progress.
-        """
-        # NOTE: still work in progress
-        # NOTE: does not work for SVF
-        # Get input channels of both feedforward and feedback
-        if isinstance(self.feedforward, Series):
-            ff_in_ch = self.feedforward[0].size[-1]
-        else:
-            ff_in_ch = self.feedforward.size[-1]
-        if isinstance(self.feedback, Series):
-            fb_in_ch = self.feedback[0].size[-1]
-        else:
-            fb_in_ch = self.feedback.size[-1]
+            **Returns**:
+                tuple(int,int): The number of input and output channels.
 
-        # Found out the number of output channels of both feedforward and feedback
-        x = to_complex(torch.zeros(1, self.nfft//2+1, ff_in_ch))
-        ff_out_ch = self.feedforward(x).shape[-1]
-        x = to_complex(torch.zeros(1, self.nfft//2+1, fb_in_ch))
-        fb_out_ch = self.feedback(x).shape[-1]
+            **Raises**:
+                ValueError: The feedforward or the feedback paths do not possess either the input_channels or the output_channels attributes.
+                AssertionError: The feedforward and the feedback paths' input and output channels are not compatible.
+        """
+        # Get input channels of both feedforward and feedback
+        ff_in_ch = getattr(self.feedforward, 'input_channels', None)
+        ff_out_ch = getattr(self.feedforward, 'output_channels', None)
+        fb_in_ch = getattr(self.feedback, 'input_channels', None)
+        fb_out_ch = getattr(self.feedback, 'output_channels', None)
 
         # Check if the input/output channels are compatible
-        assert ff_out_ch == fb_in_ch, "Feedforward output channels and feedback input channels must have the same."
-        assert fb_out_ch == ff_in_ch, "Feedforward input channels and feedback output channels must have the same."
+        if ff_in_ch is None:
+            raise ValueError(f"The feedforward pass does not possess the attribute input_channels.")
+        if ff_out_ch is None:
+            raise ValueError(f"The feedforward pass does not possess the attribute output_channels.")
+        if fb_in_ch is None:
+            raise ValueError(f"The feedback pass does not possess the attribute input_channels.")
+        if fb_out_ch is None:
+            raise ValueError(f"The feedback pass does not possess the attribute output_channels.")
+        
+        assert(ff_out_ch == fb_in_ch), "Feedforward output channels and feedback input channels must be the same."
+        assert(fb_out_ch == ff_in_ch), "Feedforward input channels and feedback output channels must be the same."
 
         return ff_in_ch, ff_out_ch
 
@@ -322,27 +371,33 @@ class Shell(nn.Module):
                  core: nn.Module | Recursion | nn.Sequential,
                  input_layer: Recursion | Series | nn.Module=nn.Identity(),
                  output_layer: Recursion | Series | nn.Module=nn.Identity(),
-                 alias_decay_db: float=None,
                 ):
+        
+        nn.Module.__init__(self)        
+
         # Prepare the core, input layer, and output layer
         if isinstance(core, (nn.Sequential, OrderedDict)) and not isinstance(core, Series):
-            core = Series(core)
+            self.__core = Series(core)
             warnings.warn('Core has been converted to a Series class instance.')
+        else:
+            self.__core = core
         if isinstance(input_layer, (nn.Sequential, OrderedDict)) and not isinstance(input_layer, Series):
-            input_layer = Series(input_layer)
+            self.__input_layer = Series(input_layer)
             warnings.warn('Input layer has been converted to a Series class instance.')
+        else:
+            self.__input_layer = input_layer
         if isinstance(output_layer, (nn.Sequential, OrderedDict)) and not isinstance(output_layer, Series):
-            output_layer = Series(output_layer)
+            self.__output_layer = Series(output_layer)
             warnings.warn('Output layer has been converted to a Series class instance.')
+        else:
+            self.__output_layer = output_layer
 
-        nn.Module.__init__(self)        
-        self.__input_layer = input_layer
-        self.__core = core
-        self.__output_layer = output_layer
-
-        # Check model nfft and alpha values
+        # Check model nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute('nfft')
-        self.alias_decay_db = self.__check_attribute('alias_decay_db', alias_decay_db)
+        self.alias_decay_db = self.__check_attribute('alias_decay_db')
+
+        # Check I/O compatibility
+        self.input_channels, self.output_channels = self.__check_io()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         r"""
@@ -379,21 +434,19 @@ class Shell(nn.Module):
         self.__core = core
 
     # ---------------------- Check methods ----------------------
-    def __check_attribute(self, attr: str, new_value: float=None) -> int | float:
+    def __check_attribute(self, attr: str) -> int | float:
         r"""
-        Check if all the modules in model, input layer, and output layer have the same value for the requested attribute.
-        If a new value is provided, it is assigned to all modules.
+        Check if all the modules in core, input layer, and output layer have the same value for the requested attribute.
 
             **Args**:
-                - attr (str): The attribute to check.
-                - new_value (float, optional): The new value to assign to the attribute. Default: None.
+                attr (str): The attribute to check.
             
             **Returns**:
                 int: The attribute value.
             
             **Raises**:
                 - ValueError: The core component does not possess the requested attribute.
-                - AssertionError: Core, input layer, and output layer must have the same value of the requested attribute.
+                - AssertionError: Core, input layer, and output layer do not have the same value of the requested attribute.
         """
 
         # Check that core, input layer, and output layer all possess the nfft attribute.
@@ -405,62 +458,57 @@ class Shell(nn.Module):
             assert getattr(self.__core, attr) == getattr(self.__output_layer, attr), f"Core and output layer must have the same {attr} value."
 
         # Get current value
-        current_value = getattr(self.__core, attr)
+        return getattr(self.__core, attr)
+    
+    def __check_io(self) -> tuple:
+        r"""
+        Checks if the input layer, the core, and the output layer have compatible input/output shapes.
 
-        # If new value is given, assign it to all modules that have a different value from it
-        if new_value is not None and new_value != current_value:
-            assert isinstance(new_value, (int, float)), "New value must be a int or float."
-            self.__change_attr_value('core', self.__core, attr, new_value)
-            if getattr(self.__input_layer, attr, None) is not None:
-                self.__change_attr_value('input layer', self.__input_layer, attr, new_value)
-            if getattr(self.__output_layer, attr, None) is not None:
-                self.__change_attr_value('output layer', self.__output_layer, attr, new_value)
+            **Returns**:
+                tuple(int,int): The number of input and output channels.
+
+            **Raises**:
+                ValueError: The core, the input layer, and the output layer are not I/O compatible.
+        """
+        # Check that core and input layer are I/O compatible
+        if getattr(self.__core, 'input_channels', None) is None:
+            raise ValueError(f"The core does not possess the attribute input_channels.")
+        if getattr(self.__input_layer, 'output_channels', None) is not None:
+            core_in_ch = getattr(self.__core, 'input_channels')
+            inlayer_out_ch = getattr(self.__input_layer, 'output_channels')
+            assert core_in_ch == inlayer_out_ch, f"The core should receive {core_in_ch} input channels, but {inlayer_out_ch} channels arrive from the input layer."
         
-        return new_value if new_value is not None else current_value
+        # Check that core and output layer are I/O compatible
+        if getattr(self.__core, 'output_channels', None) is None:
+            raise ValueError(f"The core does not possess the attribute output_channels.")
+        if getattr(self.__output_layer, 'input_channels', None) is not None:
+            core_out_ch = getattr(self.__core, 'output_channels')
+            outlayer_in_ch = getattr(self.__output_layer, 'input_channels')
+            assert core_out_ch == outlayer_in_ch, f"The core sends {core_out_ch} output channels, but the output layer can only receive {outlayer_in_ch} channels."
 
-    def __change_attr_value(self, layer_name: str, layer: nn.Module | Recursion | Series, attr: str, new_value: float) -> None:
-        """
-        Changes the value of a requested attribute in a given layer to a given value.
+        # Return the number of input and output channels
+        inlayer_in_ch = getattr(self.__input_layer, 'input_channels', None)
+        outlayer_out_ch = getattr(self.__output_layer, 'output_channels', None)
 
-            **Args**:
-                - layer_name (str): Name of the given layer.
-                - layer (nn.Module | Recursion | Series): Given layer.
-                - attr (float): Requested attribute value.
-                - new_value (float): New value to assign to the attribute.
-        """
-        warnings.warn(f"As of now, this method change only the given attribute, not the attributes and values that depends on it.")
+        if inlayer_in_ch is not None:
+            in_ch = inlayer_in_ch
+        else:
+            in_ch = getattr(self.__core, 'input_channels')
+        if outlayer_out_ch is not None:
+            out_ch = outlayer_out_ch
+        else:
+            out_ch = getattr(self.__core, 'output_channels')
 
-        if isinstance(layer, Series):
-            for module in layer:
-                if getattr(module, attr, None) is not None:
-                    setattr(module, attr, new_value)
-        elif isinstance(layer, Recursion):
-            if isinstance(layer.feedforward, Series):
-                for module in layer.feedforward:
-                    if getattr(module, attr, None) is not None:
-                        setattr(module, attr, new_value)
-            else:
-                if getattr(layer.feedforward, attr, None) is not None:
-                    setattr(layer.feedforward, attr, new_value)
-            if isinstance(layer.feedback, Series):
-                for module in layer.feedback:
-                    if getattr(module, attr, None) is not None:
-                        setattr(module, attr, new_value)
-            else:
-                if getattr(layer.feedback, attr, None) is not None:
-                    setattr(layer.feedback, attr, new_value)
-                
-        setattr(layer, attr, new_value)
-        warnings.warn(f"The value of the attribute {attr} in the {layer_name} has been modified to {new_value}.")
+        return in_ch, out_ch
 
     # ---------------------- Responses methods ----------------------
-    def get_time_response(self, fs: int=48000, interior: bool=False) -> torch.Tensor:
+    def get_time_response(self, fs: int=48000, identity: bool=False) -> torch.Tensor:
         r"""
         Generates the impulse response of the DSP.
 
             **Args**:
                 - fs (int, optional): Sampling frequency. Defaults to 48000.
-                - interior (bool, optional): If False, return the input-to-output impulse responses of the DSP.
+                - identity (bool, optional): If False, return the input-to-output impulse responses of the DSP.
                                         If True, return the input-free impulse responses of the DSP.
                                         Defaults to False.
                 
@@ -476,35 +524,26 @@ class Shell(nn.Module):
                 - torch.Tensor: Generated DSP impulse response.
         """
 
-        # get parameters from the model
-        if isinstance(self.__core, nn.Sequential):
-            nfft = self.__core[0].nfft
-            input_channels = self.__core[0].size[-1]
-            output_channels = self.__core[-1].size[-2]
-        else:
-            nfft = self.__core.nfft
-            input_channels = self.__core.size[-1]
-            output_channels = self.__core.size[-2]
-
         # contruct anti aliasing reconstruction envelope
         gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(-1, output_channels)
+        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(-1, self.output_channels)
+        
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
 
         # update input/output layers
-        self.set_inputLayer(FFT(nfft))
+        self.set_inputLayer(FFT(self.nfft))
         self.set_outputLayer(
             nn.Sequential(
-                iFFT(nfft),
-                Transform(lambda x: x*self.alias_envelope)))
+                iFFT(self.nfft),
+                Transform(lambda x: x*self.alias_envelope)
+            )
+        )
 
         # generate input signal
-        x = signal_gallery(
-            batch_size=1, n_samples=nfft, n=input_channels, signal_type="impulse", fs=fs
-        )
-        if interior:
+        x = signal_gallery( batch_size=1, n_samples=self.nfft, n=self.input_channels, signal_type="impulse", fs=fs )
+        if identity and self.input_channels > 1:
             x = x.diag_embed()
 
         # generate impulse response
@@ -517,14 +556,14 @@ class Shell(nn.Module):
 
         return y
     
-    def get_freq_response(self, fs: int=48000, interior: bool=False) -> torch.Tensor:
+    def get_freq_response(self, fs: int=48000, identity: bool=False) -> torch.Tensor:
 
         r"""
         Generates the frequency response of the DSP.
 
             **Args**:
                 - fs (int, optional): Sampling frequency. Defaults to 48000.
-                - interior (bool, optional): If False, return the input-to-output frequency responses of the DSP.
+                - identity (bool, optional): If False, return the input-to-output frequency responses of the DSP.
                                         If True, return the input-free frequency responses of the DSP.
                                         Defaults to False.
             
@@ -539,27 +578,18 @@ class Shell(nn.Module):
             **Returns**:
                 torch.Tensor: Generated DSP frequency response.
         """
-        # get parameters from the model
-        if isinstance(self.__core, nn.Sequential):
-            nfft = self.__core[0].nfft
-            input_channels = self.__core[0].size[-1]
-        else:
-            nfft = self.__core.nfft
-            input_channels = self.__core.size[-1]
 
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
 
         # update input/output layers
-        self.set_inputLayer(FFT(nfft))
-        self.set_outputLayer(nn.Identity())
+        self.set_inputLayer( FFT(self.nfft) )
+        self.set_outputLayer( nn.Identity() )
 
         # generate input signal
-        x = signal_gallery(
-            batch_size=1, n_samples=nfft, n=input_channels, signal_type="impulse", fs=fs
-        )
-        if interior:
+        x = signal_gallery( batch_size=1, n_samples=self.nfft, n=self.input_channels, signal_type="impulse", fs=fs )
+        if identity and self.input_channels > 1:
             x = x.diag_embed()
 
         # generate frequency response

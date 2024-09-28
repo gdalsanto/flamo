@@ -314,7 +314,7 @@ class Gain(DSP):
             **Args**:
                 x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
         """
-        if (self.size[-1]) != (x.shape[2]):
+        if (self.input_channels) != (x.shape[2]):
             raise ValueError(
                 f"parameter shape = {self.size} not compatible with input signal of shape = ({x.shape})."
             )
@@ -348,7 +348,15 @@ class Gain(DSP):
         This method checks the shape of the gain parameters and computes the frequency convolution function.
         """
         self.check_param_shape()
+        self.get_io()
         self.get_freq_convolve()
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
 
 
 class parallelGain(Gain):
@@ -404,6 +412,12 @@ class parallelGain(Gain):
             "n,bfn...->bfn...", to_complex(self.map(self.param)), x
         )
 
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
 
 # ============================= MATRICES ================================
 
@@ -484,6 +498,7 @@ class Matrix(Gain):
 
         """
         self.check_param_shape()
+        self.get_io()
         self.matrix_type = self.matrix_type
         self.matrix_gallery()
         self.get_freq_convolve()
@@ -579,7 +594,7 @@ class Filter(DSP):
             **Args**:
                 x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
         """
-        if (int(self.nfft / 2 + 1), self.size[-1]) != (x.shape[1], x.shape[2]):
+        if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
             raise ValueError(
                 f"parameter shape = {self.freq_response.shape} not compatible with input signal of shape = ({x.shape})."
             )
@@ -628,8 +643,16 @@ class Filter(DSP):
         and computes the frequency convolution function.
         """
         self.check_param_shape()
+        self.get_io()
         self.get_freq_response()
         self.get_freq_convolve()
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
 
 
 class parallelFilter(Filter):
@@ -687,6 +710,12 @@ class parallelFilter(Filter):
             "fn,bfn...->bfn...", self.freq_response, x
         )
 
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
 
 # ============================= DELAYS ================================
 
@@ -838,7 +867,7 @@ class Delay(DSP):
             **Args**:
                 x (torch.Tensor): The input signal.
         """
-        if (int(self.nfft / 2 + 1), self.size[-1]) != (x.shape[1], x.shape[2]):
+        if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
             raise ValueError(
                 f"parameter shape = {self.freq_response.shape} not compatible with input signal of shape = ({x.shape})."
             )
@@ -866,6 +895,7 @@ class Delay(DSP):
         This method checks the shape of the delay parameters, computes the frequency response, and initializes the frequency convolution function.
         """
         self.check_param_shape()
+        self.get_io()
         if self.requires_grad:
             if self.isint:
                 self.map = lambda x: nn.functional.softplus(x).round()
@@ -877,6 +907,12 @@ class Delay(DSP):
         self.get_freq_response()
         self.get_freq_convolve()
 
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
 
 class parallelDelay(Delay):
     """
@@ -940,3 +976,10 @@ class parallelDelay(Delay):
                 m.unsqueeze(0),
             )
         )
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
