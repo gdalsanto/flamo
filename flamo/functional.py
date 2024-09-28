@@ -65,3 +65,180 @@ def signal_gallery(
         case "reference":
             return reference.expand(batch_size, n_samples, n)
         
+def hertz2rad(hertz: torch.Tensor, fs):
+    r'''
+    Convert frequency from cycles per second to rad
+    .. math::
+        \omega = \frac{2\pi f}{f_s}
+    where :math:`f` is the frequency in Hz and :math:`f_s` is the sampling frequency in Hz.
+
+    **Args**:
+        - hertz (torch.Tensor): The frequency in Hz.
+        - fs (int): The sampling frequency in Hz.
+    '''
+    return torch.divide(hertz, fs)*2*torch.pi
+
+def rad2hertz(rad: torch.Tensor, fs):
+    r'''
+    Convert frequency from rad to cycles per second
+    .. math::
+        f = \frac{\omega f_s}{2\pi}
+    where :math:`\omega` is the frequency in rad and :math:`f_s` is the sampling frequency in Hz.
+
+    **Args**:
+        - rad (torch.Tensor): The frequency in rad.
+        - fs (int): The sampling frequency in Hz.
+    '''
+    return torch.divide(rad*fs, 2*torch.pi)
+
+def lowpass_filter(fc: float=500.0, gain:float=0.0, fs: int=48000) -> tuple:
+    r"""
+    Lowpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map 
+    the cutoff frequency and gain to the filter coefficients to the to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+    The transfer function of the filter is given by
+
+    .. math::
+        H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
+
+    for
+
+    .. math::
+        b_0 = \frac{1 - \cos(\omega_c)}{2},\;\; b_1 = 1 - \cos(\omega_c),\;\; b_2 = \frac{1 - \cos(\omega_c)}{2}
+
+    .. math::
+        a_0 = 1 + \alpha,\;\; a_1 = -2 \cos(\omega_c),\;\; a_2 = 1 - \alpha
+
+    where :math:`\omega_c = 2\pi f_c / f_s`, :math:`\alpha = \sin(\omega_c)/2 \cdot \sqrt{2}` and :math:`\cos(\omega_c)` is the cosine of the cutoff frequency.
+    The gain is applied to the filter coefficients as :math:`b = 10^{g_{\textrm{dB}}/20} b`.
+
+    **Args**:
+        - fc (float): The cutoff frequency of the filter in Hz. Default: 500 Hz.
+        - gain (float): The gain of the filter in dB. Default: 0 dB.
+        - fs (int): The sampling frequency of the signal in Hz. Default: 48000 Hz.
+
+    **Returns**:
+        - b (ndarray): The numerator coefficients of the filter transfer function.
+        - a (ndarray): The denominator coefficients of the filter transfer function.
+    """
+
+    omegaC = hertz2rad(fc, fs)
+    two = torch.tensor(2)
+    alpha = torch.sin(omegaC)/2 * torch.sqrt(two)
+    cosOC = torch.cos(omegaC)
+
+    a = torch.ones(3, *omegaC.shape)
+    b = torch.ones(3, *omegaC.shape)
+
+    b[0] = (1 - cosOC) / 2
+    b[1] = 1 - cosOC
+    b[2] = (1 - cosOC) / 2
+    a[0] = 1 + alpha
+    a[1] = - 2 * cosOC
+    a[2] = 1 - alpha
+
+    return 10**(gain/20)*b, a
+
+def highpass_filter(fc: float=10000.0, gain:float=0.0, fs: int=48000) -> tuple:
+    r"""
+    Highpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map 
+    the cutoff frequency and gain to the filter coefficients to the to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+
+    .. math::
+        H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
+
+    for
+
+    .. math::
+        b_0 = \frac{1 + \cos(\omega_c)}{2},\;\; b_1 = - 1 - \cos(\omega_c),\;\; b_2 = \frac{1 + \cos(\omega_c)}{2}
+
+    .. math::
+        a_0 = 1 + \alpha,\;\; a_1 = -2 \cos(\omega_c),\;\; a_2 = 1 - \alpha
+
+    where :math:`\omega_c = 2\pi f_c / f_s`, :math:`\alpha = \sin(\omega_c)/2 \cdot \sqrt{2}` and :math:`\cos(\omega_c)` is the cosine of the cutoff frequency.
+    The gain is applied to the filter coefficients as :math:`b = 10^{g_{\textrm{dB}}/20} b`.
+
+        **Args**:
+            - fc (float, optional): The cutoff frequency of the filter in Hz. Default: 10000 Hz.
+            - gain (float, optional): The gain of the filter in dB. Default: 0 dB.
+            - fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.
+
+        **Returns**:
+            - b (ndarray): The numerator coefficients of the filter transfer function.
+            - a (ndarray): The denominator coefficients of the filter transfer function.
+    """
+
+    omegaC = hertz2rad(fc, fs)
+    two = torch.tensor(2)
+    alpha = torch.sin(omegaC)/2 * torch.sqrt(two)
+    cosOC = torch.cos(omegaC)
+
+    a = torch.ones(3, *omegaC.shape)
+    b = torch.ones(3, *omegaC.shape)
+
+    b[0] = (1 + cosOC) / 2
+    b[1] = - (1 + cosOC)
+    b[2] = (1 + cosOC) / 2
+    a[0] = 1 + alpha
+    a[1] = - 2 * cosOC
+    a[2] = 1 - alpha
+
+    return 10**(gain/20)*b, a
+
+def bandpass_filter(fc1:torch.Tensor, fc2:torch.Tensor, gain:float=0.0, fs: int=48000) -> tuple:
+    r"""
+    Bandpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map 
+    the cutoff frequencies and gain to the filter coefficients to the to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+
+    .. math::
+        H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
+
+    for
+
+    .. math::
+        b_0 = \alpha,\;\; b_1 = 0,\;\; b_2 = - \alpha
+
+    .. math::
+        a_0 = 1 + \alpha,\;\; a_1 = -2 \cos(\omega_c),\;\; a_2 = 1 - \alpha
+
+    where 
+    
+    .. math::
+        \omega_c = \frac{2\pi f_{c1} + 2\pi f_{c2}}{2 f_s}`,
+
+    .. math::
+        \text{ BW } = \log_2\left(\frac{f_{c2}}{f_{c1}}\right), 
+
+    .. math::
+        \alpha = \sin(\omega_c) \sinh\left(\frac{\log(2)}{2} \text{ BW } \frac{\omega_c}{\sin(\omega_c)}\right)
+
+    The gain is applied to the filter coefficients as :math:`b = 10^{g_{\textrm{dB}}/20} b`.
+
+        **Args**:
+            - fc1 (float): The left cutoff frequency of the filter in Hz. 
+            - fc2 (float): The right cutoff frequency of the filter in Hz. 
+            - gain (float, optional): The gain of the filter in dB. Default: 0 dB.
+            - fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.
+
+        **Returns**:
+            - b (ndarray): The numerator coefficients of the filter transfer function.
+            - a (ndarray): The denominator coefficients of the filter transfer function.
+    """
+
+    omegaC = (hertz2rad(fc1, fs) + hertz2rad(fc2, fs)) / 2
+    BW = torch.log2(fc2/fc1)
+    two = torch.tensor(2)
+    alpha = torch.sin(omegaC) * torch.sinh(torch.log(two) / two * BW * (omegaC / torch.sin(omegaC)))
+
+    cosOC = torch.cos(omegaC)
+
+    a = torch.ones(3, *omegaC.shape)
+    b = torch.ones(3, *omegaC.shape)
+
+    b[0] = alpha
+    b[1] = 0
+    b[2] = - alpha
+    a[0] = 1 + alpha
+    a[1] = - 2 * cosOC
+    a[2] = 1 - alpha
+
+    return 10**(gain/20)*b, a
