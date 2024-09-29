@@ -480,7 +480,7 @@ class Shell(nn.Module):
         if isinstance(self.__core, nn.Sequential):
             nfft = self.__core[0].nfft
             input_channels = self.__core[0].size[-1]
-            output_channels = self.__core[-1].size[-2]
+            output_channels = self.__core[-1].size[-2]  # TODO this is gonna break with parallel classes - will be fixed when we have get_io implemented 
         else:
             nfft = self.__core.nfft
             input_channels = self.__core.size[-1]
