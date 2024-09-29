@@ -11,7 +11,7 @@ from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
 from flamo.functional import signal_gallery, svf
 
-torch.manual_seed(130709)
+torch.manual_seed(130711)
 
 def example_svf(args):
     """
@@ -57,6 +57,92 @@ def example_svf(args):
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
     input = signal_gallery(1, n_samples=args.nfft, n=in_ch, signal_type='impulse', fs=args.samplerate)
     target = torch.einsum('...i,...ij->...j', input_layer(input), target_filter)
+
+    dataset = Dataset(
+        input=input,
+        target=torch.abs(target),
+        expand=args.num,
+        device=args.device,
+    )
+    train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
+
+    # Initialize training process
+    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, step_size=25, device=args.device, train_dir=args.train_dir, patience_delta=1e-5)
+    trainer.register_criterion(nn.MSELoss(), 1)
+
+    ## ---------------- TRAIN ---------------- ##
+
+    # Train the model
+    trainer.train(train_loader, valid_loader)
+
+    estimation = model.get_freq_response()
+
+    # plot magniture response of target and estimated filter
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+
+    ax1.plot(torch.abs(target[0, :, 0]).detach().numpy(), label='Target')
+    ax1.plot(torch.abs(estimation_init[0, :, 0]).detach().numpy(), label='Estimation Init')
+    ax1.plot(torch.abs(estimation[0, :, 0]).detach().numpy(), '--', label='Estimation')
+    ax1.set_title('Magnitude Response')
+    ax1.set_xlabel('Frequency')
+    ax1.set_ylabel('Magnitude')
+    ax1.legend()
+
+    ax2.plot(torch.abs(target[0, :, 1]).detach().numpy(), label='Target')
+    ax2.plot(torch.abs(estimation_init[0, :, 1]).detach().numpy(), label='Estimation Init')
+    ax2.plot(torch.abs(estimation[0, :, 1]).detach().numpy(), '--', label='Estimation')
+    ax2.set_title('Magnitude Response')
+    ax2.set_xlabel('Frequency')
+    ax2.set_ylabel('Magnitude')
+    ax2.legend()
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(args.train_dir, 'magnitude_response.png'))
+
+def example_parallel_svf(args):
+    """
+    Example function that demonstrates the training of biquad coefficents.
+    Args:
+        args: A dictionary or object containing the necessary arguments for the function.
+    Returns:
+        None
+    """
+    ch = 2
+    n_sections = 2
+    filter_type = None
+    ## ---------------- TARGET ---------------- ##
+    b, a = svf(
+        fc=torch.tensor(args.samplerate//2)*torch.rand(size=(n_sections, ch)), 
+        R=torch.rand(size=(n_sections, ch)),
+        filter_type=filter_type, 
+        fs=args.samplerate)
+    B = torch.fft.rfft(b, args.nfft, dim=0)
+    A = torch.fft.rfft(a, args.nfft, dim=0)
+    target_filter = torch.prod(B, dim=1) / torch.prod(A, dim=1)
+
+    ## ---------------- CONSTRUCT FDN ---------------- ##
+
+    # create another instance of the model 
+    filt = dsp.parallelSVF(
+        size=(ch, ), 
+        n_sections=n_sections,
+        f_min=20,
+        f_max=args.samplerate//2,
+        filter_type=filter_type,
+        nfft=args.nfft, 
+        fs=args.samplerate,
+        requires_grad=True,
+        alias_decay_db=0,
+    )   
+    # Create the model with Shell
+    input_layer = dsp.FFT(args.nfft)
+    output_layer = dsp.Transform(transform=lambda x : torch.abs(x))
+    model = system.Shell(core=filt, input_layer=input_layer, output_layer=output_layer)    
+    estimation_init = model.get_freq_response()
+
+    ## ---------------- OPTIMIZATION SET UP ---------------- ##
+    input = signal_gallery(1, n_samples=args.nfft, n=ch, signal_type='impulse', fs=args.samplerate)
+    target = torch.einsum('...i,...i->...i', input_layer(input), target_filter)
 
     dataset = Dataset(
         input=input,

@@ -953,8 +953,17 @@ class SVF(Filter):
     The filter coefficients are parameterized by the cut-off frequency (:math:`f`) and resonance (:math:`R`) parameters.
     The mixing coefficients (:math:`m_{LP}`, :math:`m_{BP}`, :math:`m_{HP}`  for lowpass, bandpass, and highpass filters) determine the contribution of each filter type in the cascaded structure.
 
-    TODO: add eq
-    
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(P, K,  N_{out}, N_{in})`
+        - freq_response: :math:`(M,  N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
+    The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of SVF parameters (5), the second dimension corresponds to the number of filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).    
+
     SVF parameters are used to express biquad filters as follows:
 
     .. math::
@@ -1026,7 +1035,6 @@ class SVF(Filter):
                         (torch.arange(1, self.n_sections + 1, 1) - 1)
                         / (self.n_sections - 1))) / self.fs)
         self.f_min, self.f_max = f_min, f_max
-        self.freq_response = to_complex(torch.empty((nfft // 2 + 1, *size)))
         assert filter_type in [
             "lowpass",
             "highpass",
@@ -1053,7 +1061,7 @@ class SVF(Filter):
     def check_param_shape(self):
         assert (
             len(self.size) == 4
-        ), "Filter parameter space must be 4D, for 3D (parallel) filters use ParallelSVF module."
+        ), "Filter parameter space must be 4D, for 3D (parallel) filters use parallelSVF module."
 
     def check_input_shape(self, x):
         r"""
@@ -1221,6 +1229,97 @@ class SVF(Filter):
 
 
 
+class parallelSVF(SVF):
+    r"""
+    Parallel counterpart of the :class:`SVF` class.
+    For information about **attributes** and **methods** see :class:`flamo.processor.dsp.SVF`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(P, K, N)`
+        - freq_response: :math:`(M, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    and :math:`N` is the number of input/output channels.
+    The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of SVF parameters (5), the second dimension corresponds to the number of filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).   
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, ),
+        n_sections: int = 1,
+        f_min: int = 40,
+        f_max: int = 22000,
+        filter_type: str = None,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad: bool = True,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            n_sections=n_sections,
+            f_min=f_min,
+            f_max=f_max,
+            filter_type=filter_type,
+            nfft=nfft,
+            fs=fs,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+        
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 3
+        ), "Filter parameter space must be 3D, for 4D filters use SVF module."
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        """
+        f, R, mLP, mBP, mHP = self.map(self.param)
+        b = torch.zeros((3, *f.shape))
+        a = torch.zeros((3, *f.shape))
+
+        b[0] = (f**2) * mLP + f * mBP + mHP
+        b[1] = 2 * (f**2) * mLP - 2 * mHP
+        b[2] = (f**2) * mLP - f * mBP + mHP
+
+        a[0] = (f**2) + 2 * R * f + 1
+        a[1] = 2 * (f**2) - 2
+        a[2] = (f**2) - 2 * R * f + 1
+
+        # apply anti-aliasing
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1) + torch.tensor(1e-12))
+
+    def param2freq(self, param):
+        r"""
+        Applies a sigmoid function to the parameter value and maps it to the range [0, fs/2],
+        where :math:`f_s` is the sampling frequency according to the formula:
+
+        .. math::
+            f = \tan(\pi \cdot \text{sigmoid}(x + \log(\frac{f_{c}}{1 - f_{c}}))).
+
+        """
+        map_bias = lambda x: torch.log(x / (1 - x))
+        return torch.tan(
+            torch.pi
+            * F.sigmoid(
+                param + map_bias(self.c_freqs.unsqueeze(-1).expand(-1, param.shape[1]))
+            )  # /2 removed becuase we want to allow the full range of frequencies [0, fs/2]
+        )
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response, x
+        )
+    
 # ============================= DELAYS ================================
 
 
