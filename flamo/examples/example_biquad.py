@@ -22,11 +22,11 @@ def example_biquad(args):
         None
     """
     in_ch, out_ch = 1, 2
-    n_filters = 2
+    n_sections = 2
     ## ---------------- TARGET ---------------- ##
     b, a = highpass_filter(
-        fc=torch.randint(0, args.samplerate//2, size=(n_filters, in_ch, out_ch)), 
-        gain=torch.randint(-1, 1, size=(n_filters, in_ch, out_ch)), 
+        fc=torch.tensor(args.samplerate//2)*torch.rand(size=(n_sections, in_ch, out_ch)), 
+        gain=torch.tensor(-1) + (torch.tensor(2))*torch.rand(size=(n_sections, in_ch, out_ch)), 
         fs=args.samplerate)
     B = torch.fft.rfft(b, args.nfft, dim=0)
     A = torch.fft.rfft(a, args.nfft, dim=0)
@@ -37,7 +37,7 @@ def example_biquad(args):
     # create another instance of the model 
     filt = dsp.Biquad(
         size=(out_ch, in_ch), 
-        n_filters=n_filters,
+        n_sections=n_sections,
         filter_type='highpass',
         nfft=args.nfft, 
         fs=args.samplerate,
