@@ -242,3 +242,92 @@ def bandpass_filter(fc1:torch.Tensor, fc2:torch.Tensor, gain:float=0.0, fs: int=
     a[2] = 1 - alpha
 
     return 10**(gain/20)*b, a
+
+def sosfreqz(sos: torch.Tensor, nfft: int = 512):
+    """
+    Compute the complex frequency response via FFT of cascade of biquads
+
+        **Args**:
+            - sos (torch.Tensor): Second order filter sections with shape (n_sections, 6)
+            - nfft (int): FFT size. Default: 512
+
+        **Returns**:
+            - H (torch.Tensor): Overall complex frequency response with shape (bs, n_bins)
+    """
+    n_sections, n_coeffs = sos.size()
+    assert n_coeffs == 6  # must be second order
+
+    B = torch.fft.rfft(sos[:, :3], nfft, dim=-1)
+    A = torch.fft.rfft(sos[:, 3:], nfft, dim=-1)
+    H = torch.prod(B, dim=0) / (torch.prod(A, dim=0) + torch.tensor(1e-12))
+    return H
+
+def svf(fc: torch.Tensor, R: torch.Tensor, m: torch.Tensor = torch.ones((3,)), G: torch.Tensor=None, filter_type=None, fs: int=48000):
+    r"""
+    Implements a State Variable Filter (SVF) with various filter types.
+
+        **Args**:
+            fc (torch.Tensor): The cutoff frequency of the filter.
+            R (torch.Tensor): The resonance parameter of the filter.
+            m (torch.Tensor, optional): The mixing coefficients of the filter. Default: torch.ones((3,)).
+            G (torch.Tensor, optional): The gain coefficients of the filter. Default: None.
+            filter_type (str, optional): The type of filter to be applied. Can be one of "lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "peaking", "notch", or None. Default: None.
+            fs (int, optional): The sampling frequency. Default: 48000.
+        
+        **Returns**:
+            Tuple[torch.Tensor, torch.Tensor]: The numerator and denominator coefficients of the filter transfer function.
+
+    """
+    
+    f = torch.tan(torch.pi * fc/fs)
+    assert (R > 0).any(), "Resonance must be positive to ensure stability"
+
+    if G is None:
+        G = torch.ones_like(f)
+
+    match filter_type:
+        case "lowpass":
+            m = torch.cat(
+                ((torch.ones_like(G)).unsqueeze(-1),
+                 (torch.zeros_like(G)).unsqueeze(-1),
+                 torch.zeros_like(G).unsqueeze(-1),),dim=-1,)
+        case "highpass":
+            m = torch.cat(
+                ((torch.zeros_like(G)).unsqueeze(-1),
+                 (torch.zeros_like(G)).unsqueeze(-1),
+                 torch.ones_like(G).unsqueeze(-1),),dim=-1,)
+        case "bandpass":
+            m = torch.cat(
+                ((torch.zeros_like(G)).unsqueeze(-1),
+                 (torch.ones_like(G)).unsqueeze(-1),
+                 torch.zeros_like(G).unsqueeze(-1),),dim=-1,)
+        case "lowshelf":
+            m = torch.cat(
+                ((torch.ones_like(G)).unsqueeze(-1),
+                 (2 * R * torch.sqrt(G)).unsqueeze(-1),
+                 (G * torch.ones_like(G)).unsqueeze(-1),),dim=-1,)
+        case "highshelf":
+            m = torch.cat(
+                ((G * torch.ones_like(G)).unsqueeze(-1),
+                 (2 * R * torch.sqrt(G)).unsqueeze(-1),
+                 (torch.ones_like(G)).unsqueeze(-1),),dim=-1,)
+        case "peaking" | "notch":
+            m = torch.cat(
+                ((torch.ones_like(G)).unsqueeze(-1),
+                 (2 * R * torch.sqrt(G)).unsqueeze(-1),
+                 (torch.ones_like(G)).unsqueeze(-1),),dim=-1,)
+        case None:
+            print("No filter type specified. Using the given mixing coefficents.")
+
+    b = torch.zeros((3, *f.shape))
+    a = torch.zeros((3, *f.shape))
+
+    b[0] = (f**2) * m[...,0] + f * m[...,1] + m[...,2]
+    b[1] = 2 * (f**2) * m[...,0] - 2 * m[...,2]
+    b[2] = (f**2) * m[...,0] - f * m[...,1] + m[...,2]
+
+    a[0] = (f**2) + 2 * R * f + 1
+    a[1] = 2 * (f**2) - 2
+    a[2] = (f**2) - 2 * R * f + 1
+
+    return b, a
