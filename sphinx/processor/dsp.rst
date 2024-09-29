@@ -26,3 +26,9 @@
 
 .. autoclass:: flamo.processor.dsp.Biquad
    :members:
+
+.. autoclass:: flamo.processor.dsp.parallelBiquad
+   :members:
+
+.. autoclass:: flamo.processor.dsp.SVF
+   :members:
