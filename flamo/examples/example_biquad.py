@@ -32,7 +32,7 @@ def example_biquad(args):
     A = torch.fft.rfft(a, args.nfft, dim=0)
     target_filter = torch.prod(B, dim=1) / torch.prod(A, dim=1)
 
-    ## ---------------- CONSTRUCT FDN ---------------- ##
+    ## ---------------- CONSTRUCT BIQUAD ---------------- ##
 
     # create another instance of the model 
     filt = dsp.Biquad(
@@ -114,7 +114,7 @@ def example_parallel_biquad(args):
     A = torch.fft.rfft(a, args.nfft, dim=0)
     target_filter = torch.prod(B, dim=1) / torch.prod(A, dim=1)
 
-    ## ---------------- CONSTRUCT FDN ---------------- ##
+    ## ---------------- CONSTRUCT BIQUAD ---------------- ##
 
     # create another instance of the model 
     filt = dsp.parallelBiquad(
