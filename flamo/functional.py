@@ -91,6 +91,36 @@ def rad2hertz(rad: torch.Tensor, fs):
     '''
     return torch.divide(rad*fs, 2*torch.pi)
 
+def db2mag(db):
+    r"""
+    Convert a value from decibels (dB) to magnitude.
+    .. math::
+        \text{magnitude} = 10^{db/20}
+    where :math:`db` is the input value in decibels.
+
+    **Args**:
+        - db (float): The value in decibels.
+    **Returns**:
+        - float: The corresponding magnitude value.
+    """
+
+    return 10**(db/20)
+
+def mag2db(mag):
+    r"""
+    Convert a value from magnitude to decibels (dB).
+    .. math::
+        \text{dB} = 20\log_{10}(\text{magnitude})
+    where :math:`\text{magnitude}` is the input value in magnitude.
+
+    **Args**:
+        - mag (float): The value in magnitude.
+    **Returns**:
+        - float: The corresponding value in decibels.
+    """
+
+    return 20*torch.log10(torch.abs(mag))
+
 def lowpass_filter(fc: float=500.0, gain:float=0.0, fs: int=48000) -> tuple:
     r"""
     Lowpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map 
@@ -331,3 +361,4 @@ def svf(fc: torch.Tensor, R: torch.Tensor, m: torch.Tensor = torch.ones((3,)), G
     a[2] = (f**2) - 2 * R * f + 1
 
     return b, a
+
