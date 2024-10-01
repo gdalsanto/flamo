@@ -15,7 +15,7 @@ torch.manual_seed(130711)
 
 def example_svf(args):
     """
-    Example function that demonstrates the training of biquad coefficents.
+    Example function that demonstrates the training of SVF parameters.
     Args:
         args: A dictionary or object containing the necessary arguments for the function.
     Returns:
@@ -101,7 +101,7 @@ def example_svf(args):
 
 def example_parallel_svf(args):
     """
-    Example function that demonstrates the training of biquad coefficents.
+    Example function that demonstrates the training of SVF parameters.
     Args:
         args: A dictionary or object containing the necessary arguments for the function.
     Returns:
