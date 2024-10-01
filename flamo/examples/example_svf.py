@@ -26,8 +26,8 @@ def example_svf(args):
     filter_type = None
     ## ---------------- TARGET ---------------- ##
     b, a = svf(
-        fc=torch.tensor(args.samplerate//2)*torch.rand(size=(n_sections, in_ch, out_ch)), 
-        R=torch.rand(size=(n_sections, in_ch, out_ch)),
+        fc=torch.tensor(args.samplerate//2)*torch.rand(size=(n_sections, out_ch, in_ch)), 
+        R=torch.rand(size=(n_sections, out_ch, in_ch)),
         filter_type=filter_type, 
         fs=args.samplerate)
     B = torch.fft.rfft(b, args.nfft, dim=0)
@@ -56,7 +56,7 @@ def example_svf(args):
 
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
     input = signal_gallery(1, n_samples=args.nfft, n=in_ch, signal_type='impulse', fs=args.samplerate)
-    target = torch.einsum('...i,...ij->...j', input_layer(input), target_filter)
+    target = torch.einsum('...ji,...i->...j', target_filter, input_layer(input))
 
     dataset = Dataset(
         input=input,
