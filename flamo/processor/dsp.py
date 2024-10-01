@@ -1334,9 +1334,14 @@ class GEQ(Filter):
 
     Shape:
         - input: :math:`(B, M, N_{in}, ...)`
-        - param: :math:`(P, K, N_{out}, N_{in})`
+        - param: :math:`(K, N_{out}, N_{in})`
         - freq_response: :math:`(M,  N_{out}, N_{in})`
         - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins, 
+    :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
+    The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).   
 
         **Args**:
             - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
@@ -1410,8 +1415,8 @@ class GEQ(Filter):
         Infer the second order sections from the center frequencies and compute the frequency response.
         """
         param = self.map(self.param)
-        a = torch.zeros((3, self.size[0], *self.size[1:]))
-        b = torch.zeros((3, self.size[0], *self.size[1:]))
+        a = torch.zeros((3, *self.size))
+        b = torch.zeros((3, *self.size))
         R = torch.tensor(2.7)
         for m_i in range(self.size[-2]):
             for n_i in range(self.size[-1]):
@@ -1440,6 +1445,75 @@ class GEQ(Filter):
         self.get_freq_convolve()
 
 
+class parallelGEQ(GEQ):
+    r"""
+    Parallel counterpart of the :class:`GEQ` class
+    For information about **attributes** and **methods** see :class:`flamo.processor.dsp.GEQ`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(P, N)`
+        - freq_response: :math:`(M, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins, and :math:`N` is the number of input/output channels.
+    The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).   
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, ),
+        octave_interval: int = 1,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map=lambda x: 20*torch.log10(x),
+        requires_grad: bool = True,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            octave_interval=octave_interval,
+            nfft=nfft,
+            fs=fs,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 2
+        ), "Filter must be 2D, for 3D filters use GEQ module."
+
+    def get_freq_response(self):
+        """
+        Infer the second order sections from the center frequencies and compute the frequency response.
+        """
+        param = self.map(self.param)
+        a = torch.zeros((3, *self.size))
+        b = torch.zeros((3, *self.size))
+        R = torch.tensor(2.7)
+        for n_i in range(self.size[-1]):
+                a[:, :, n_i], b[:, :, n_i] = geq(
+                    center_freq=self.center_freq,
+                    shelving_freq=self.shelving_crossover,
+                    R=R,
+                    gain_db=param[:, n_i],
+                    fs=self.fs,
+                )
+         
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response, x
+        )
 # ============================= DELAYS ================================
 
 
