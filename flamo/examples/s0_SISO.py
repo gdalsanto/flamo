@@ -36,8 +36,8 @@ def s0_e0() -> None:
 
     # ------------------------ Plot -------------------------
     plt.figure()
-    plt.plot(x.squeeze().cpu().numpy(), label='Input')
-    plt.plot(y.squeeze().cpu().numpy(), '-.', label='Output')
+    plt.plot(x.squeeze().cpu().numpy(), label='Input', linewidth=2)
+    plt.plot(y.squeeze().cpu().numpy(), '--', label='Output', linewidth=2)
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
@@ -56,9 +56,8 @@ def s0_e1() -> None:
     nfft = 2**10
 
     # ------------------- DSP Definition --------------------
-    in_ch = 1
-    out_ch = 1
-    filter = dsp.Gain(size=(out_ch, in_ch), nfft=nfft)
+    channels = 1
+    filter = dsp.parallelGain(size=(channels,), nfft=nfft)
     input_layer = dsp.FFT(nfft=nfft)
     output_layer = dsp.iFFT(nfft=nfft)
 
@@ -67,7 +66,7 @@ def s0_e1() -> None:
     # -------------- Apply unit impulse to DSP --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='sine', batch_size=1, n_samples=nfft, n=in_ch, fs=samplerate)
+    input_sig = signal_gallery(signal_type='sine', batch_size=1, n_samples=nfft, n=channels, fs=samplerate)
 
     # Apply filter
     output_sig = my_dsp(input_sig)
@@ -75,7 +74,7 @@ def s0_e1() -> None:
     # ------------------------ Plot -------------------------
     plt.figure()
     plt.plot(input_sig.squeeze().cpu().numpy(), label='Input')
-    plt.plot(output_sig.squeeze().cpu().numpy(), label='Output')
+    plt.plot(output_sig.squeeze().cpu().numpy(), label=f'Output - filter gain = {filter.param.item():.2f}')
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
@@ -111,6 +110,7 @@ def s0_e2() -> None:
     output_init = my_dsp(input_sig)
 
     # Change filter parameters
+    prev_value = filter.param.item()
     new_value = torch.tensor(-2.0)
     filter.assign_value(new_value.view(1,1).expand(out_ch, in_ch))
 
@@ -119,8 +119,8 @@ def s0_e2() -> None:
 
     # ------------------------ Plot ------------------------
     plt.figure()
-    plt.plot(output_init.squeeze().cpu().numpy(), label='With original gain value')
-    plt.plot(output_after.squeeze().cpu().numpy(), label=f'With new gain value = {new_value.item()}')
+    plt.plot(output_init.squeeze().cpu().numpy(), label=f'With original gain value = {prev_value:.2f}')
+    plt.plot(output_after.squeeze().cpu().numpy(), label=f'With new gain value = {new_value.item():.2f}')
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
@@ -133,6 +133,7 @@ def s0_e2() -> None:
 def s0_e3(args) -> None:
     """
     Filter training.
+    The filter coefficients will match a sine wave.
     """
     # -------------- Time-frequency parameters --------------
     samplerate = 48000
@@ -189,9 +190,9 @@ def s0_e3(args) -> None:
     # ----------------------- Plot -------------------------
 
     plt.figure()
-    plt.plot(ir_init.squeeze().numpy(), label='Initial')
+    plt.plot(ir_init.squeeze().numpy(), label='Initial', linewidth=0.5)
     plt.plot(ir_optim.squeeze().numpy(), label='Optimized', linewidth=2)
-    plt.plot(target.squeeze().numpy(), '-.', label='Target', linewidth=2)
+    plt.plot(target.squeeze().numpy(), '--', label='Target', linewidth=2)
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
@@ -234,7 +235,7 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    s0_e0()
+    # s0_e0()
     # s0_e1()
     # s0_e2()
-    # s0_e3(args)
+    s0_e3(args)

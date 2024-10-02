@@ -29,7 +29,7 @@ def s2_e0():
     in_ch = 1
     out_ch = 1
     filter1 = dsp.parallelGain(
-        size=(in_ch),
+        size=(in_ch,),
         nfft=nfft
     )
     filter2 = dsp.Delay(
@@ -58,6 +58,7 @@ def s2_e0():
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
+    plt.title(f'parallelGain = {filter1.param.item():.2f} - Delay = {filter2.s2sample(filter2.param.item()):.2f} samples')
     plt.tight_layout()
     plt.show()
 
@@ -119,9 +120,9 @@ def s2_e2():
     """
     Each time we instantiate a Gain class, its parameters are drawn from a normal distribution.
     Each time we instantiate a Delay class, its parameters are drawn from a uniform distribution.
-    Different classes has different default initialization methods.
+    Different classes have different default initialization methods.
     We can easily take control of their parameters as we did in the example s0_e2.
-    It is important to give the new parameters in the correct shape.
+    It is important to provide the new parameters with the correct shape.
     """
     # -------------- Time-frequency parameters --------------
     samplerate = 48000
@@ -147,8 +148,8 @@ def s2_e2():
     my_dsp = nn.Sequential(input_layer, filter1, filter2, output_layer)
 
     # ----------------- Change parameters -------------------
-    new_gains = torch.tensor([2.0,
-                              0.7])
+    new_gains = torch.tensor([0.5,
+                              -1.0])
     filter1.assign_value(new_gains)
 
     print(filter2.s2sample(filter2.param))
@@ -184,6 +185,101 @@ def s2_e2():
     return None
 
 def s2_e3(args):
+    """
+    Thanks to the requires_grad attribute, we can decide which filters to train and which not to.
+    """
+    # -------------- Time-frequency parameters --------------
+    samplerate = 48000
+    nfft = 2**10
+
+    # ------------------- DSP Definition --------------------
+    in_ch = 2
+    out_ch = 3
+    filter1 = dsp.parallelGain(
+        size=(in_ch,),
+        nfft=nfft,
+        requires_grad=True
+    )
+    filter2 = dsp.Delay(
+        size=(out_ch, in_ch),
+        max_len=1000,
+        isint=True,
+        nfft=nfft,
+        fs=samplerate,
+    )
+    input_layer = dsp.FFT(nfft=nfft)
+    output_layer = dsp.iFFT(nfft=nfft)
+
+    model = nn.Sequential(input_layer, filter1, filter2, output_layer)
+
+    # ----------------- Initialize dataset ------------------
+
+    # Input unit impulse
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=samplerate, n=in_ch, fs=samplerate)
+
+    # Target
+    target_gains = [0.5, -1.0]
+    target_delays = filter2.s2sample(filter2.param)
+    target = torch.zeros(nfft, out_ch)
+    for i in range(out_ch):
+        for j in range(in_ch):
+            target[int(target_delays[i,j].item()), i] = target_gains[j]
+    
+
+    # Dataset
+    dataset = Dataset(
+        input=unit_imp,
+        target=target.unsqueeze(0),
+        expand=args.num,
+        device=args.device
+        )
+    train_loader, valid_loader  = load_dataset(dataset, batch_size=args.batch_size, split=args.split)
+
+    # ------------ Initialize training process ------------
+    criterion = nn.L1Loss()
+    trainer = Trainer(
+        net=model,
+        max_epochs=args.max_epochs,
+        lr=args.lr,
+        train_dir=args.train_dir,
+        device=args.device
+    )
+    trainer.register_criterion(criterion, 1)
+
+    # ------------------ Train the model ------------------
+
+    # Filter impulse response at initialization
+    with torch.no_grad():
+        ir_init = model(unit_imp).detach().clone()
+
+    # Train stage
+    trainer.train(train_loader, valid_loader)
+
+    # Filter impulse response after training
+    with torch.no_grad():
+        ir_optim = model(unit_imp).detach().clone()
+
+    # ----------------------- Plot --------------------------
+    plt.figure()
+    for i in range(out_ch):
+        plt.subplot(out_ch, 1, i+1)
+        plt.plot(ir_init.squeeze()[:,i].numpy(), label='Initial')
+        plt.plot(ir_optim.squeeze()[:,i].numpy(), label='Optimized')
+        plt.plot(target.squeeze()[:,i].numpy(), '--', label='Target')
+        plt.xlabel('Samples')
+        plt.ylabel('Amplitude')
+        plt.grid()
+        plt.title(f'Output channel {i+1}')
+    plt.subplot(out_ch, 1, 1)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    return None
+
+def erroneous_test(args):
+    raise NotImplementedError
+    # NOTE: Currently, Delay class does not learn as expected.
     """
     Thanks to the requires_grad attribute, we can decide which filters to train and which not to.
     """

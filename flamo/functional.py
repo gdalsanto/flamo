@@ -3,6 +3,36 @@ import numpy as np
 import scipy.signal
 from flamo.utils import RegularGridInterpolator
 
+def get_magnitude(x):
+    r"""
+    Gets the magnitude of a complex tensor.
+
+        **Args**:
+            x (torch.tensor): The input tensor.
+
+        **Returns**:
+            torch.tensor: The magnitude of x.
+    """
+    # get the magnitude of a complex tensor
+    return torch.abs(x)
+
+def get_eigenvalues(x: torch.Tensor):
+    r"""
+    Gets the eigenvalues of a complex tensor.
+    The last two dimensions of the input tensor must be identical.
+
+        **Args**:
+            x (torch.tensor): The input tensor.
+
+        **Returns**:
+            torch.tensor: The eigenvalues of x.
+    """
+    assert(x.shape[-1] == x.shape[-2])
+    if x.shape[-1] == 1:
+        return x
+    
+    return torch.linalg.eigvals(x)
+
 def skew_matrix(X):
     r"""
     Generate a skew symmetric matrix from a given matrix X.
@@ -37,6 +67,10 @@ def biquad2tf(b, a, nfft):
     **Returns**:
         - torch.Tensor: Transfer function of the biquad filter evaluated at x.
     """
+    if len(b.shape) < 2:
+        b = b.unsqueeze(-1)
+    if len(a.shape) < 2:
+        a = a.unsqueeze(-1)
     B = torch.fft.rfft(b, nfft, dim=0)
     A = torch.fft.rfft(a, nfft, dim=0)
     H = torch.prod(B, dim=1) / (torch.prod(A, dim=1) + torch.tensor(1e-10))

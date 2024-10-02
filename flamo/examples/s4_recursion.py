@@ -7,64 +7,43 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 
-from fddsp.modules import (
-    Transform,
-    FFT,
-    iFFT,
-    parallelGain,
-    Filter,
-    Delay,
-    Series,
-    Recursion,
-)
-from fddsp.dsp import (
-    Matrix,
-)
-from fddsp.filters.functional import (
-    mag2db,
-)
-from fddsp.functional import (
-    get_magnitude,
-    signal_gallery,
-)
-from fddsp.utils.dataset import (
-    Dataset_Colorless,
-    load_dataset
-)
-from fddsp.utils.trainer import Trainer
+from flamo.processor import dsp, system
+from flamo.functional import mag2db, signal_gallery
+from flamo.optimize.dataset import DatasetColorless, load_dataset
+from flamo.optimize.trainer import Trainer
+from flamo.optimize.loss import mse_loss, sparsity_loss
+
 
 
 torch.manual_seed(1)
 
 
-def s3_e0():
+def s4_e0():
     """
     In this section we introduce the Recursion class.
     It implements a close-loop system with a feedforward path and a feedback path.
-    The Recursion class, just as the Series class, is a container for modules. It does not create change any attribute
-    in the modules it contains, but it checks that they are compatible.
+    The Recursion class, just as the Series class, is a container for modules.
+    It does not change any attribute in the modules it contains, but it checks compatibility.
     """
 
     # -------------- Time-frequency parameters --------------
     samplerate = 48000
-    nfft = 96000
+    nfft = 48000
 
     # ------------------- DSP Definition --------------------
     in_ch = 3
     out_ch = 3
     # Feedforward path
-    delays = Delay(
+    delays = dsp.Delay(
         size=(out_ch, in_ch),
         max_len=5000,
         isint=True,
         nfft=nfft,
-        fs=samplerate,
-        requires_grad=False
+        fs=samplerate
     )
-    attenuation = parallelGain(
+    attenuation = dsp.parallelGain(
         size=(out_ch,),
-        nfft=nfft,
-        requires_grad=False
+        nfft=nfft
     )
     rand_vector = torch.rand(attenuation.param.shape)
     attenuation.assign_value(0.3*rand_vector/torch.norm(rand_vector, p=2))
@@ -74,25 +53,24 @@ def s3_e0():
     })
 
     # Feedback path
-    feedback_matrix = Matrix(
+    feedback_matrix = dsp.Matrix(
         size=(in_ch, out_ch),
         matrix_type='orthogonal',
-        nfft=nfft,
-        requires_grad=False
+        nfft=nfft
     )
 
     feedback_path = OrderedDict({
-        'attenuation': feedback_matrix
+        'feedback_matrix': feedback_matrix
     })
 
     # Recursion
-    recursion = Recursion(fF=feedforward_path, fB=feedback_path)
+    recursion = system.Recursion(fF=feedforward_path, fB=feedback_path)
 
     # Input and output layers
-    input_layer = FFT(nfft=nfft)
-    output_layer = iFFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=nfft)
+    output_layer = dsp.iFFT(nfft=nfft)
 
-    dsp = Series(
+    my_dsp = system.Series(
         OrderedDict({
             'input_layer': input_layer,
             'recursion': recursion,
@@ -106,7 +84,7 @@ def s3_e0():
     input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=nfft, n=in_ch, fs=samplerate)
 
     # Apply filter
-    output_sig = dsp(input_sig)
+    output_sig = my_dsp(input_sig)
 
     # ----------------------- Plot --------------------------
     plt.figure()
@@ -122,10 +100,13 @@ def s3_e0():
 
     return None
 
-def s3_e1():
+def s4_e1(args):
+    raise NotImplementedError
+    # NOTE: It does not behave as I was expencting. Maybe it is correct, and I was just expecting better results that I can obtain.
     """
     Once again, we can train individual modules as the Recursion class keeps the modules separate.
-    We will train the feedback orthogonal matrix to provide system magnitude responses as spectrally flat as possible.
+    We will train the feedback path to provide system magnitude responses as spectrally flat as possible.
+    We will use an instance of the Filter class instead of the Matrix class, as it provides a more evident result.
     """
 
     # -------------- Time-frequency parameters --------------
@@ -133,18 +114,20 @@ def s3_e1():
     nfft = 2**10
 
     # ------------------ Model Definition -------------------
-    in_ch = 3
-    out_ch = 3
+    in_ch = 6
+    out_ch = 6
     # Feedforward path
-    delays = Delay(
-        size=(out_ch, in_ch),
-        max_len=5000,
+    delays = dsp.parallelDelay(
+        size=(in_ch,),
+        max_len=3000,
         isint=True,
         nfft=nfft,
         fs=samplerate,
         requires_grad=False
     )
-    attenuation = parallelGain(
+    delay_lengths = torch.tensor([887, 911, 941, 1699, 1951, 2053])
+    delays.assign_value(delays.sample2s(delay_lengths))
+    attenuation = dsp.parallelGain(
         size=(out_ch,),
         nfft=nfft,
         requires_grad=False
@@ -153,28 +136,29 @@ def s3_e1():
     attenuation.assign_value(0.3*rand_vector/torch.norm(rand_vector, p=2))
     feedforward_path = OrderedDict({
         'delays': delays,
-        'attenuation': attenuation
+         'attenuation': attenuation
     })
 
     # Feedback path
-    feedback_matrix = Filter(
-        size=(100, in_ch, out_ch),
+    feedback_matrix = dsp.Matrix(
+        size=(in_ch, out_ch),
+        matrix_type='orthogonal',
         nfft=nfft,
-        requires_grad=True # NOTE: The Filter class instance is set to learnable
+        requires_grad=True
     )
 
     feedback_path = OrderedDict({
-        'attenuation': feedback_matrix
+        'feedback_matrix': feedback_matrix
     })
 
     # Recursion
-    recursion = Recursion(fF=feedforward_path, fB=feedback_path)
+    recursion = system.Recursion(fF=feedforward_path, fB=feedback_path)
 
     # Input and output layers
-    input_layer = FFT(nfft=nfft)
-    output_layer = Transform(get_magnitude)
+    input_layer = dsp.FFT(nfft=nfft)
+    output_layer = dsp.Transform(lambda x: torch.abs(x))
 
-    model = Series(
+    model = system.Series(
         OrderedDict({
             'input_layer': input_layer,
             'recursion': recursion,
@@ -185,10 +169,10 @@ def s3_e1():
     # ------------------- Dataset Definition --------------------
 
     # Dataset
-    dataset = Dataset_Colorless(
-        in_shape=(nfft//2+1, in_ch),
-        target_shape=(nfft//2+1, out_ch),
-        ds_len=args.num,
+    dataset = DatasetColorless(
+        input_shape=(args.batch_size, nfft//2+1, in_ch),
+        target_shape=(args.batch_size, nfft//2+1, out_ch),
+        expand=args.num,
         device=args.device
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size, split=args.split, shuffle=args.shuffle)
@@ -202,7 +186,8 @@ def s3_e1():
         train_dir=args.train_dir,
         device=args.device
     )
-    trainer.register_criterion(criterion, 1)
+    trainer.register_criterion(mse_loss(n_sections=args.num, nfft=nfft), 1)
+    trainer.register_criterion(sparsity_loss(), 0.2, requires_model=True)
 
     # ------------------- Training --------------------
 
@@ -220,8 +205,8 @@ def s3_e1():
 
     # ----------------------- Plot --------------------------
     plt.figure()
-    for i in range(out_ch):
-        plt.subplot(out_ch, 1, i+1)
+    for i in range(2):
+        plt.subplot(2, 1, i+1)
         plt.plot(mag2db(mag_resp_init).squeeze().numpy()[:,i], label='Initial')
         plt.plot(mag2db(mag_resp_optim).squeeze().numpy()[:,i], label='Optimized')
         plt.xlabel('Frequency bin')
@@ -256,7 +241,7 @@ if __name__ == '__main__':
                         help ='path to output directory')
     parser.add_argument('--device', default='cpu',
                         help='training device')
-    parser.add_argument('--max_epochs', type=int, default=10, 
+    parser.add_argument('--max_epochs', type=int, default=50, 
                         help='maximum number of training epochs')
     parser.add_argument('--log_epochs', action='store_true',
                         help='Store met parameters at every epoch')
@@ -281,5 +266,5 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    s3_e0()
-    # s3_e1()
+    s4_e0()
+    # s4_e1(args)

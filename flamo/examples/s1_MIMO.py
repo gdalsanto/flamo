@@ -8,11 +8,10 @@ import torch.nn as nn
 
 from flamo.processor import dsp
 from flamo.functional import (
-    # mag2db,
-    # get_magnitude,
+    mag2db,
     signal_gallery,
     lowpass_filter,
-    # freqz
+    biquad2tf,
 )
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.trainer import Trainer
@@ -24,7 +23,7 @@ torch.manual_seed(1)
 def s1_e0() -> None:
     """
     Let's create a multichannel Delay instance with three input channels and two output channels.
-    We will give a unit impulse as input. The output will contain a combination of the delays.
+    We will give a unit impulse as input. Each output channel will contain three delays, one for each input channel.
     """
     # -------------- Time-frequency parameters --------------
     samplerate = 48000
@@ -82,14 +81,14 @@ def s1_e1(args) -> None:
     out_ch = 2
     filter = dsp.Biquad(
         size=(out_ch, in_ch),
+        n_sections=1,
         filter_type='lowpass',
-        order=10,
         nfft=nfft,
         fs=samplerate,
         requires_grad=True
     )
     input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.Transform(get_magnitude)
+    output_layer = dsp.Transform(lambda x: torch.abs(x))
 
     model = nn.Sequential(input_layer, filter, output_layer)
 
@@ -100,16 +99,16 @@ def s1_e1(args) -> None:
 
     # Target frequency responses
     f_cut_1 = 500   # Cut-off frequency for the first lowpass filter
-    g_1 = 10       # Bandpass gain for the first lowpass filter
+    g_1 = 10        # Bandpass gain for the first lowpass filter
     b_lp_1, a_lp_1 = lowpass_filter(f_cut_1, g_1, samplerate)
-    H_lp_1 = freqz(b=b_lp_1, a=a_lp_1, nfft=nfft)
+    H_lp_1 = biquad2tf(b=b_lp_1, a=a_lp_1, nfft=nfft)
 
     f_cut_2 = 5000   # Cut-off frequency for the second lowpass filter
-    g_2 = 0.7       # Bandpass gain for the second lowpass filter
+    g_2 = 0.7        # Bandpass gain for the second lowpass filter
     b_lp_2, a_lp_2 = lowpass_filter(f_cut_2, g_2, samplerate)
-    H_lp_2 = freqz(b=b_lp_2, a=a_lp_2, nfft=nfft)
+    H_lp_2 = biquad2tf(b=b_lp_2, a=a_lp_2, nfft=nfft)
 
-    target = torch.stack([torch.abs(H_lp_1), torch.abs(H_lp_2)], dim=1)
+    target = torch.stack([torch.abs(H_lp_1), torch.abs(H_lp_2)], dim=1).unsqueeze(0)
 
     # Dataset
     dataset = Dataset(
@@ -126,6 +125,7 @@ def s1_e1(args) -> None:
         net=model,
         max_epochs=args.max_epochs,
         lr=args.lr,
+        patience_delta=args.patience_delta,
         train_dir=args.train_dir,
         device=args.device
     )
@@ -148,7 +148,7 @@ def s1_e1(args) -> None:
     plt.subplot(2, 1, 1)
     plt.plot(mag2db(mag_resp_init[0,:,0]).squeeze().numpy(), label='Initial')
     plt.plot(mag2db(mag_resp_optim[0,:,0]).squeeze().numpy(), label='Optimized')
-    plt.plot(mag2db(target_resp[:,0]), '-.', label='Target')
+    plt.plot(mag2db(target[0,:,0]), '-.', label='Target')
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude in dB')
     plt.grid()
@@ -156,7 +156,7 @@ def s1_e1(args) -> None:
     plt.subplot(2, 1, 2)
     plt.plot(mag2db(mag_resp_init[0,:,1]).squeeze().numpy(), label='Initial')
     plt.plot(mag2db(mag_resp_optim[0,:,1]).squeeze().numpy(), label='Optimized')
-    plt.plot(mag2db(target_resp[:,1]), '-.', label='Target')
+    plt.plot(mag2db(target[0,:,1]), '-.', label='Target')
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude in dB')
     plt.grid()
@@ -174,12 +174,13 @@ if __name__ == '__main__':
     
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
-    parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
+    parser.add_argument('--num', type=int, default=2**9,help = 'dataset size')
     parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
     parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
     parser.add_argument('--max_epochs', type=int, default=50, help='maximum number of epochs')
+    parser.add_argument('--patience_delta', type=float, default=0.002, help='') # TODO: add description
     #---------------------- Optimizer ---------------------
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     #----------------- Parse the arguments ----------------
@@ -199,4 +200,4 @@ if __name__ == '__main__':
 
     # Run examples
     s1_e0()
-    # s1_e1(args) # NOTE: This function doesn't work because Biquad needs debug
+    # s1_e1(args)

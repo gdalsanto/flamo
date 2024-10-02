@@ -34,7 +34,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.target)
     
     def __getitem__(self, index):
-        return self.input[index], self.target[index]    
+        return self.input[index], self.target[index]
 
     
 class DatasetColorless(Dataset):

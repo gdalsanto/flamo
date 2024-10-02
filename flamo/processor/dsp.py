@@ -1260,7 +1260,7 @@ class parallelSVF(SVF):
         filter_type: str = None,
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad: bool = True,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
     ):
         super().__init__(
