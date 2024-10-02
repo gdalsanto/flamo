@@ -4,3 +4,4 @@ dist/
 .vscode
 *.asv 
 /output
+test.py
