@@ -27,8 +27,8 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self, input=torch.randn(100, 100), target=torch.randn(100, 100), expand=1, device='cpu'):
         self.input = input.to(device)
         self.target = target.to(device)
-        self.input = self.input.expand(tuple([expand]+[d for d in input.shape]))
-        self.target = self.target.expand(tuple([expand]+[d for d in target.shape]))
+        self.input = self.input.expand(tuple([expand]+[d for d in input.shape[1:]]))
+        self.target = self.target.expand(tuple([expand]+[d for d in target.shape[1:]]))
 
     def __len__(self):
         return len(self.target)

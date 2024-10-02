@@ -34,12 +34,15 @@
 
 <div class="genindex-jumpbox">
  <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
  | <a href="#C"><strong>C</strong></a>
  | <a href="#D"><strong>D</strong></a>
  | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
  | <a href="#I"><strong>I</strong></a>
+ | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#P"><strong>P</strong></a>
  | <a href="#R"><strong>R</strong></a>
@@ -56,6 +59,18 @@
   </ul></td>
 </tr></table>
 
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="functional.html#flamo.functional.bandpass_filter">bandpass_filter() (flamo.functional method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.Biquad">Biquad (class in flamo.processor.dsp)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -64,15 +79,21 @@
       <ul>
         <li><a href="processor/dsp.html#flamo.processor.dsp.Gain.check_input_shape">(flamo.processor.dsp.Gain method)</a>
 </li>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.SVF.check_input_shape">(flamo.processor.dsp.SVF method)</a>
+</li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.check_param_shape">check_param_shape() (flamo.processor.dsp.Delay method)</a>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.Biquad.check_param_shape">check_param_shape() (flamo.processor.dsp.Biquad method)</a>
 
       <ul>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.check_param_shape">(flamo.processor.dsp.Delay method)</a>
+</li>
         <li><a href="processor/dsp.html#flamo.processor.dsp.Gain.check_param_shape">(flamo.processor.dsp.Gain method)</a>
 </li>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.check_param_shape">(flamo.processor.dsp.parallelBiquad method)</a>
+</li>
         <li><a href="processor/dsp.html#flamo.processor.dsp.parallelDelay.check_param_shape">(flamo.processor.dsp.parallelDelay method)</a>
+</li>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.SVF.check_param_shape">(flamo.processor.dsp.SVF method)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -130,13 +151,21 @@
       <ul>
         <li><a href="processor/dsp.html#flamo.processor.dsp.Gain.get_freq_convolve">(flamo.processor.dsp.Gain method)</a>
 </li>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.get_freq_convolve">(flamo.processor.dsp.parallelBiquad method)</a>
+</li>
         <li><a href="processor/dsp.html#flamo.processor.dsp.parallelDelay.get_freq_convolve">(flamo.processor.dsp.parallelDelay method)</a>
 </li>
       </ul></li>
-      <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.get_freq_response">get_freq_response() (flamo.processor.dsp.Delay method)</a>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.Biquad.get_freq_response">get_freq_response() (flamo.processor.dsp.Biquad method)</a>
 
       <ul>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.get_freq_response">(flamo.processor.dsp.Delay method)</a>
+</li>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.get_freq_response">(flamo.processor.dsp.parallelBiquad method)</a>
+</li>
         <li><a href="processor/dsp.html#flamo.processor.dsp.parallelDelay.get_freq_response">(flamo.processor.dsp.parallelDelay method)</a>
+</li>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.SVF.get_freq_response">(flamo.processor.dsp.SVF method)</a>
 </li>
         <li><a href="processor/system.html#flamo.processor.system.Shell.get_freq_response">(flamo.processor.system.Shell method)</a>
 </li>
@@ -144,6 +173,14 @@
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="processor/dsp.html#flamo.processor.dsp.DSP.get_gamma">get_gamma() (flamo.processor.dsp.DSP method)</a>
+</li>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.Biquad.get_map">get_map() (flamo.processor.dsp.Biquad method)</a>
+
+      <ul>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.get_map">(flamo.processor.dsp.parallelBiquad method)</a>
+</li>
+      </ul></li>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.Biquad.get_size">get_size() (flamo.processor.dsp.Biquad method)</a>
 </li>
       <li><a href="optimize/trainer.html#flamo.optimize.trainer.get_str_results">get_str_results() (flamo.optimize.trainer method)</a>
 </li>
@@ -154,22 +191,34 @@
   </ul></td>
 </tr></table>
 
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="functional.html#flamo.functional.highpass_filter">highpass_filter() (flamo.functional method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="processor/dsp.html#flamo.processor.dsp.iFFT">iFFT (class in flamo.processor.dsp)</a>
 </li>
-      <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.init_param">init_param() (flamo.processor.dsp.Delay method)</a>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.Biquad.init_param">init_param() (flamo.processor.dsp.Biquad method)</a>
 
       <ul>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.init_param">(flamo.processor.dsp.Delay method)</a>
+</li>
         <li><a href="processor/dsp.html#flamo.processor.dsp.DSP.init_param">(flamo.processor.dsp.DSP method)</a>
 </li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.initialize_class">initialize_class() (flamo.processor.dsp.Delay method)</a>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.Biquad.initialize_class">initialize_class() (flamo.processor.dsp.Biquad method)</a>
 
       <ul>
+        <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.initialize_class">(flamo.processor.dsp.Delay method)</a>
+</li>
         <li><a href="processor/dsp.html#flamo.processor.dsp.Gain.initialize_class">(flamo.processor.dsp.Gain method)</a>
 </li>
         <li><a href="processor/dsp.html#flamo.processor.dsp.Matrix.initialize_class">(flamo.processor.dsp.Matrix method)</a>
@@ -178,13 +227,23 @@
   </ul></td>
 </tr></table>
 
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="functional.html#flamo.functional.lowpass_filter">lowpass_filter() (flamo.functional method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="processor/dsp.html#flamo.processor.dsp.Matrix">Matrix (class in flamo.processor.dsp)</a>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.SVF.map_param2svf">map_param2svf() (flamo.processor.dsp.SVF method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.Matrix">Matrix (class in flamo.processor.dsp)</a>
+</li>
       <li><a href="processor/dsp.html#flamo.processor.dsp.Matrix.matrix_gallery">matrix_gallery() (flamo.processor.dsp.Matrix method)</a>
 </li>
   </ul></td>
@@ -193,10 +252,18 @@
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.parallelBiquad">parallelBiquad (class in flamo.processor.dsp)</a>
+</li>
       <li><a href="processor/dsp.html#flamo.processor.dsp.parallelDelay">parallelDelay (class in flamo.processor.dsp)</a>
+</li>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.SVF.param2freq">param2freq() (flamo.processor.dsp.SVF method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.SVF.param2mix">param2mix() (flamo.processor.dsp.SVF method)</a>
+</li>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.SVF.param2R">param2R() (flamo.processor.dsp.SVF method)</a>
+</li>
       <li><a href="optimize/trainer.html#flamo.optimize.trainer.Trainer.print_results">print_results() (flamo.optimize.trainer.Trainer method)</a>
 </li>
   </ul></td>
@@ -221,13 +288,15 @@
 </li>
       <li><a href="processor/dsp.html#flamo.processor.dsp.Delay.sample2s">sample2s() (flamo.processor.dsp.Delay method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="optimize/trainer.html#flamo.optimize.trainer.Trainer.save_model">save_model() (flamo.optimize.trainer.Trainer method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="processor/system.html#flamo.processor.system.Series">Series (class in flamo.processor.system)</a>
 </li>
       <li><a href="processor/system.html#flamo.processor.system.Shell">Shell (class in flamo.processor.system)</a>
+</li>
+      <li><a href="processor/dsp.html#flamo.processor.dsp.SVF">SVF (class in flamo.processor.dsp)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -284,6 +353,9 @@
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
@@ -292,6 +364,12 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="functional.html"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
 </ul>
 
 <div class="relations">

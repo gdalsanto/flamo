@@ -33,3 +33,8 @@ Contents
 
    optimize/trainer
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Functional:
+
+   functional

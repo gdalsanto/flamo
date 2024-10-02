@@ -1,7 +1,16 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from flamo.utils import to_complex
-from flamo.functional import skew_matrix
+from flamo.functional import (
+    skew_matrix, 
+    lowpass_filter, 
+    highpass_filter, 
+    bandpass_filter,
+    rad2hertz)
+from flamo.auxiliary.eq import (
+    eq_freqs,
+    geq)
 
 # ============================= TRANSFORMS ================================
 
@@ -506,6 +515,7 @@ class Matrix(Gain):
 
 # ============================= FILTERS ================================
 
+
 class Filter(DSP):
     r"""
     A class representing a set of FIR filters. Inherits from :class:`DSP`.
@@ -676,7 +686,7 @@ class parallelFilter(Filter):
         size: tuple = (1, 1),
         nfft: int = 2**11,
         map=lambda x: x,
-        requires_grad=False,
+        requires_grad: bool=False,
         alias_decay_db: float = 0.0,
     ):
         super().__init__(
@@ -717,6 +727,822 @@ class parallelFilter(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
+class Biquad(Filter):
+    r"""
+    Biquad filter class. Inherits from the :class:`Filter` class.
+    It supports class lowpass, highpass, and bandpass filters using `RBJ cookbook 
+    formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_, 
+    which map the cut-off frequency :math:`f_{c}` and gain  :math:`g` parameters 
+    to the :math:`\mathbf{b}` and :math:`\mathbf{a}` coefficients. 
+    The transfer function of the filter is given by
+    
+    .. math::
+        H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
+
+    The mapping from learnable parameters :math:`\mathbf{f_c}` and :math:`\mathbf{g}` are defined by :meth:`flamo.functional.lowpass_filter`, :meth:`flamo.functional.highpass_filter`, :meth:`flamo.functional.bandpass_filter`.
+
+    Shape:
+        - input: :math:`(B, M, N_{\text{in}}, ...)`
+        - param: :math:`(K, P, N_{\text{out}}, N_{\text{in}})`  # TODO change so (P, K, ..)
+        - freq_response: :math:`(M, N_{\text{out}}, N_{\text{in}})`
+        - output: :math:`(B, M, N_{\text{out}}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    and :math:`N_{\text{in}}` is the number of input channels, and :math:`N_{\text{out}}` is the number of output channels.
+    The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of filters :math:`K`, the second dimension corresponds to the number of filter parameters :math:`P`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).
+
+        **Args**:
+            - size (tuple, optional): Size of the filter. Default: (1, 1).
+            - n_sections (int, optional): Number of filters. Default: 1.
+            - filter_type (str, optional): Type of the filter. Must be one of "lowpass", "highpass", or "bandpass". Default: "lowpass".
+            - nfft (int, optional): Number of points for FFT. Default: 2048.
+            - fs (int, optional): Sampling frequency. Default: 48000.
+            - requires_grad (bool, optional): Whether the filter parameters require gradient computation. Default: True.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+
+        **Attributes**:
+            - filter_type (str): Type of the filter.
+            - fs (int): Sampling frequency.
+            - freq_response (torch.Tensor): Frequency response of the filter.
+            - param (nn.Parameter): Parameters of the Biquad filter.
+
+        **Methods**:
+            - get_size(): Get the size of the filter based on the filter type.
+            - get_freq_response(): Compute the frequency response of the filter.
+            - get_map(): Get the mapping function for parameter values based on the filter type.
+            - init_param(): Initialize the filter parameters.
+            - check_param_shape(): Check the shape of the filter parameters.
+            - initialize_class(): Initialize the Biquad class.
+    """
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        n_sections: int = 1,
+        filter_type: str = "lowpass",
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad: bool=True,
+        alias_decay_db: float = 0.0,
+    ):
+        assert filter_type in ["lowpass", "highpass", "bandpass"], "Invalid filter type"
+        self.filter_type = filter_type
+        self.fs = fs
+        self.get_map()
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1))
+        super().__init__(
+            size=(n_sections, *self.get_size(), *size),
+            nfft=nfft,
+            map=self.map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def get_size(self):
+        r"""
+        Get the leading dimensions of the parameters based on the filter type.
+        These coincide with
+
+            - 2 for lowpass and highpass filters (:math:`f_\textrm{c}`, gain)
+            - 3 for bandpass filters (:math:`f_\textrm{c1}`, :math:`f_\textrm{c2}`, gain)
+
+        **Returns**:
+            - tuple: leading dimensions of the parameters.
+        """
+        match self.filter_type:
+            case "lowpass":
+                return (2,)  # fc, gain
+            case "highpass":
+                return (2,)  # fc, gain
+            case "bandpass":
+                return (3,)  # fc1, fc2, gain
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
+        """
+        param = self.map(self.param)
+        match self.filter_type:
+            case "lowpass":
+                b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), gain=param[:, 1, :, :], fs=self.fs)
+            case "highpass":
+                b, a = highpass_filter(fc=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), gain=param[:, 1, :, :], fs=self.fs)
+            case "bandpass":
+                b, a = bandpass_filter(
+                    fc1=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), fc2=rad2hertz(param[:, 1, :, :]*torch.pi, fs=self.fs), gain=param[:, 2, :, :], fs=self.fs
+                )
+        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        if torch.isnan(self.freq_response).any():
+            print("Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate.")
+
+    def get_map(self):
+        r"""
+        Get the mapping function :attr:`map` to parameter values that ensure stability.
+        The type of mapping is based on the filter type.
+        """
+        match self.filter_type:
+            case "lowpass" | "highpass":
+                self.map = lambda x: torch.clamp(
+                    x,
+                    min=torch.tensor([0, -60]).view(-1, 1, 1).expand_as(x),
+                    max=torch.tensor([1, 60]).view(-1, 1, 1).expand_as(x),
+                )
+            case "bandpass":   
+                self.map = lambda x: torch.clamp(
+                    x,
+                    min=torch.tensor([0, 0, -60]).view(-1, 1, 1).expand_as(x),
+                    max=torch.tensor([1, 1, 60]).view(-1, 1, 1).expand_as(x),
+                )
+
+    def init_param(self):
+        r"""
+        Initialize the filter parameters.
+        """
+        torch.nn.init.uniform_(self.param[:, 0, :], a=0, b=1)
+        if self.filter_type == "bandpass":
+            torch.nn.init.uniform_(self.param[:, 1, :], a=self.param[:, 0, :, :].max().item(), b=1)
+        torch.nn.init.uniform_(self.param[:, -1, :], a=-1, b=1)
+    
+    def check_param_shape(self):
+        r"""
+        Check the shape of the filter parameters.
+        """
+        assert (
+            len(self.size) == 4
+        ), "Parameter size must be 4D, for 3D (parallel) biquads use parallelBiquad module."
+
+    def initialize_class(self):
+        r"""
+        Initialize the :class:`Biquad` class.
+        """
+        self.check_param_shape()
+        self.freq_response = to_complex(
+            torch.empty((self.nfft // 2 + 1, *self.size[1:]))
+        )
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+
+class parallelBiquad(Biquad):
+    r"""
+    Parallel counterpart of the :class:`Biquad` class.
+    For information about **attributes** and **methods** see :class:`flamo.processor.dsp.Biquad`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(K, P, N, N)`
+        - freq_response: :math:`(M, N, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    and :math:`N` is the number of input/output channels.
+    The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of filters :math:`K`, the second dimension corresponds to the number of filter parameters :math:`P` (3).
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).
+    """
+    def __init__(
+        self,
+        size: tuple = (1,),
+        n_sections: int = 1,
+        filter_type: str = "lowpass",
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad=True,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            n_sections=n_sections,
+            filter_type=filter_type,
+            nfft=nfft,
+            fs=fs,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 3
+        ), "Parameter size must be 3D, for 3D sapce use Biquad module."
+
+    def get_map(self):
+        r"""
+        Get the mapping function :attr:`map` to parameter values that ensure stability.
+        The type of mapping is based on the filter type.
+        """
+        match self.filter_type:
+            case "lowpass" | "highpass":
+                self.map = lambda x: torch.clamp(
+                    x,
+                    min=torch.tensor([0, -60]).view(-1, 1).expand_as(x),
+                    max=torch.tensor([1, 60]).view(-1, 1).expand_as(x),
+                )
+            case "bandpass":
+                self.map = lambda x: torch.clamp(
+                    x,
+                    min=torch.tensor([0, 0, -60]).view(-1, 1).expand_as(x),
+                    max=torch.tensor([1, 1, 60]).view(-1, 1).expand_as(x),
+                )
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
+        """
+        param = self.map(self.param)
+        match self.filter_type:
+            case "lowpass":
+                b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs)
+            case "highpass":
+                b, a = highpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs)
+            case "bandpass":
+                b, a = bandpass_filter(
+                    fc1=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), fc2=rad2hertz(param[:, 1, :]*torch.pi, fs=self.fs), gain=param[:, 2, :], fs=self.fs
+                )
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1) )
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response, x
+        )
+
+
+class SVF(Filter):
+    r"""
+    IIR filter as a serially cascaded state variable filters (SVFs). 
+    Inherits from the :class:`Filter` class.
+    Can be used to design a variety of filters such as lowpass, highpass, bandpass, lowshelf, highshelf, peaking, and notch filters.
+    The filter coefficients are parameterized by the cut-off frequency (:math:`f`) and resonance (:math:`R`) parameters.
+    The mixing coefficients (:math:`m_{LP}`, :math:`m_{BP}`, :math:`m_{HP}`  for lowpass, bandpass, and highpass filters) determine the contribution of each filter type in the cascaded structure.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(P, K,  N_{out}, N_{in})`
+        - freq_response: :math:`(M,  N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
+    The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of SVF parameters (5), the second dimension corresponds to the number of filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).    
+
+    SVF parameters are used to express biquad filters as follows:
+
+    .. math::
+        H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
+
+        b_0 = f^2 m_{LP} + f m_{BP} + m_{HP} \\
+        b_1 = 2 f^2 m_{LP} - 2 m_{HP} \\
+        b_2 = f^2 m_{LP} - f m_{BP} + m_{HP} \\
+        a_0 = f^2 + 2 R f + 1 \\
+        a_1 = 2 f^2 - 2 \\
+        a_2 = f^2 - 2 R f + 1 \\
+
+    For serieally cascaded SVFs, the frequency response is 
+
+    .. math::
+        H(z) = \prod_{k=1}^{K} H_k(z)
+
+    where :math:`K` is the number of cascaded filters :attr:`n_sections`.
+
+        **Args**:
+            - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
+            - n_sections (int, optional): The number of cascaded filters. Default: 1.
+            - f_min (int, optional): The minimum cut-off frequency of the filter in Hz. Default: 40.
+            - f_max (int, optional): The maximum cut-off frequency of the filter in Hz. Default: 22000.
+            - filter_type (str, optional): The type of filter to use. Options are {"lowpass","highpass","bandpass","lowshelf","highshelf","peaking","notch",} Default: None.
+            - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: x.
+            - requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.
+            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+
+        **Attributes**:
+            - fs (int): The sampling frequency.
+            - n_sections (int): The number of cascaded filters.
+            - c_freqs (torch.Tensor): The cut-off frequencies of the filters.
+            - filter_type (str): The type of filter.
+            - freq_response (torch.Tensor): The frequency response of the filter.
+            - param (nn.Parameter): The parameters of the SVF filter.
+
+        **Methods**:
+            - check_param_shape(): Check the shape of the filter parameters.
+            - check_input_shape(x): Check if the dimensions of the input tensor x are compatible with the module.
+            - get_freq_response(): Compute the frequency response of the filter.
+            - get_freq_convolve(): Compute the frequency convolution function.
+
+    For more details, refer to the paper `Differentiable artificial reverberation <https://arxiv.org/abs/2105.13940>` by Lee, S. et al.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        n_sections: int = 1,
+        f_min: int = 40,
+        f_max: int = 22000,
+        filter_type: str = None,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad: bool = True,
+        alias_decay_db: float = 0.0,
+    ):
+        self.fs = fs
+        self.n_sections = n_sections
+        assert f_max <= fs / 2, "f_max must be less or equal than fs/2"
+        if self.n_sections == 1:
+            self.c_freqs = (2 * 10 ** ((
+                        torch.log10(torch.tensor(f_min))
+                        + torch.log10(torch.tensor(f_max))) / 2) / self.fs)
+        else:
+            self.c_freqs = (2 * ( f_min * (f_max / f_min) ** (
+                        (torch.arange(1, self.n_sections + 1, 1) - 1)
+                        / (self.n_sections - 1))) / self.fs)
+        self.f_min, self.f_max = f_min, f_max
+        assert filter_type in [
+            "lowpass",
+            "highpass",
+            "bandpass",
+            "lowshelf",
+            "highshelf",
+            "peaking",
+            "notch",
+            None,
+        ], "Invalid filter type"
+        self.filter_type = filter_type
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1))
+        super().__init__(
+            size=(5, self.n_sections, *size),
+            nfft=nfft,
+            map=self.map_param2svf,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+        if self.alias_decay_db != 0:
+            print("Warning: Anti time-aliasiang might not work properly. We need to debug it")
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 4
+        ), "Filter parameter space must be 4D, for 3D (parallel) filters use parallelSVF module."
+
+    def check_input_shape(self, x):
+        r"""
+        Checks if the input dimensions are compatible with the filter parameters.
+
+            **Args**:
+                - x (torch.Tensor): The input signal.
+        """
+        if (int(self.nfft / 2 + 1), self.size[-1]) != (x.shape[1], x.shape[2]):
+            raise ValueError(
+                f"parameter shape = {self.freq_response.shape} not compatible with input signal of shape = ({x.shape})."
+            )
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        """
+        f, R, mLP, mBP, mHP = self.map(self.param)
+        b = torch.zeros((3, *f.shape))
+        a = torch.zeros((3, *f.shape))
+
+        b[0] = (f**2) * mLP + f * mBP + mHP
+        b[1] = 2 * (f**2) * mLP - 2 * mHP
+        b[2] = (f**2) * mLP - f * mBP + mHP
+
+        a[0] = (f**2) + 2 * R * f + 1
+        a[1] = 2 * (f**2) - 2
+        a[2] = (f**2) - 2 * R * f + 1
+
+        # apply anti-aliasing
+        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        self.freq_response = torch.prod(B, dim=1) / torch.prod(A, dim=1)
+
+    def param2freq(self, param):
+        r"""
+        Applies a sigmoid function to the parameter value and maps it to the range [0, fs/2],
+        where :math:`f_s` is the sampling frequency according to the formula:
+
+        .. math::
+            f = \tan(\pi \cdot \text{sigmoid}(x + \log(\frac{f_{c}}{1 - f_{c}}))).
+
+        """
+        map_bias = lambda x: torch.log(x / (1 - x))
+        return torch.tan(
+            torch.pi
+            * F.sigmoid(
+                param + map_bias(self.c_freqs.unsqueeze(-1).unsqueeze(-1).expand(-1, param.shape[1], param.shape[2]))
+            )  # /2 removed becuase we want to allow the full range of frequencies [0, fs/2]
+        )
+
+    def param2R(self, param):
+        r"""
+        Applies a softplus function to the parameter value and maps it to the range [0, 1],
+        according to the formula:
+
+        .. math::
+            R = 2 \cdot \text{softplus}(x) / \text{softplus}(0).
+
+        """
+        activation = lambda x: 2 * F.softplus(x) / F.softplus(torch.zeros(1)).item()
+        # activation = lambda x: torch.log(1 + torch.exp(x)) / torch.log(torch.tensor(2))
+        return activation(param)
+
+    def param2mix(self, param, R=None):
+        r"""
+        Mapping function for the mixing coefficients relative to the filter type.
+        
+        - lowpass: :math:`m_{LP} = G, m_{BP} = 0, m_{HP} = 0`.
+        - highpass: :math:`m_{LP} = 0, m_{BP} = 0, m_{HP} = G.`
+        - bandpass: :math:`m_{LP} = 0, m_{BP} = G, m_{HP} = 0.`
+        - lowshelf: :math:`m_{LP} = 1, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = G.`
+        - highshelf: :math:`m_{LP} = G, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = 1.`
+        - peaking | notch: :math:`m_{LP} = 1, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = 1.`
+
+        where :math:`G` is the gain parameter mapped from the raw parameters as 
+        :math:`G = 10^{-\text{softplus}(x)}`.  
+
+            **Args**:
+                - param (torch.Tensor): The raw parameters.
+                - R (torch.Tensor, optional): The resonance parameter. Default: None.
+
+        """
+        # activation = lambda x: 10**(-torch.log(1+torch.exp(x)) / torch.log(torch.tensor(2,  device=get_device())))
+        G = 10 ** (-F.softplus(param[0]))
+        match self.filter_type:
+            case "lowpass":
+                return torch.cat(
+                    (
+                        (torch.ones_like(G)).unsqueeze(0),
+                        (torch.zeros_like(G)).unsqueeze(0),
+                        torch.zeros_like(G).unsqueeze(0),
+                    ),
+                    dim=0,
+                )
+            case "highpass":
+                return torch.cat(
+                    (
+                        (torch.zeros_like(G)).unsqueeze(0),
+                        (torch.zeros_like(G)).unsqueeze(0),
+                        torch.ones_like(G).unsqueeze(0),
+                    ),
+                    dim=0,
+                )
+            case "bandpass":
+                return torch.cat(
+                    (
+                        (torch.zeros_like(G)).unsqueeze(0),
+                        (torch.ones_like(G)).unsqueeze(0),
+                        torch.zeros_like(G).unsqueeze(0),
+                    ),
+                    dim=0,
+                )
+            case "lowshelf":
+                return torch.cat(
+                    (
+                        (torch.ones_like(G)).unsqueeze(0),
+                        (2 * R * torch.sqrt(G)).unsqueeze(0),
+                        (G * torch.ones_like(G)).unsqueeze(0),
+                    ),
+                    dim=0,
+                )
+            case "highshelf":
+                return torch.cat(
+                    (
+                        (G * torch.ones_like(G)).unsqueeze(0),
+                        (2 * R * torch.sqrt(G)).unsqueeze(0),
+                        (torch.ones_like(G)).unsqueeze(0),
+                    ),
+                    dim=0,
+                )
+            case "peaking" | "notch":
+                return torch.cat(
+                    (
+                        (torch.ones_like(G)).unsqueeze(0),
+                        (2 * R * torch.sqrt(G)).unsqueeze(0),
+                        (torch.ones_like(G)).unsqueeze(0),
+                    ),
+                    dim=0,
+                )
+            case None:
+                # general SVF filter
+                bias = torch.ones((param.shape))
+                bias[1] = 2 * torch.ones((param.shape[1:]))
+                return param + bias
+
+    def map_param2svf(self, param):
+        r"""
+        Mapping function for the raw parameters to the SVF filter coefficients.
+        """
+        f = self.param2freq(param[0])
+        r = self.param2R(param[1])
+        if self.filter_type == "lowshelf" or self.filter_type == "highshelf":
+            # R = r + torch.sqrt(torch.tensor(2))
+            R = torch.tensor(1)
+        if self.filter_type == "peaking":
+            R = 1 / r  # temporary fix for peaking filter
+            m = self.param2mix(param[2:], r)
+        else:
+            R = r
+            m = self.param2mix(param[2:], R)
+        return f, R, m[0], m[1], m[2]
+
+
+
+class parallelSVF(SVF):
+    r"""
+    Parallel counterpart of the :class:`SVF` class.
+    For information about **attributes** and **methods** see :class:`flamo.processor.dsp.SVF`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(P, K, N)`
+        - freq_response: :math:`(M, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    and :math:`N` is the number of input/output channels.
+    The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of SVF parameters (5), the second dimension corresponds to the number of filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).   
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, ),
+        n_sections: int = 1,
+        f_min: int = 40,
+        f_max: int = 22000,
+        filter_type: str = None,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad: bool = True,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            n_sections=n_sections,
+            f_min=f_min,
+            f_max=f_max,
+            filter_type=filter_type,
+            nfft=nfft,
+            fs=fs,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 3
+        ), "Filter parameter space must be 3D, for 4D filters use SVF module."
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        """
+        f, R, mLP, mBP, mHP = self.map(self.param)
+        b = torch.zeros((3, *f.shape))
+        a = torch.zeros((3, *f.shape))
+
+        b[0] = (f**2) * mLP + f * mBP + mHP
+        b[1] = 2 * (f**2) * mLP - 2 * mHP
+        b[2] = (f**2) * mLP - f * mBP + mHP
+
+        a[0] = (f**2) + 2 * R * f + 1
+        a[1] = 2 * (f**2) - 2
+        a[2] = (f**2) - 2 * R * f + 1
+
+        # apply anti-aliasing
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+
+    def param2freq(self, param):
+        r"""
+        Applies a sigmoid function to the parameter value and maps it to the range [0, fs/2],
+        where :math:`f_s` is the sampling frequency according to the formula:
+
+        .. math::
+            f = \tan(\pi \cdot \text{sigmoid}(x + \log(\frac{f_{c}}{1 - f_{c}}))).
+
+        """
+        map_bias = lambda x: torch.log(x / (1 - x))
+        return torch.tan(
+            torch.pi
+            * F.sigmoid(
+                param + map_bias(self.c_freqs.unsqueeze(-1).expand(-1, param.shape[1]))
+            )  # /2 removed becuase we want to allow the full range of frequencies [0, fs/2]
+        )
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response, x
+        )
+    
+
+class GEQ(Filter):
+    """
+    Graphic Equilizer filter. Inherits from the :class:`Filter` class.
+    It supports 1 and 1/3 octave filter bands. 
+    The raw parameters are the linear gain values for each filter band.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(K, N_{out}, N_{in})`
+        - freq_response: :math:`(M,  N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins, 
+    :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
+    The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).   
+
+        **Args**:
+            - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
+            - octave_interval (int, optional): The octave interval for the center frequencies. Default: 1.
+            - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - fs (int, optional): The sampling frequency. Default: 48000.
+            - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: 20*torch.log10(x).
+            - requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.
+            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+
+        **Attributes**:
+            - fs (int): The sampling frequency.
+            - center_freq (torch.Tensor): The center frequencies of the filter bands.
+            - shelving_crossover (torch.Tensor): The shelving crossover frequencies.
+            - freq_response (torch.Tensor): The frequency response of the filter.
+            - param (nn.Parameter): The parameters of the GEQ filter.
+
+        **Methods**:
+            - check_param_shape(): Check the shape of the filter parameters.
+            - get_freq_response(): Compute the frequency response of the filter.
+            - get_freq_convolve(): Compute the frequency convolution function.
+
+    References:
+        - Schlecht, S., Habets, E. (2017). Accurate reverberation time control in
+        feedback delay networks Proc. Int. Conf. Digital Audio Effects (DAFx)
+        adapted to python by: Dal Santo G. 
+        - Välimäki V., Reiss J. All About Audio Equal-
+        ization: Solutions and Frontiers, Applied Sciences, vol. 6,
+        no. 5, pp. 129, May 2016
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        octave_interval: int = 1,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map=lambda x: 20*torch.log10(x),
+        requires_grad: bool = True,
+        alias_decay_db: float = 0.0,
+    ):
+        self.octave_interval = octave_interval
+        self.fs = fs
+        self.center_freq, self.shelving_crossover = eq_freqs(
+            interval=self.octave_interval)
+        self.n_gains = len(self.center_freq) + 3
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1))
+        super().__init__(
+            size=(self.n_gains, *size),
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+        if self.alias_decay_db != 0:
+            print(
+                "Warning: Anti time-aliasiang might not work properly. We need to debug it"
+            )
+
+    def init_param(self):
+        torch.nn.init.uniform_(self.param, a=10**(-6/20), b=10**(6/20))  
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 3
+        ), "Filter must be 3D, for 2D (parallel) filters use ParallelGEQ module."
+
+    def get_freq_response(self):
+        """
+        Infer the second order sections from the center frequencies and compute the frequency response.
+        """
+        param = self.map(self.param)
+        a = torch.zeros((3, *self.size))
+        b = torch.zeros((3, *self.size))
+        R = torch.tensor(2.7)
+        for m_i in range(self.size[-2]):
+            for n_i in range(self.size[-1]):
+                a[:, :, m_i, n_i], b[:, :, m_i, n_i] = geq(
+                    center_freq=self.center_freq,
+                    shelving_freq=self.shelving_crossover,
+                    R=R,
+                    gain_db=param[:, m_i, n_i],
+                    fs=self.fs,
+                )
+         
+        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+
+
+    def initialize_class(self):
+        self.check_param_shape()
+        self.freq_response = to_complex(
+            torch.empty((self.nfft // 2 + 1, *self.size[1:]))
+        )
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+
+class parallelGEQ(GEQ):
+    r"""
+    Parallel counterpart of the :class:`GEQ` class
+    For information about **attributes** and **methods** see :class:`flamo.processor.dsp.GEQ`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(P, N)`
+        - freq_response: :math:`(M, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins, and :math:`N` is the number of input/output channels.
+    The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).   
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, ),
+        octave_interval: int = 1,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map=lambda x: 20*torch.log10(x),
+        requires_grad: bool = True,
+        alias_decay_db: float = 0.0,
+    ):
+        super().__init__(
+            size=size,
+            octave_interval=octave_interval,
+            nfft=nfft,
+            fs=fs,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+        )
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 2
+        ), "Filter must be 2D, for 3D filters use GEQ module."
+
+    def get_freq_response(self):
+        """
+        Infer the second order sections from the center frequencies and compute the frequency response.
+        """
+        param = self.map(self.param)
+        a = torch.zeros((3, *self.size))
+        b = torch.zeros((3, *self.size))
+        R = torch.tensor(2.7)
+        for n_i in range(self.size[-1]):
+                a[:, :, n_i], b[:, :, n_i] = geq(
+                    center_freq=self.center_freq,
+                    shelving_freq=self.shelving_crossover,
+                    R=R,
+                    gain_db=param[:, n_i],
+                    fs=self.fs,
+                )
+         
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response, x
+        )
 # ============================= DELAYS ================================
 
 

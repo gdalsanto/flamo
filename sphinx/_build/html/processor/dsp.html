@@ -557,6 +557,291 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Biquad">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Biquad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'lowpass'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad" title="Link to this definition">¶</a></dt>
+<dd><p>Biquad filter class. Inherits from the <code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code> class.
+It supports class lowpass, highpass, and bandpass filters using <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook 
+formulas</a>, 
+which map the cut-off frequency <span class="math notranslate nohighlight">\(f_{c}\)</span> and gain  <span class="math notranslate nohighlight">\(g\)</span> parameters 
+to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> coefficients. 
+The transfer function of the filter is given by</p>
+<div class="math notranslate nohighlight">
+\[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
+<p>The mapping from learnable parameters <span class="math notranslate nohighlight">\(\mathbf{f_c}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{g}\)</span> are defined by <a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter" title="flamo.functional.lowpass_filter"><code class="xref py py-meth docutils literal notranslate"><span class="pre">flamo.functional.lowpass_filter()</span></code></a>, <a class="reference internal" href="../functional.html#flamo.functional.highpass_filter" title="flamo.functional.highpass_filter"><code class="xref py py-meth docutils literal notranslate"><span class="pre">flamo.functional.highpass_filter()</span></code></a>, <a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter" title="flamo.functional.bandpass_filter"><code class="xref py py-meth docutils literal notranslate"><span class="pre">flamo.functional.bandpass_filter()</span></code></a>.</p>
+<dl class="simple">
+<dt>Shape:</dt><dd><ul class="simple">
+<li><p>input: <span class="math notranslate nohighlight">\((B, M, N_{\text{in}}, ...)\)</span></p></li>
+<li><p>param: <span class="math notranslate nohighlight">\((K, C, N_{\text{out}}, N_{\text{in}})\)</span></p></li>
+<li><p>freq_response: <span class="math notranslate nohighlight">\((M, N_{\text{out}}, N_{\text{in}})\)</span></p></li>
+<li><p>output: <span class="math notranslate nohighlight">\((B, M, N_{\text{out}}, ...)\)</span></p></li>
+</ul>
+</dd>
+</dl>
+<p>where <span class="math notranslate nohighlight">\(B\)</span> is the batch size, <span class="math notranslate nohighlight">\(M\)</span> is the number of frequency bins,
+and <span class="math notranslate nohighlight">\(N_{\text{in}}\)</span> is the number of input channels, and <span class="math notranslate nohighlight">\(N_{\text{out}}\)</span> is the number of output channels.
+The :attr:’param’ attribute represent the biquad filter coefficents. The first dimension of the :attr:’param’ tensor corresponds to the number of filters <span class="math notranslate nohighlight">\(K\)</span>, the second dimension corresponds to the number of biquad coefficients <span class="math notranslate nohighlight">\(C\)</span> (3).
+Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions (not tested).</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>size (tuple, optional): Size of the filter. Default: (1, 1).</p></li>
+<li><p>n_sections (int, optional): Number of filters. Default: 1.</p></li>
+<li><p>filter_type (str, optional): Type of the filter. Must be one of “lowpass”, “highpass”, or “bandpass”. Default: “lowpass”.</p></li>
+<li><p>nfft (int, optional): Number of points for FFT. Default: 2048.</p></li>
+<li><p>fs (int, optional): Sampling frequency. Default: 48000.</p></li>
+<li><p>requires_grad (bool, optional): Whether the filter parameters require gradient computation. Default: True.</p></li>
+<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
+</ul>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
+<li><p>filter_type (str): Type of the filter.</p></li>
+<li><p>fs (int): Sampling frequency.</p></li>
+<li><p>freq_response (torch.Tensor): Frequency response of the filter.</p></li>
+<li><p>param (nn.Parameter): Parameters of the Biquad filter.</p></li>
+</ul>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>get_size(): Get the size of the filter based on the filter type.</p></li>
+<li><p>get_freq_response(): Compute the frequency response of the filter.</p></li>
+<li><p>get_map(): Get the mapping function for parameter values based on the filter type.</p></li>
+<li><p>init_param(): Initialize the filter parameters.</p></li>
+<li><p>check_param_shape(): Check the shape of the filter parameters.</p></li>
+<li><p>initialize_class(): Initialize the Biquad class.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Biquad.check_param_shape">
+<span class="sig-name descname"><span class="pre">check_param_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.check_param_shape" title="Link to this definition">¶</a></dt>
+<dd><p>Check the shape of the filter parameters.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Biquad.get_freq_response">
+<span class="sig-name descname"><span class="pre">get_freq_response</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.get_freq_response" title="Link to this definition">¶</a></dt>
+<dd><p>Compute the frequency response of the filter.
+It calls the <a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter" title="flamo.functional.lowpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.lowpass_filter()</span></code></a>, <a class="reference internal" href="../functional.html#flamo.functional.highpass_filter" title="flamo.functional.highpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.highpass_filter()</span></code></a>, or <a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter" title="flamo.functional.bandpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.bandpass_filter()</span></code></a> functions based on the filter type.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Biquad.get_map">
+<span class="sig-name descname"><span class="pre">get_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.get_map" title="Link to this definition">¶</a></dt>
+<dd><p>Get the mapping function <code class="xref py py-attr docutils literal notranslate"><span class="pre">map</span></code> to parameter values that ensure stability.
+The type of mapping is based on the filter type.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Biquad.get_size">
+<span class="sig-name descname"><span class="pre">get_size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.get_size" title="Link to this definition">¶</a></dt>
+<dd><p>Get the leading dimensions of the parameters based on the filter type.
+These coincide with</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>2 for lowpass and highpass filters (<span class="math notranslate nohighlight">\(f_\textrm{c}\)</span>, gain)</p></li>
+<li><p>3 for bandpass filters (<span class="math notranslate nohighlight">\(f_\textrm{c1}\)</span>, <span class="math notranslate nohighlight">\(f_\textrm{c2}\)</span>, gain)</p></li>
+</ul>
+</div></blockquote>
+<dl class="simple">
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>tuple: leading dimensions of the parameters.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Biquad.init_param">
+<span class="sig-name descname"><span class="pre">init_param</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.init_param" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the filter parameters.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Biquad.initialize_class">
+<span class="sig-name descname"><span class="pre">initialize_class</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.initialize_class" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the <a class="reference internal" href="#flamo.processor.dsp.Biquad" title="flamo.processor.dsp.Biquad"><code class="xref py py-class docutils literal notranslate"><span class="pre">Biquad</span></code></a> class.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.parallelBiquad">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">parallelBiquad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'lowpass'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelBiquad" title="Link to this definition">¶</a></dt>
+<dd><p>Parallel counterpart of the <a class="reference internal" href="#flamo.processor.dsp.Biquad" title="flamo.processor.dsp.Biquad"><code class="xref py py-class docutils literal notranslate"><span class="pre">Biquad</span></code></a> class.
+For information about <strong>attributes</strong> and <strong>methods</strong> see <a class="reference internal" href="#flamo.processor.dsp.Biquad" title="flamo.processor.dsp.Biquad"><code class="xref py py-class docutils literal notranslate"><span class="pre">flamo.processor.dsp.Biquad</span></code></a>.</p>
+<dl class="simple">
+<dt>Shape:</dt><dd><ul class="simple">
+<li><p>input: <span class="math notranslate nohighlight">\((B, M, N, ...)\)</span></p></li>
+<li><p>param: <span class="math notranslate nohighlight">\((K, C, N, N)\)</span></p></li>
+<li><p>freq_response: <span class="math notranslate nohighlight">\((M, N, N)\)</span></p></li>
+<li><p>output: <span class="math notranslate nohighlight">\((B, M, N, ...)\)</span></p></li>
+</ul>
+</dd>
+</dl>
+<p>where <span class="math notranslate nohighlight">\(B\)</span> is the batch size, <span class="math notranslate nohighlight">\(M\)</span> is the number of frequency bins,
+and <span class="math notranslate nohighlight">\(N\)</span> is the number of input/output channels.
+The :attr:’param’ attribute represent the biquad filter coefficents. The first dimension of the :attr:’param’ tensor corresponds to the number of filters <span class="math notranslate nohighlight">\(K\)</span>, the second dimension corresponds to the number of biquad coefficients <span class="math notranslate nohighlight">\(C\)</span> (3).
+Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions (not tested).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.parallelBiquad.check_param_shape">
+<span class="sig-name descname"><span class="pre">check_param_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelBiquad.check_param_shape" title="Link to this definition">¶</a></dt>
+<dd><p>Check the shape of the filter parameters.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.parallelBiquad.get_freq_convolve">
+<span class="sig-name descname"><span class="pre">get_freq_convolve</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelBiquad.get_freq_convolve" title="Link to this definition">¶</a></dt>
+<dd><p>Computes the frequency convolution function.</p>
+<p>The frequency convolution is computed using the einsum function.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor after frequency convolution.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.parallelBiquad.get_freq_response">
+<span class="sig-name descname"><span class="pre">get_freq_response</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelBiquad.get_freq_response" title="Link to this definition">¶</a></dt>
+<dd><p>Compute the frequency response of the filter.
+It calls the <a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter" title="flamo.functional.lowpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.lowpass_filter()</span></code></a>, <a class="reference internal" href="../functional.html#flamo.functional.highpass_filter" title="flamo.functional.highpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.highpass_filter()</span></code></a>, or <a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter" title="flamo.functional.bandpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.bandpass_filter()</span></code></a> functions based on the filter type.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.parallelBiquad.get_map">
+<span class="sig-name descname"><span class="pre">get_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelBiquad.get_map" title="Link to this definition">¶</a></dt>
+<dd><p>Get the mapping function <code class="xref py py-attr docutils literal notranslate"><span class="pre">map</span></code> to parameter values that ensure stability.
+The type of mapping is based on the filter type.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">SVF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f_min</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">40</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">24000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF" title="Link to this definition">¶</a></dt>
+<dd><p>IIR filter as a serially cascaded state variable filters (SVFs). 
+Inherits from the <code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code> class.
+Can be used to design a variety of filters such as lowpass, highpass, bandpass, lowshelf, highshelf, peaking, and notch filters.
+The filter coefficients are parameterized by the cut-off frequency (<span class="math notranslate nohighlight">\(f\)</span>) and resonance (<span class="math notranslate nohighlight">\(R\)</span>) parameters.
+The mixing coefficients (<span class="math notranslate nohighlight">\(m_{LP}\)</span>, <span class="math notranslate nohighlight">\(m_{BP}\)</span>, <span class="math notranslate nohighlight">\(m_{HP}\)</span>  for lowpass, bandpass, and highpass filters) determine the contribution of each filter type in the cascaded structure.</p>
+<p>TODO: add eq</p>
+<p>SVF parameters are used to express biquad filters as follows:</p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\\\begin{split}b_0 = f^2 m_{LP} + f m_{BP} + m_{HP} \\
+b_1 = 2 f^2 m_{LP} - 2 m_{HP} \\
+b_2 = f^2 m_{LP} - f m_{BP} + m_{HP} \\
+a_0 = f^2 + 2 R f + 1 \\
+a_1 = 2 f^2 - 2 \\
+a_2 = f^2 - 2 R f + 1 \\\end{split}\end{aligned}\end{align} \]</div>
+<p>For serieally cascaded SVFs, the frequency response is</p>
+<div class="math notranslate nohighlight">
+\[H(z) = \prod_{k=1}^{K} H_k(z)\]</div>
+<p>where <span class="math notranslate nohighlight">\(K\)</span> is the number of cascaded filters <code class="xref py py-attr docutils literal notranslate"><span class="pre">n_sections</span></code>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>size (tuple, optional): The size of the filter parameters. Default: (1, 1).</p></li>
+<li><p>n_sections (int, optional): The number of cascaded filters. Default: 1.</p></li>
+<li><p>f_min (int, optional): The minimum cut-off frequency of the filter in Hz. Default: 40.</p></li>
+<li><p>f_max (int, optional): The maximum cut-off frequency of the filter in Hz. Default: 24000.</p></li>
+<li><p>filter_type (str, optional): The type of filter to use. Options are {“lowpass”,”highpass”,”bandpass”,”lowshelf”,”highshelf”,”peaking”,”notch”,} Default: None.</p></li>
+<li><p>nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.</p></li>
+<li><p>map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: x.</p></li>
+<li><p>requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.</p></li>
+<li><p>alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
+</ul>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
+<li><p>fs (int): The sampling frequency.</p></li>
+<li><p>n_sections (int): The number of cascaded filters.</p></li>
+<li><p>c_freqs (torch.Tensor): The cut-off frequencies of the filters.</p></li>
+<li><p>filter_type (str): The type of filter.</p></li>
+<li><p>freq_response (torch.Tensor): The frequency response of the filter.</p></li>
+<li><p>param (nn.Parameter): The parameters of the SVF filter.</p></li>
+</ul>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>check_param_shape(): Check the shape of the filter parameters.</p></li>
+<li><p>check_input_shape(x): Check if the dimensions of the input tensor x are compatible with the module.</p></li>
+<li><p>get_freq_response(): Compute the frequency response of the filter.</p></li>
+<li><p>get_freq_convolve(): Compute the frequency convolution function.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p>For more details, refer to the paper <cite>Differentiable artificial reverberation &lt;https://arxiv.org/abs/2105.13940&gt;</cite> by Lee, S. et al.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF.check_input_shape">
+<span class="sig-name descname"><span class="pre">check_input_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.check_input_shape" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if the input dimensions are compatible with the filter parameters.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>x (torch.Tensor): The input signal.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF.check_param_shape">
+<span class="sig-name descname"><span class="pre">check_param_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.check_param_shape" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if the shape of the filter parameters is valid.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF.get_freq_response">
+<span class="sig-name descname"><span class="pre">get_freq_response</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.get_freq_response" title="Link to this definition">¶</a></dt>
+<dd><p>Compute the frequency response of the filter.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF.map_param2svf">
+<span class="sig-name descname"><span class="pre">map_param2svf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.map_param2svf" title="Link to this definition">¶</a></dt>
+<dd><p>Mapping function for the raw parameters to the SVF filter coefficients.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF.param2R">
+<span class="sig-name descname"><span class="pre">param2R</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.param2R" title="Link to this definition">¶</a></dt>
+<dd><p>Applies a softplus function to the parameter value and maps it to the range [0, 1],
+according to the formula:</p>
+<div class="math notranslate nohighlight">
+\[R = 2 \cdot \text{softplus}(x) / \text{softplus}(0).\]</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF.param2freq">
+<span class="sig-name descname"><span class="pre">param2freq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.param2freq" title="Link to this definition">¶</a></dt>
+<dd><p>Applies a sigmoid function to the parameter value and maps it to the range [0, fs/2],
+where <span class="math notranslate nohighlight">\(f_s\)</span> is the sampling frequency according to the formula:</p>
+<div class="math notranslate nohighlight">
+\[f = \tan(\pi \cdot \text{sigmoid}(x + \log(\frac{f_{c}}{1 - f_{c}}))).\]</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF.param2mix">
+<span class="sig-name descname"><span class="pre">param2mix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">R</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.param2mix" title="Link to this definition">¶</a></dt>
+<dd><p>Mapping function for the mixing coefficients relative to the filter type.</p>
+<ul class="simple">
+<li><p>lowpass: <span class="math notranslate nohighlight">\(m_{LP} = G, m_{BP} = 0, m_{HP} = 0\)</span>.</p></li>
+<li><p>highpass: <span class="math notranslate nohighlight">\(m_{LP} = 0, m_{BP} = 0, m_{HP} = G.\)</span></p></li>
+<li><p>bandpass: <span class="math notranslate nohighlight">\(m_{LP} = 0, m_{BP} = G, m_{HP} = 0.\)</span></p></li>
+<li><p>lowshelf: <span class="math notranslate nohighlight">\(m_{LP} = 1, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = G.\)</span></p></li>
+<li><p>highshelf: <span class="math notranslate nohighlight">\(m_{LP} = G, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = 1.\)</span></p></li>
+<li><p>peaking | notch: <span class="math notranslate nohighlight">\(m_{LP} = 1, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = 1.\)</span></p></li>
+</ul>
+<p>where <span class="math notranslate nohighlight">\(G\)</span> is the gain parameter mapped from the raw parameters as 
+<span class="math notranslate nohighlight">\(G = 10^{-\text{softplus}(x)}\)</span>.</p>
+</dd></dl>
+
+</dd></dl>
+
 
 
           </div>
@@ -621,6 +906,32 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelDelay.get_freq_response"><code class="docutils literal notranslate"><span class="pre">parallelDelay.get_freq_response()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.check_param_shape"><code class="docutils literal notranslate"><span class="pre">Biquad.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.get_freq_response"><code class="docutils literal notranslate"><span class="pre">Biquad.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.get_map"><code class="docutils literal notranslate"><span class="pre">Biquad.get_map()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.get_size"><code class="docutils literal notranslate"><span class="pre">Biquad.get_size()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.init_param"><code class="docutils literal notranslate"><span class="pre">Biquad.init_param()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.initialize_class"><code class="docutils literal notranslate"><span class="pre">Biquad.initialize_class()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.check_param_shape"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_freq_convolve()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.get_freq_response"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.get_map"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_map()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.check_input_shape"><code class="docutils literal notranslate"><span class="pre">SVF.check_input_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.check_param_shape"><code class="docutils literal notranslate"><span class="pre">SVF.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.get_freq_response"><code class="docutils literal notranslate"><span class="pre">SVF.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.map_param2svf"><code class="docutils literal notranslate"><span class="pre">SVF.map_param2svf()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.param2R"><code class="docutils literal notranslate"><span class="pre">SVF.param2R()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.param2freq"><code class="docutils literal notranslate"><span class="pre">SVF.param2freq()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.param2mix"><code class="docutils literal notranslate"><span class="pre">SVF.param2mix()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
@@ -629,6 +940,12 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
 </ul>
 
 <div class="relations">
