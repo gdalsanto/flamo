@@ -551,6 +551,7 @@ class Shell(nn.Module):
         # generate input signal
         x = signal_gallery( batch_size=1, n_samples=self.nfft, n=self.input_channels, signal_type="impulse", fs=fs )
         if identity and self.input_channels > 1:
+            self.alias_envelope = self.alias_envelope.unsqueeze(-1).expand(1, -1, -1, self.input_channels)
             x = x.diag_embed()
 
         # generate impulse response
@@ -599,7 +600,7 @@ class Shell(nn.Module):
         self.set_outputLayer(
             nn.Sequential(
                 iFFT(self.nfft),
-                Transform(lambda x: torch.einsum('...fm, ...fm -> ...fm', x, self.alias_envelope_exp)),
+                Transform(lambda x: torch.einsum('bfm..., bfm... -> bfm...', x, self.alias_envelope_exp)),
                 FFT(self.nfft))) #TODO, this is a very suboptimal way to do this, we need to find a better way 
 
         # generate input signal

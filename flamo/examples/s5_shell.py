@@ -54,7 +54,7 @@ def s4_e0():
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
-        n_sections=2,
+        n_sections=1,
         nfft=nfft,
         fs=samplerate,
     )
@@ -150,10 +150,10 @@ def s4_e1():
 
     # Layers
     in_layer1 = dsp.FFT(nfft=nfft)
-    in_layer2 = dsp.Gain(size=(10, in_ch), nfft=nfft, requires_grad=False)          # NOTE: Error here
+    in_layer2 = dsp.Gain(size=(in_ch, in_ch), nfft=nfft, requires_grad=False)          # NOTE: Error here
     in_layer = nn.Sequential(in_layer1, in_layer2)
 
-    out_layer = dsp.iFFT(nfft=nfft)          # NOTE: Error here
+    out_layer = dsp.iFFT(nfft=2**8)          # NOTE: Error here
 
     # Shell
     my_dsp = system.Shell(input_layer=in_layer, core=filters, output_layer=out_layer)
@@ -179,26 +179,29 @@ def s4_e2():
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
         nfft=nfft,
-        requires_grad=False
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
-        max_len=3000,
+        max_len=5000,
         isint=True,
         nfft=nfft,
         fs=samplerate,
-        requires_grad=False
     )
-    filter3 = dsp.parallelSVF(
+    filter3 = dsp.parallelFilter(
+        size=(50, out_ch,),
+        nfft=nfft
+    )
+    filter4 = dsp.parallelSVF(
         size=(out_ch,),
+        n_sections=1,
         nfft=nfft,
         fs=samplerate,
-        requires_grad=False
     )
     filters = OrderedDict({
         'Gain': filter1,
         'Delay': filter2,
-        'SVF': filter3
+        'FIR': filter3,
+        'SVF': filter4
     })
 
     # Shell
@@ -241,7 +244,7 @@ def s4_e3():
 
     # -------------- Time-frequency parameters --------------
     samplerate = 48000
-    nfft = 96000
+    nfft = 2**10
 
     # ------------------- DSP Definition --------------------
     in_ch = 2
@@ -250,7 +253,6 @@ def s4_e3():
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
         nfft=nfft,
-        requires_grad=False
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
@@ -258,18 +260,22 @@ def s4_e3():
         isint=True,
         nfft=nfft,
         fs=samplerate,
-        requires_grad=False
     )
-    filter3 = dsp.parallelSVF(
+    filter3 = dsp.parallelFilter(
+        size=(50, out_ch,),
+        nfft=nfft
+    )
+    filter4 = dsp.parallelSVF(
         size=(out_ch,),
+        n_sections=1,
         nfft=nfft,
         fs=samplerate,
-        requires_grad=False
     )
     filters = OrderedDict({
         'Gain': filter1,
         'Delay': filter2,
-        'SVF': filter3
+        'FIR': filter3,
+        'SVF': filter4
     })
 
     # Shell
@@ -278,23 +284,23 @@ def s4_e3():
     # ----------- DSP time a frequency responses ------------
 
     # Time response
-    imp_resp = my_dsp.get_time_response(fs=samplerate, interior=True)
+    imp_resp = my_dsp.get_time_response(fs=samplerate, identity=True)
 
     # Magnitude response
-    freq_resp = my_dsp.get_freq_response(fs=samplerate, interior=True)
+    freq_resp = my_dsp.get_freq_response(fs=samplerate, identity=True)
     mag_resp = mag2db(get_magnitude(freq_resp))
 
     # ------------------------ Plot -------------------------
     plt.figure()
     for i in range(in_ch):
         plt.subplot(2, in_ch, i+1)
-        plt.plot(imp_resp.squeeze().cpu().numpy()[:,i])
+        plt.plot(imp_resp.squeeze().numpy()[:,i])
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
         plt.grid()
         plt.title(f'Input channel {i+1}')
-        plt.subplot(2, in_ch, i+2)
-        plt.plot(mag_resp.squeeze().cpu().numpy()[:,i])
+        plt.subplot(2, in_ch, i+3)
+        plt.plot(mag_resp.squeeze().numpy()[:,i])
         plt.xlabel('Frequency bins')
         plt.ylabel('Magnitude')
         plt.grid()
@@ -313,7 +319,7 @@ def s4_e4(args):
     """
     # -------------- Time-frequency parameters --------------
     samplerate = 48000
-    nfft = 96000
+    nfft = 2**10
 
     # ------------------ Model Definition -------------------
     FIR_order = 1000
@@ -329,9 +335,9 @@ def s4_e4(args):
     model = system.Shell( core=my_dsp )
 
     # Get the initial response for the comparison
-    fr_init = model.get_freq_response(fs=samplerate, interior=False)
-    interior_fr_init = model.get_freq_response(fs=samplerate, interior=True)
-    evs_init = torch.linalg.eigvals(get_magnitude(model.get_freq_response(fs=samplerate, interior=True)))
+    fr_init = model.get_freq_response(fs=samplerate, identity=False)
+    all_fr_init = model.get_freq_response(fs=samplerate, identity=True)
+    evs_init = get_magnitude(get_eigenvalues(model.get_freq_response(fs=samplerate, identity=True)))
 
     # ========================================================================================================
     # Case 1: Train the DSP to have all flat magnitude responses
@@ -342,9 +348,9 @@ def s4_e4(args):
 
     # Initialize dataset
     dataset = DatasetColorless(
-        in_shape=(args.batch_size, args.nfft//2+1, in_ch),
-        target_shape=(args.batch_size, args.nfft//2+1, out_ch, in_ch),
-        ds_len=args.num,
+        input_shape=(args.batch_size, nfft//2+1, in_ch),
+        target_shape=(args.batch_size, nfft//2+1, out_ch, in_ch),
+        expand=args.num,
         device=args.device,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
@@ -353,7 +359,7 @@ def s4_e4(args):
     criterion = torch.nn.MSELoss()
 
     # Interface DSP with dataset and loss function
-    model.set_inputLayer(nn.Sequential(dsp.Transform(lambda x: x.diag_embed()), dsp.FFT(args.nfft)))
+    model.set_inputLayer(nn.Sequential(dsp.Transform(lambda x: x.diag_embed()), dsp.FFT(nfft)))
     model.set_outputLayer(dsp.Transform(get_magnitude))
 
     # Initialize training process
@@ -369,16 +375,16 @@ def s4_e4(args):
     trainer.train(train_loader, valid_loader)
 
     # Get the optimized response
-    interior_fr_optim = model.get_freq_response(fs=samplerate, interior=True)
+    all_fr_optim = model.get_freq_response(fs=samplerate, identity=True)
 
     plt.figure()
     for i in range(out_ch):
         for j in range(in_ch):
             plt.subplot(out_ch, in_ch, i * in_ch + j + 1)
-            plt.plot(mag2db(get_magnitude(interior_fr_init[0, :, i, j]).detach()).numpy(), label='Init')
-            plt.plot(mag2db(get_magnitude(interior_fr_optim[0, :, i, j]).detach()).numpy(), label='Optim')
+            plt.plot(mag2db(get_magnitude(all_fr_init[0, :, i, j]).detach()).numpy(), label='Init')
+            plt.plot(mag2db(get_magnitude(all_fr_optim[0, :, i, j]).detach()).numpy(), label='Optim')
             plt.xlabel('Frequency bins')
-            plt.ylabel('Magnitude')
+            plt.ylabel('Magnitude [dB]')
             plt.grid()
     plt.legend()
     plt.suptitle("Filter's interior magnitude responses")
@@ -393,9 +399,9 @@ def s4_e4(args):
 
     # Change the dataset
     dataset = DatasetColorless(
-        in_shape=(args.batch_size, args.nfft//2+1, in_ch),
-        target_shape=(args.batch_size, args.nfft//2+1, out_ch), # The target has the a different shape now
-        ds_len=args.num,
+        input_shape=(args.batch_size, nfft//2+1, in_ch),
+        target_shape=(args.batch_size, nfft//2+1, out_ch), # The target has the a different shape now
+        expand=args.num,
         device=args.device,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
@@ -407,7 +413,7 @@ def s4_e4(args):
     trainer.train(train_loader, valid_loader)
 
     # Get the optimized response
-    evs_optim = torch.linalg.eigvals(get_magnitude(model.get_freq_response(fs=samplerate, interior=True)))
+    evs_optim = get_magnitude(get_eigenvalues(model.get_freq_response(fs=samplerate, identity=True)))
 
     plt.figure()
     for i in range(out_ch):
@@ -415,7 +421,7 @@ def s4_e4(args):
             plt.plot(mag2db(torch.abs(evs_init[0, :, i])).detach().numpy(), label='Init')
             plt.plot(mag2db(torch.abs(evs_optim[0, :, i])).detach().numpy(), label='Optim')
             plt.xlabel('Frequency bins')
-            plt.ylabel('Magnitude')
+            plt.ylabel('Magnitude [dB]')
             plt.grid()
     plt.legend()
     plt.suptitle("Filters eigenvalues")
@@ -430,14 +436,14 @@ def s4_e4(args):
     #       In this case we can also keep the last DatasetColorless instance.
 
     # Interface DSP with dataset and loss function
-    model.set_inputLayer(dsp.FFT(args.nfft))
+    model.set_inputLayer(dsp.FFT(nfft))
     model.set_outputLayer(dsp.Transform(get_magnitude))
 
     # Train the model
     trainer.train(train_loader, valid_loader)
 
     # Get the optimized response
-    fr_optim = model.get_freq_response(fs=samplerate, interior=False)
+    fr_optim = model.get_freq_response(fs=samplerate, identity=False)
 
     plt.figure()
     for i in range(out_ch):
@@ -445,7 +451,7 @@ def s4_e4(args):
             plt.plot(mag2db(get_magnitude(fr_init[0, :, i]).detach()).numpy(), label='Init')
             plt.plot(mag2db(get_magnitude(fr_optim[0, :, i]).detach()).numpy(), label='Optim')
             plt.xlabel('Frequency bins')
-            plt.ylabel('Magnitude')
+            plt.ylabel('Magnitude [dB]')
             plt.grid()
     plt.legend()
     plt.suptitle("Filters magnitude responses")
@@ -462,29 +468,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     #----------------------- Dataset ----------------------
-    parser.add_argument('--num', type=int, default=2**10,
-                        help = 'dataset size')
-    parser.add_argument('--batch_size', type=int, default=1,
-                        help='batch size')
-    parser.add_argument('--split', type=float, default=0.8,
-                        help='training / validation split')
-    parser.add_argument('--shuffle', action='store_false',
-                        help='if true, shuffle the data in the dataset at every epoch')
-    
+    parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
+    parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
+    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
-    parser.add_argument('--train_dir', type=str, default=None,
-                        help ='path to output directory')
-    parser.add_argument('--device', default='cpu',
-                        help='training device')
-    parser.add_argument('--max_epochs', type=int, default=10, 
-                        help='maximum number of training epochs')
-    parser.add_argument('--log_epochs', action='store_true',
-                        help='Store met parameters at every epoch')
-    
+    parser.add_argument('--train_dir', type=str, help='directory to save training results')
+    parser.add_argument('--max_epochs', type=int, default=50, help='maximum number of epochs')
     #---------------------- Optimizer ---------------------
-    parser.add_argument('--lr', type=float, default=1e-3,
-                        help='learning rate')
-    
+    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     #----------------- Parse the arguments ----------------
     args = parser.parse_args()
 
@@ -502,7 +494,7 @@ if __name__ == '__main__':
 
     # Run examples
     # s4_e0()
-    s4_e1()
+    # s4_e1()
     # s4_e2()
     # s4_e3()
-    # s4_e4(args)
+    s4_e4(args)

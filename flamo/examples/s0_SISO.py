@@ -171,6 +171,7 @@ def s0_e3(args) -> None:
         net=model,
         max_epochs=args.max_epochs,
         lr=args.lr,
+        patience_delta=args.patience_delta,
         train_dir=args.train_dir,
         device=args.device
     )
@@ -217,6 +218,7 @@ if __name__ == '__main__':
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
     parser.add_argument('--max_epochs', type=int, default=50, help='maximum number of epochs')
+    parser.add_argument('--patience_delta', type=float, default=0.001, help='Minimum improvement in validation loss to be considered as an improvement')
     #---------------------- Optimizer ---------------------
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     #----------------- Parse the arguments ----------------
@@ -235,7 +237,7 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    # s0_e0()
+    s0_e0()
     # s0_e1()
     # s0_e2()
-    s0_e3(args)
+    # s0_e3(args)

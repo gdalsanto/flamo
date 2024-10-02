@@ -227,29 +227,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     #----------------------- Dataset ----------------------
-    parser.add_argument('--num', type=int, default=2**10,
-                        help = 'dataset size')
-    parser.add_argument('--batch_size', type=int, default=1,
-                        help='batch size')
-    parser.add_argument('--split', type=float, default=0.8,
-                        help='training / validation split')
-    parser.add_argument('--shuffle', action='store_false',
-                        help='if true, shuffle the data in the dataset at every epoch')
-    
+    parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
+    parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
+    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
-    parser.add_argument('--train_dir', type=str, default=None,
-                        help ='path to output directory')
-    parser.add_argument('--device', default='cpu',
-                        help='training device')
-    parser.add_argument('--max_epochs', type=int, default=50, 
-                        help='maximum number of training epochs')
-    parser.add_argument('--log_epochs', action='store_true',
-                        help='Store met parameters at every epoch')
-    
+    parser.add_argument('--train_dir', type=str, help='directory to save training results')
+    parser.add_argument('--max_epochs', type=int, default=50, help='maximum number of epochs')
+    parser.add_argument('--patience_delta', type=float, default=0.001, help='Minimum improvement in validation loss to be considered as an improvement')
     #---------------------- Optimizer ---------------------
-    parser.add_argument('--lr', type=float, default=1e-3,
-                        help='learning rate')
-    
+    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     #----------------- Parse the arguments ----------------
     args = parser.parse_args()
 

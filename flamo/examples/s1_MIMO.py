@@ -156,7 +156,7 @@ def s1_e1(args) -> None:
     plt.subplot(2, 1, 2)
     plt.plot(mag2db(mag_resp_init[0,:,1]).squeeze().numpy(), label='Initial')
     plt.plot(mag2db(mag_resp_optim[0,:,1]).squeeze().numpy(), label='Optimized')
-    plt.plot(mag2db(target[0,:,1]), '-.', label='Target')
+    plt.plot(mag2db(target[0,:,1]), '--', label='Target')
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude in dB')
     plt.grid()
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
     parser.add_argument('--max_epochs', type=int, default=50, help='maximum number of epochs')
-    parser.add_argument('--patience_delta', type=float, default=0.002, help='') # TODO: add description
+    parser.add_argument('--patience_delta', type=float, default=0.002, help='Minimum improvement in validation loss to be considered as an improvement')
     #---------------------- Optimizer ---------------------
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     #----------------- Parse the arguments ----------------
