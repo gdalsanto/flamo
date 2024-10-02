@@ -139,13 +139,13 @@ class Trainer:
         inputs, targets = data
         # batch processing
         self.optimizer.zero_grad()
-        H = self.net(inputs)
+        estimations = self.net(inputs)
         loss = 0
         for alpha, criterion, requires_model in zip(self.alpha, self.criterion, self.requires_model):
             if requires_model:
-                loss += alpha*criterion(H, targets, self.net)
+                loss += alpha*criterion(estimations, targets, self.net)
             else:
-                loss += alpha*criterion(H, targets)
+                loss += alpha*criterion(estimations, targets)
         loss.backward()
         self.optimizer.step()
         return loss.item()
@@ -163,13 +163,13 @@ class Trainer:
         # batch processing
         inputs, targets = data
         self.optimizer.zero_grad()
-        H = self.net(inputs)
+        estimations = self.net(inputs)
         loss = 0
         for alpha, criterion, requires_model in zip(self.alpha, self.criterion, self.requires_model):
             if requires_model:
-                loss += alpha*criterion(H, targets, self.net)
+                loss += alpha*criterion(estimations, targets, self.net)
             else:
-                loss += alpha*criterion(H, targets)
+                loss += alpha*criterion(estimations, targets)
         return loss.item()
 
     def print_results(self, e, e_time):
