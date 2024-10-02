@@ -1153,16 +1153,10 @@ class SVF(Filter):
         where :math:`f_s` is the sampling frequency according to the formula:
 
         .. math::
-            f = \tan(\pi \cdot \text{sigmoid}(x + \log(\frac{f_{c}}{1 - f_{c}}))).
-
+            f = \text{tan}\left(\pi \cdot \text{sigmoid}(x) \cdot 0.5\right).
         """
-        map_bias = lambda x: torch.log(x / (1 - x))
-        return torch.tan(
-            torch.pi
-            * F.sigmoid(
-                param + map_bias(self.c_freqs.unsqueeze(-1).unsqueeze(-1).expand(-1, param.shape[1], param.shape[2]))
-            )  # /2 removed becuase we want to allow the full range of frequencies [0, fs/2]
-        )
+        sigmoid = torch.div(1, 1 + torch.exp(-param))
+        return torch.tan(torch.pi * sigmoid * 0.5)
 
     def param2R(self, param):
         r"""
@@ -1170,12 +1164,10 @@ class SVF(Filter):
         according to the formula:
 
         .. math::
-            R = 2 \cdot \text{softplus}(x) / \text{softplus}(0).
+            R = \text{softplus}(x) / log(2).
 
         """
-        activation = lambda x: 2 * F.softplus(x) / F.softplus(torch.zeros(1)).item()
-        # activation = lambda x: torch.log(1 + torch.exp(x)) / torch.log(torch.tensor(2))
-        return activation(param)
+        return torch.div(torch.log(torch.ones(1) + torch.exp(param)), torch.log(torch.tensor(2)))
 
     def param2mix(self, param, R=None):
         r"""
@@ -1352,23 +1344,6 @@ class parallelSVF(SVF):
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-
-    def param2freq(self, param):
-        r"""
-        Applies a sigmoid function to the parameter value and maps it to the range [0, fs/2],
-        where :math:`f_s` is the sampling frequency according to the formula:
-
-        .. math::
-            f = \tan(\pi \cdot \text{sigmoid}(x + \log(\frac{f_{c}}{1 - f_{c}}))).
-
-        """
-        map_bias = lambda x: torch.log(x / (1 - x))
-        return torch.tan(
-            torch.pi
-            * F.sigmoid(
-                param + map_bias(self.c_freqs.unsqueeze(-1).expand(-1, param.shape[1]))
-            )  # /2 removed becuase we want to allow the full range of frequencies [0, fs/2]
-        )
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x: torch.einsum(
