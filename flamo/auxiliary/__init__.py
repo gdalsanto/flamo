@@ -1,2 +1,2 @@
 from .minimize import * 
-from .filter import *
+from .eq import *

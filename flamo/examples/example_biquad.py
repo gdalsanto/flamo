@@ -25,8 +25,8 @@ def example_biquad(args):
     n_sections = 2
     ## ---------------- TARGET ---------------- ##
     b, a = highpass_filter(
-        fc=torch.tensor(args.samplerate//2)*torch.rand(size=(n_sections, in_ch, out_ch)), 
-        gain=torch.tensor(-1) + (torch.tensor(2))*torch.rand(size=(n_sections, in_ch, out_ch)), 
+        fc=torch.tensor(args.samplerate//2)*torch.rand(size=(n_sections, out_ch, in_ch)), 
+        gain=torch.tensor(-1) + (torch.tensor(2))*torch.rand(size=(n_sections, out_ch, in_ch)), 
         fs=args.samplerate)
     B = torch.fft.rfft(b, args.nfft, dim=0)
     A = torch.fft.rfft(a, args.nfft, dim=0)
@@ -52,7 +52,7 @@ def example_biquad(args):
 
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
     input = signal_gallery(1, n_samples=args.nfft, n=in_ch, signal_type='impulse', fs=args.samplerate)
-    target = torch.einsum('...i,...ij->...j', input_layer(input), target_filter)
+    target = torch.einsum('...ji,...i->...j', target_filter, input_layer(input))
 
     dataset = Dataset(
         input=input,
