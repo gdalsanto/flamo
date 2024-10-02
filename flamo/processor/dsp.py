@@ -7,10 +7,10 @@ from flamo.functional import (
     lowpass_filter, 
     highpass_filter, 
     bandpass_filter,
-    rad2hertz)
+    rad2hertz )
 from flamo.auxiliary.eq import (
     eq_freqs,
-    geq)
+    geq )
 
 # ============================= TRANSFORMS ================================
 
@@ -883,11 +883,19 @@ class Biquad(Filter):
         Initialize the :class:`Biquad` class.
         """
         self.check_param_shape()
+        self.get_io()
         self.freq_response = to_complex(
             torch.empty((self.nfft // 2 + 1, *self.size[1:]))
         )
         self.get_freq_response()
         self.get_freq_convolve()
+
+    def get_io(self): # NOTE: This method does not need to be reimplemented here, it is inherited from Filter.
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
 
 
 class parallelBiquad(Biquad):
@@ -976,6 +984,13 @@ class parallelBiquad(Biquad):
         self.freq_convolve = lambda x: torch.einsum(
             "fn,bfn...->bfn...", self.freq_response, x
         )
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
 
 
 class SVF(Filter):
@@ -1260,7 +1275,13 @@ class SVF(Filter):
             R = r
             m = self.param2mix(param[2:], R)
         return f, R, m[0], m[1], m[2]
-
+    
+    def get_io(self): # NOTE: This method does not need to be reimplemented here, it is inherited from Filter.
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
 
 
 class parallelSVF(SVF):
@@ -1354,9 +1375,16 @@ class parallelSVF(SVF):
             "fn,bfn...->bfn...", self.freq_response, x
         )
     
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
+
 
 class GEQ(Filter):
-    """
+    r"""
     Graphic Equilizer filter. Inherits from the :class:`Filter` class.
     It supports 1 and 1/3 octave filter bands. 
     The raw parameters are the linear gain values for each filter band.
@@ -1467,11 +1495,19 @@ class GEQ(Filter):
 
     def initialize_class(self):
         self.check_param_shape()
+        self.get_io()
         self.freq_response = to_complex(
             torch.empty((self.nfft // 2 + 1, *self.size[1:]))
         )
         self.get_freq_response()
         self.get_freq_convolve()
+
+    def get_io(self): # NOTE: This method does not need to be reimplemented here, it is inherited from Filter.
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
 
 
 class parallelGEQ(GEQ):
@@ -1543,6 +1579,14 @@ class parallelGEQ(GEQ):
         self.freq_convolve = lambda x: torch.einsum(
             "fn,bfn...->bfn...", self.freq_response, x
         )
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
+
 # ============================= DELAYS ================================
 
 

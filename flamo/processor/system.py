@@ -135,7 +135,7 @@ class Series(nn.Sequential):
         else:
             for i,module in enumerate(self):
                 if hasattr(module, attr) and getattr(module, attr) != value:
-                    raise ValueError(f"All modules must have the same {attr} value. Module at index {i} is incoherent with the part of the Series preceding it.")
+                    raise ValueError(f"All modules must have the same {attr} value. Module {module.__class__.__name__} at index {i} is incoherent with the part of the Series preceding it.")
         
         return value
     
@@ -159,13 +159,17 @@ class Series(nn.Sequential):
                 continue
         
         if found:
+            prev_module = self[i].__class__.__name__
+            prev_position = i
             prev_out_channels = self[i].output_channels
 
             for j,module in enumerate(self):
                 if j <= i:
                     continue
                 if hasattr(module, 'input_channels'):
-                    assert getattr(module, 'input_channels') == prev_out_channels, f"Input channels and output channels of module {self[j-1].__class__.__name__} in position {j-1} and module {self[j].__class__.__name__} in position {j} are incompatible."
+                    assert getattr(module, 'input_channels') == prev_out_channels, f"Module {prev_module} at index {prev_position} has {prev_out_channels} output channels, but module {module.__class__.__name__} at index {j} has {module.input_channels} input_channels."
+                    prev_module = module.__class__.__name__
+                    prev_position = j
                     prev_out_channels = getattr(module, 'output_channels', None)
         
         return input_channels, prev_out_channels
@@ -210,6 +214,9 @@ class Recursion(nn.Module):
                  fF: nn.Module | nn.Sequential | OrderedDict | Series,
                  fB: nn.Module | nn.Sequential | OrderedDict | Series,
                 ):
+        
+        nn.Module.__init__(self)
+
         # Prepare the feedforward and feedback paths
         if isinstance(fF, (nn.Sequential, OrderedDict)) and not isinstance(fF, Series):
             self.feedforward = Series(fF)
@@ -288,7 +295,7 @@ class Recursion(nn.Module):
             warnings.warn(f"The feedback pass does not possess the attribute {attr}.")
         # Then, check that the two paths have the same value of the attribute.
         if ff_attr is not None and fb_attr is not None:
-            assert ff_attr == fb_attr, f"The feedforward pass has {attr} = {ff_attr} and feedback pass has {attr} = {fb_attr}, they must have the same value instead."
+            assert ff_attr == fb_attr, f"The feedforward pass has {attr} = {ff_attr} and feedback pass has {attr} = {fb_attr}. They must have the same value."
 
         # Return the attribute value
         attr_value = ff_attr if ff_attr is not None else fb_attr
@@ -322,8 +329,8 @@ class Recursion(nn.Module):
         if fb_out_ch is None:
             raise ValueError(f"The feedback pass does not possess the attribute output_channels.")
         
-        assert(ff_out_ch == fb_in_ch), "Feedforward output channels and feedback input channels must be the same."
-        assert(fb_out_ch == ff_in_ch), "Feedforward input channels and feedback output channels must be the same."
+        assert(ff_out_ch == fb_in_ch), f"Feedforward pass has {ff_out_ch} output channels, but feedback pass has {fb_in_ch} input channels. They must be the same."
+        assert(fb_out_ch == ff_in_ch), f"Feedforward pass {ff_in_ch} input channels, but the feedback pass has {fb_out_ch} output channels. They must be the same."
 
         return ff_in_ch, ff_out_ch
 
@@ -453,9 +460,9 @@ class Shell(nn.Module):
         if getattr(self.__core, attr, None) is None:
             raise ValueError(f"The core does not possess the attribute {attr}.")
         if getattr(self.__input_layer, attr, None) is not None:
-            assert getattr(self.__core, attr) == getattr(self.__input_layer, attr), f"Core and input layer must have the same {attr} value."
+            assert getattr(self.__core, attr) == getattr(self.__input_layer, attr), f"The input layer has {attr} = {getattr(self.__input_layer, attr)} and the core has {attr} = {getattr(self.__core, attr)}. They must have the same value."
         if getattr(self.__output_layer, attr, None) is not None:
-            assert getattr(self.__core, attr) == getattr(self.__output_layer, attr), f"Core and output layer must have the same {attr} value."
+            assert getattr(self.__core, attr) == getattr(self.__output_layer, attr), f"The core has {attr} = {getattr(self.__core, attr)} and the output layer has {attr} = {getattr(self.__output_layer, attr)}. They must have the same value."
 
         # Get current value
         return getattr(self.__core, attr)
@@ -526,7 +533,7 @@ class Shell(nn.Module):
 
         # contruct anti aliasing reconstruction envelope
         gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(-1, self.output_channels)
+        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(1,-1,1).expand(1, -1, self.output_channels)
         
         # save input/output layers
         input_save = self.get_inputLayer()
@@ -581,7 +588,8 @@ class Shell(nn.Module):
 
         # contruct anti aliasing reconstruction envelope
         gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        self.alias_envelope_exp = (gamma ** torch.arange(0, -self.nfft, -1)).unsqueeze(-1).expand(-1, output_channels)
+        self.alias_envelope_exp = (gamma ** torch.arange(0, -self.nfft, -1)).view(1,-1,1).expand(1,-1,self.output_channels)
+        
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
@@ -590,7 +598,6 @@ class Shell(nn.Module):
         self.set_inputLayer(FFT(self.nfft))
         self.set_outputLayer(
             nn.Sequential(
-                nn.Identity(),
                 iFFT(self.nfft),
                 Transform(lambda x: torch.einsum('...fm, ...fm -> ...fm', x, self.alias_envelope_exp)),
                 FFT(self.nfft))) #TODO, this is a very suboptimal way to do this, we need to find a better way 
