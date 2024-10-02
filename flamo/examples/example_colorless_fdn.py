@@ -69,7 +69,7 @@ def example_fdn(args):
 
     # Get initial impulse response
     with torch.no_grad():
-        ir_init =  model.get_time_response(interior=False, fs=args.samplerate).squeeze() 
+        ir_init =  model.get_time_response(identity=False, fs=args.samplerate).squeeze() 
         save_audio(os.path.join(args.train_dir, "ir_init.wav"), ir_init/torch.max(torch.abs(ir_init)), fs=args.samplerate)
         save_fdn_params(model, filename='parameters_init')
 
@@ -95,7 +95,7 @@ def example_fdn(args):
 
     # Get optimized impulse response
     with torch.no_grad():
-        ir_optim =  model.get_time_response(interior=False, fs=args.samplerate).squeeze()
+        ir_optim =  model.get_time_response(identity=False, fs=args.samplerate).squeeze()
         save_audio(os.path.join(args.train_dir, "ir_optim.wav"), ir_optim/torch.max(torch.abs(ir_optim)), fs=args.samplerate)
         save_fdn_params(model, filename='parameters_optim')
 

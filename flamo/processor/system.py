@@ -371,8 +371,8 @@ class Shell(nn.Module):
             - set_outputLayer(output_layer): Substitutes the current output layer with a given new one.
             - get_core(): Returns the core.
             - set_core(core): Substitutes the current core with a given new one.
-            - get_time_response(fs, interior): Generates the impulse response of the DSP.
-            - get_freq_response(fs, interior): Generates the frequency response of the DSP.
+            - get_time_response(fs, identity): Generates the impulse response of the DSP.
+            - get_freq_response(fs, identity): Generates the frequency response of the DSP.
     """
     def __init__(self,
                  core: nn.Module | Recursion | nn.Sequential,
