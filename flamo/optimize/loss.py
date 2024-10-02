@@ -7,7 +7,10 @@ class sparsity_loss(nn.Module):
     """Calculates the sparsity loss for a given model."""
     def forward(self, y_pred, y_target, model):
         core = model.get_core()
-        A = core.feedback_loop.feedback.map(core.feedback_loop.feedback.param)
+        try: 
+            A = core.feedback_loop.feedback.map(core.feedback_loop.feedback.param)
+        except:
+            A = core.feedback_loop.feedback.mixing_matrix.map(core.feedback_loop.feedback.mixing_matrix.param)
         N = A.shape[-1]
         # A = torch.matrix_exp(skew_matrix(A))
         return -(torch.sum(torch.abs(A)) - N)/(N*(np.sqrt(N)-1))

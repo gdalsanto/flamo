@@ -566,3 +566,31 @@ def probe_sos(sos, control_freqs, nfft, fs):
         W[:, band] = 2*torch.pi*f/fs
 
     return G, H, W
+
+def find_onset(rir):
+    # TODO add proper docstring
+    r''' find onset in input RIR by extracting a local energy envelope of the 
+    RIR then finding its maximum point'''
+    # extract local energy envelope 
+    win_len = 64
+    overlap = 0.75
+    win = torch.hann_window(win_len)
+
+    # pad rir 
+    rir = torch.nn.functional.pad(rir, (int(win_len * overlap), int(win_len * overlap)))
+    hop = (1 - overlap)
+    n_wins = np.floor(rir.shape[0] / (win_len * hop) - 1/2/hop)
+
+    local_energy = []
+    for i in range(1, int(n_wins - 1)):
+        local_energy.append(
+            torch.sum(
+                (rir[(i-1)*int(win_len*hop):(i-1)*int(win_len*hop) + win_len] ** 2) * win
+            ).item()
+        )
+    # discard trailing points 
+    # remove (1/2/hop) to avoid map to negative time (center of window) 
+    n_win_discard = (overlap/hop) - (1/2/hop) 
+
+    local_energy = local_energy[int(n_win_discard):]
+    return int(win_len * hop * (np.argmax(local_energy) - 1))    # one hopsize as safety margin 
