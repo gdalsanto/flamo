@@ -20,15 +20,11 @@ from flamo.optimize.trainer import Trainer
 torch.manual_seed(1)
 
 
-def s1_e0() -> None:
+def example_delays(args) -> None:
     """
     Let's create a multichannel Delay instance with three input channels and two output channels.
     We will give a unit impulse as input. Each output channel will contain three delays, one for each input channel.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------- DSP Definition --------------------
     in_ch = 3
     out_ch = 2
@@ -36,18 +32,18 @@ def s1_e0() -> None:
         size=(out_ch, in_ch),
         max_len=700,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     my_dsp = nn.Sequential(input_layer, filter, output_layer)
 
     # -------------- Apply unit impulse to DSP --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=nfft, n=in_ch, fs=samplerate)
+    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate)
 
     # Apply filter
     output_sig = my_dsp(input_sig)
@@ -66,16 +62,12 @@ def s1_e0() -> None:
 
     return None
 
-def s1_e1(args) -> None:
+def example_biquads(args) -> None:
     """
     Let's train a multichannel Biquad instance with one input channel and two output channels.
     We want the biquad filter magnitude responses to match a given target.
     We will give a unit impulse as input. The output will be the magnitude responses of the two biquad filters.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------ Model Definition -------------------
     in_ch = 1
     out_ch = 2
@@ -83,11 +75,11 @@ def s1_e1(args) -> None:
         size=(out_ch, in_ch),
         n_sections=1,
         filter_type='lowpass',
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
         requires_grad=True
     )
-    input_layer = dsp.FFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
     output_layer = dsp.Transform(lambda x: torch.abs(x))
 
     model = nn.Sequential(input_layer, filter, output_layer)
@@ -95,18 +87,18 @@ def s1_e1(args) -> None:
     # ----------------- Initialize dataset ------------------
 
     # Input unit impulse
-    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=samplerate, n=in_ch, fs=samplerate)
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate)
 
     # Target frequency responses
     f_cut_1 = 500   # Cut-off frequency for the first lowpass filter
     g_1 = 10        # Bandpass gain for the first lowpass filter
-    b_lp_1, a_lp_1 = lowpass_filter(f_cut_1, g_1, samplerate)
-    H_lp_1 = biquad2tf(b=b_lp_1, a=a_lp_1, nfft=nfft)
+    b_lp_1, a_lp_1 = lowpass_filter(f_cut_1, g_1, args.samplerate)
+    H_lp_1 = biquad2tf(b=b_lp_1, a=a_lp_1, nfft=args.nfft)
 
     f_cut_2 = 5000   # Cut-off frequency for the second lowpass filter
     g_2 = 0.7        # Bandpass gain for the second lowpass filter
-    b_lp_2, a_lp_2 = lowpass_filter(f_cut_2, g_2, samplerate)
-    H_lp_2 = biquad2tf(b=b_lp_2, a=a_lp_2, nfft=nfft)
+    b_lp_2, a_lp_2 = lowpass_filter(f_cut_2, g_2, args.samplerate)
+    H_lp_2 = biquad2tf(b=b_lp_2, a=a_lp_2, nfft=args.nfft)
 
     target = torch.stack([torch.abs(H_lp_1), torch.abs(H_lp_2)], dim=1).unsqueeze(0)
 
@@ -148,7 +140,7 @@ def s1_e1(args) -> None:
     plt.subplot(2, 1, 1)
     plt.plot(mag2db(mag_resp_init[0,:,0]).squeeze().numpy(), label='Initial')
     plt.plot(mag2db(mag_resp_optim[0,:,0]).squeeze().numpy(), label='Optimized')
-    plt.plot(mag2db(target[0,:,0]), '-.', label='Target')
+    plt.plot(mag2db(target[0,:,0]).numpy(), '-.', label='Target')
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude in dB')
     plt.grid()
@@ -156,7 +148,7 @@ def s1_e1(args) -> None:
     plt.subplot(2, 1, 2)
     plt.plot(mag2db(mag_resp_init[0,:,1]).squeeze().numpy(), label='Initial')
     plt.plot(mag2db(mag_resp_optim[0,:,1]).squeeze().numpy(), label='Optimized')
-    plt.plot(mag2db(target[0,:,1]), '--', label='Target')
+    plt.plot(mag2db(target[0,:,1]).numpy(), '--', label='Target')
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude in dB')
     plt.grid()
@@ -171,7 +163,9 @@ if __name__ == '__main__':
 
     # Define system parameters and pipeline hyperparameters
     parser = argparse.ArgumentParser()
-    
+    # ---------------------- Processing -------------------
+    parser.add_argument('--nfft', type=int, default=96000, help='FFT size')
+    parser.add_argument('--samplerate', type=int, default=48000, help='sampling rate')
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**9,help = 'dataset size')
@@ -199,5 +193,5 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    s1_e0()
-    # s1_e1(args)
+    example_delays(args)
+    example_biquads(args)
