@@ -82,6 +82,7 @@ def signal_gallery(
     n: int,
     signal_type: str = "impulse",
     fs: int = 48000,
+    rate: float = 1.0,
     reference=None,
 ):
     # TODO adapt docu string
@@ -105,6 +106,7 @@ def signal_gallery(
         "sine",
         "sweep",
         "wgn",
+        "exp",
         "reference",
     }
 
@@ -129,6 +131,8 @@ def signal_gallery(
             return x.expand(batch_size, n_samples, n)
         case "wgn":
             return torch.randn((batch_size, n_samples, n))
+        case "exp":
+            return torch.exp(-rate * torch.arange(n_samples) / fs ).unsqueeze(-1).expand(batch_size, n_samples, n)
         case "reference":
             return reference.expand(batch_size, n_samples, n)
         
