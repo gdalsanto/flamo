@@ -1574,6 +1574,7 @@ class Delay(DSP):
             - size (tuple, optional): Size of the delay module. Default: (1, 1).
             - max_len (int, optional): Maximum length of the delay in samples. Default: 2000.
             - isint (bool, optional): Flag indicating whether the delay length should be rounded to the nearest integer. Default: False.
+            - unit (int, optional): Unit value used for second-to-sample conversion. Default: 100.
             - nfft (int, optional): Number of FFT points. Default: 2 ** 11.
             - fs (int, optional): Sampling frequency. Default: 48000.
             - requires_grad (bool, optional): Flag indicating whether the module parameters require gradients. Default: False.
@@ -1607,6 +1608,7 @@ class Delay(DSP):
         size: tuple = (1, 1),
         max_len: int = 2000,
         isint: bool = False,
+        unit: int = 100,
         nfft: int = 2**11,
         fs: int = 48000,
         requires_grad=False,
@@ -1614,7 +1616,7 @@ class Delay(DSP):
     ):
         self.fs = fs  
         self.max_len = max_len  
-        self.unit = 100  
+        self.unit = unit  
         self.isint = isint  
         super().__init__(
             size=size,
@@ -1759,6 +1761,7 @@ class parallelDelay(Delay):
         self,
         size: tuple = (1,),
         max_len=2000,
+        unit: int = 100,
         isint: bool = False,
         nfft=2**11,
         fs: int = 48000,
@@ -1769,6 +1772,7 @@ class parallelDelay(Delay):
             size=size,
             max_len=max_len,
             isint=isint,
+            unit=unit,
             nfft=nfft,
             fs=fs,
             requires_grad=requires_grad,
