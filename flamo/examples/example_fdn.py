@@ -14,7 +14,7 @@ from flamo.optimize.loss import mse_loss, sparsity_loss
 from flamo.utils import save_audio
 from flamo.functional import signal_gallery, find_onset
 
-torch.manual_seed(130709)
+torch.manual_seed(130799)
 
 class MultiResoSTFT(nn.Module):
     '''compute the mean absolute error between the auraloss of two RIRs'''
@@ -36,7 +36,7 @@ def example_fdn(args):
 
     # FDN parameters
     N = 6  # number of delays
-    alias_decay_db = 10  # alias decay in dB
+    alias_decay_db = 30  # alias decay in dB
     delay_lengths = torch.tensor([593, 743, 929, 1153, 1399, 1699])
 
     ## ---------------- CONSTRUCT FDN ---------------- ##
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--max_epochs', type=int, default=20, help='maximum number of epochs')
-    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
+    parser.add_argument('--lr', type=float, default=1e-2, help='learning rate')
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
     parser.add_argument('--masked_loss', type=bool, default=False, help='use masked loss')
     parser.add_argument('--target_rir', type=str, default='rirs/arni_35_3541_4_2.wav', help='filepath to target RIR')

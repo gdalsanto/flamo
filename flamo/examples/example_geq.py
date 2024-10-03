@@ -112,7 +112,6 @@ def example_parallel_geq(args):
     """
     ch = 2
     octave_interval = 1
-    return # cannot be run at the moment due to lack of get_io
     ## ---------------- TARGET ---------------- ##
     center_freq, shelving_crossover = eq_freqs(interval=octave_interval)
     target_gains = 10**(-12/20) + (10**(12/20)-10**(-12/20))*torch.rand(size=(len(center_freq) + 2, ch))
@@ -147,7 +146,7 @@ def example_parallel_geq(args):
 
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
     input = signal_gallery(1, n_samples=args.nfft, n=ch, signal_type='impulse', fs=args.samplerate)
-    target = torch.einsum('...ji,...i->...j', target_filter, input_layer(input))
+    target = torch.einsum('...i,...i->...i', target_filter, input_layer(input))
 
     dataset = Dataset(
         input=input,
