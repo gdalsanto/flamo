@@ -15,20 +15,16 @@ from flamo.optimize.trainer import Trainer
 torch.manual_seed(1)
 
 
-def s0_e0() -> None:
+def example_fft(args) -> None:
     """
     Use of FFT and iFFT modules.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------ Module Definition ------------------
-    fft = dsp.FFT(nfft=nfft)
-    ifft = dsp.iFFT(nfft=nfft)
+    fft = dsp.FFT(nfft=args.nfft)
+    ifft = dsp.iFFT(nfft=args.nfft)
 
     # ------------------ Signal Definition ------------------
-    x = signal_gallery(signal_type='sine', batch_size=1, n_samples=nfft, n=1, fs=samplerate)
+    x = signal_gallery(signal_type='sine', batch_size=1, n_samples=args.nfft, n=1, fs=args.samplerate)
 
     # ------------------ Apply FFT and iFFT -----------------
     X = fft(x)
@@ -47,26 +43,23 @@ def s0_e0() -> None:
 
     return None
 
-def s0_e1() -> None:
+def example_gains(args) -> None:
     """
-    Simple filter creation and application.
+    Simple Gain creation and application.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
 
     # ------------------- DSP Definition --------------------
     channels = 1
-    filter = dsp.parallelGain(size=(channels,), nfft=nfft)
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    filter = dsp.parallelGain(size=(channels,), nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     my_dsp = nn.Sequential(input_layer, filter, output_layer)
 
     # -------------- Apply unit impulse to DSP --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='sine', batch_size=1, n_samples=nfft, n=channels, fs=samplerate)
+    input_sig = signal_gallery(signal_type='sine', batch_size=1, n_samples=args.nfft, n=channels, fs=args.samplerate)
 
     # Apply filter
     output_sig = my_dsp(input_sig)
@@ -84,27 +77,24 @@ def s0_e1() -> None:
 
     return None
 
-def s0_e2() -> None:
+def example_gains_2(args) -> None:
     """
     Filter parameter change.
     """
-    # ------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
 
     # ------------------- DSP Definition -------------------
     in_ch = 1
     out_ch = 1
-    filter = dsp.Gain(size=(out_ch, in_ch), nfft=nfft)
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    filter = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     my_dsp = nn.Sequential(input_layer, filter, output_layer)
 
     # -------------- Change filter parameters --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='sine', batch_size=1, n_samples=nfft, n=in_ch, fs=samplerate)
+    input_sig = signal_gallery(signal_type='sine', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate)
 
     # Apply filter before changes
     output_init = my_dsp(input_sig)
@@ -130,31 +120,28 @@ def s0_e2() -> None:
 
     return None
 
-def s0_e3(args) -> None:
+def example_fir(args) -> None:
     """
     Filter training.
     The filter coefficients will match a sine wave.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
 
     # ------------------ Model Definition -------------------
-    FIR_order = nfft
+    FIR_order = args.nfft
     in_ch = 1
     out_ch = 1
-    filter = dsp.Filter(size=(FIR_order, out_ch, in_ch), nfft=nfft, requires_grad=True)
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    filter = dsp.Filter(size=(FIR_order, out_ch, in_ch), nfft=args.nfft, requires_grad=True)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     model = nn.Sequential(input_layer, filter, output_layer)
 
     # ----------------- Initialize dataset ------------------
     # Input unit impulse
-    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=samplerate, n=in_ch, fs=samplerate)
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate)
 
     # Target impulse response
-    target = signal_gallery(signal_type='sine',  batch_size=args.batch_size, n_samples=nfft, n=out_ch, fs=samplerate)
+    target = signal_gallery(signal_type='exp',  batch_size=args.batch_size, n_samples=args.nfft, n=out_ch, rate=2, fs=args.samplerate)
 
     # Dataset
     dataset = Dataset(
@@ -193,7 +180,7 @@ def s0_e3(args) -> None:
     plt.figure()
     plt.plot(ir_init.squeeze().numpy(), label='Initial', linewidth=0.5)
     plt.plot(ir_optim.squeeze().numpy(), label='Optimized', linewidth=2)
-    plt.plot(target.squeeze().numpy(), '--', label='Target', linewidth=2)
+    plt.plot(target.squeeze().numpy(), ':', label='Target', linewidth=2)
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
@@ -209,7 +196,9 @@ if __name__ == '__main__':
 
     # Define system parameters and pipeline hyperparameters
     parser = argparse.ArgumentParser()
-    
+    # ---------------------- Processing -------------------
+    parser.add_argument('--nfft', type=int, default=96000, help='FFT size')
+    parser.add_argument('--samplerate', type=int, default=48000, help='sampling rate')
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
@@ -237,7 +226,7 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    s0_e0()
-    # s0_e1()
-    # s0_e2()
-    # s0_e3(args)
+    example_fft(args)
+    example_gains(args)
+    example_gains_2(args)
+    example_fir(args)
