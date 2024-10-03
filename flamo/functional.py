@@ -73,7 +73,7 @@ def biquad2tf(b, a, nfft):
         a = a.unsqueeze(-1)
     B = torch.fft.rfft(b, nfft, dim=0)
     A = torch.fft.rfft(a, nfft, dim=0)
-    H = torch.prod(B, dim=1) / (torch.prod(A, dim=1) + torch.tensor(1e-10))
+    H = torch.prod(B, dim=1) / torch.prod(A, dim=1)
     return H    
 
 def signal_gallery(
