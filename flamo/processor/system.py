@@ -531,7 +531,7 @@ class Shell(nn.Module):
                 - torch.Tensor: Generated DSP impulse response.
         """
 
-        # contruct anti aliasing reconstruction envelope
+        # construct anti aliasing reconstruction envelope
         gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
         self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(1,-1,1).expand(1, -1, self.output_channels)
         
