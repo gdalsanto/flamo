@@ -34,7 +34,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.target)
     
     def __getitem__(self, index):
-        return self.input[index], self.target[index]    
+        return self.input[index], self.target[index]
 
     
 class DatasetColorless(Dataset):
@@ -59,7 +59,7 @@ class DatasetColorless(Dataset):
 
     def __init__(self, input_shape, target_shape, expand=1000, device='cpu'):
         input = torch.zeros(input_shape)
-        input[0] = 1
+        input[:,0,:] = 1
         target = torch.ones(target_shape)
         super().__init__(input=input, target=target, expand=expand, device=device)
 

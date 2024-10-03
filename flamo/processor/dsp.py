@@ -1077,7 +1077,7 @@ class SVF(Filter):
         if self.n_sections == 1:
             self.c_freqs = (2 * 10 ** ((
                         torch.log10(torch.tensor(f_min))
-                        + torch.log10(torch.tensor(f_max))) / 2) / self.fs)
+                        + torch.log10(torch.tensor(f_max))) / 2) / self.fs).unsqueeze(0)
         else:
             self.c_freqs = (2 * ( f_min * (f_max / f_min) ** (
                         (torch.arange(1, self.n_sections + 1, 1) - 1)
@@ -1118,7 +1118,7 @@ class SVF(Filter):
             **Args**:
                 - x (torch.Tensor): The input signal.
         """
-        if (int(self.nfft / 2 + 1), self.size[-1]) != (x.shape[1], x.shape[2]):
+        if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
             raise ValueError(
                 f"parameter shape = {self.freq_response.shape} not compatible with input signal of shape = ({x.shape})."
             )
@@ -1302,7 +1302,7 @@ class parallelSVF(SVF):
         filter_type: str = None,
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad: bool = True,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
     ):
         super().__init__(
