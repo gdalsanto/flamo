@@ -1034,8 +1034,6 @@ class SVF(Filter):
         **Args**:
             - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
             - n_sections (int, optional): The number of cascaded filters. Default: 1.
-            - f_min (int, optional): The minimum cut-off frequency of the filter in Hz. Default: 40.
-            - f_max (int, optional): The maximum cut-off frequency of the filter in Hz. Default: 22000.
             - filter_type (str, optional): The type of filter to use. Options are {"lowpass","highpass","bandpass","lowshelf","highshelf","peaking","notch",} Default: None.
             - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
             - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: x.
@@ -1045,7 +1043,6 @@ class SVF(Filter):
         **Attributes**:
             - fs (int): The sampling frequency.
             - n_sections (int): The number of cascaded filters.
-            - c_freqs (torch.Tensor): The cut-off frequencies of the filters.
             - filter_type (str): The type of filter.
             - freq_response (torch.Tensor): The frequency response of the filter.
             - param (nn.Parameter): The parameters of the SVF filter.
@@ -1063,8 +1060,6 @@ class SVF(Filter):
         self,
         size: tuple = (1, 1),
         n_sections: int = 1,
-        f_min: int = 40,
-        f_max: int = 22000,
         filter_type: str = None,
         nfft: int = 2**11,
         fs: int = 48000,
@@ -1073,16 +1068,6 @@ class SVF(Filter):
     ):
         self.fs = fs
         self.n_sections = n_sections
-        assert f_max <= fs / 2, "f_max must be less or equal than fs/2"
-        if self.n_sections == 1:
-            self.c_freqs = (2 * 10 ** ((
-                        torch.log10(torch.tensor(f_min))
-                        + torch.log10(torch.tensor(f_max))) / 2) / self.fs).unsqueeze(0)
-        else:
-            self.c_freqs = (2 * ( f_min * (f_max / f_min) ** (
-                        (torch.arange(1, self.n_sections + 1, 1) - 1)
-                        / (self.n_sections - 1))) / self.fs)
-        self.f_min, self.f_max = f_min, f_max
         assert filter_type in [
             "lowpass",
             "highpass",
@@ -1297,8 +1282,6 @@ class parallelSVF(SVF):
         self,
         size: tuple = (1, ),
         n_sections: int = 1,
-        f_min: int = 40,
-        f_max: int = 22000,
         filter_type: str = None,
         nfft: int = 2**11,
         fs: int = 48000,
@@ -1308,8 +1291,6 @@ class parallelSVF(SVF):
         super().__init__(
             size=size,
             n_sections=n_sections,
-            f_min=f_min,
-            f_max=f_max,
             filter_type=filter_type,
             nfft=nfft,
             fs=fs,
