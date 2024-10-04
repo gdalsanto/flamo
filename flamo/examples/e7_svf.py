@@ -40,8 +40,6 @@ def example_svf(args):
     filt = dsp.SVF(
         size=(out_ch, in_ch), 
         n_sections=n_sections,
-        f_min=20,
-        f_max=args.samplerate//2,
         filter_type=filter_type,
         nfft=args.nfft, 
         fs=args.samplerate,
@@ -126,8 +124,6 @@ def example_parallel_svf(args):
     filt = dsp.parallelSVF(
         size=(ch, ), 
         n_sections=n_sections,
-        f_min=20,
-        f_max=args.samplerate//2,
         filter_type=filter_type,
         nfft=args.nfft, 
         fs=args.samplerate,

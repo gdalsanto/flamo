@@ -15,7 +15,7 @@ from flamo.optimize.trainer import Trainer
 
 torch.manual_seed(1)
 
-def s3_e0():
+def example_series(args):
     """
     Now, we introduce the Series class.
     You might have noticed that in order to create a sequence of MIMO filters, we have to take care
@@ -25,10 +25,6 @@ def s3_e0():
     NOTE: The Series class does not create the number of channels for us, as we want complete control over it.
           It only checks that we made no errors in the connections or in the attributes of the modules.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------- DSP Definition --------------------
     in_ch = 2
     out_ch = 3
@@ -37,7 +33,7 @@ def s3_e0():
     # First filter
     filter1 = dsp.parallelGain(
         size=(in_ch,),
-        nfft=nfft,
+        nfft=args.nfft,
         requires_grad=False
     )
     # Second filter
@@ -45,33 +41,29 @@ def s3_e0():
         size=(btw_ch, in_ch),
         max_len=1000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
         requires_grad=False
     )
     # Third filter
     filter3 = dsp.GEQ(
         size=(out_ch, btw_ch),
-        nfft=nfft,
+        nfft=args.nfft,
         requires_grad=False
     )
     # Input and output layers
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     # Series class
     my_dsp = system.Series(input_layer, filter1, filter2, filter3, output_layer)
 
-def s3_e1():
+def example_series_with_error(args):
     """
     Let's purposefully make an error in the attributes/connections of the modules of the Series class.
     The Series class will tell us what the error is and where the error is located.
     It will through an error at the first erroneuos test found.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------- DSP Definition --------------------
     in_ch = 2
     out_ch = 3
@@ -80,7 +72,7 @@ def s3_e1():
     # First filter
     filter1 = dsp.parallelGain(
         size=(in_ch,),
-        nfft=2**8,                  # NOTE:Error here
+        nfft=args.nfft*2,                  # NOTE: This will raise an error
         requires_grad=False
     )
     # Second filter
@@ -88,34 +80,30 @@ def s3_e1():
         size=(btw_ch, in_ch),
         max_len=1000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
         requires_grad=False
     )
     # Third filter
     filter3 = dsp.GEQ(
-        size=(out_ch, 10),          # NOTE:Error here
-        nfft=nfft,
+        size=(out_ch, 10),          # NOTE: This will raise an error
+        nfft=args.nfft,
         requires_grad=False
     )
     # Input and output layers
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     # Series class
     my_dsp = system.Series(input_layer, filter1, filter2, filter3, output_layer)
 
     return None
 
-def s3_e2():
+def example_series_OrderedDict(args):
     """
     Just as the torch.nn.Sequential class, the Series class accepts an OrderedDict in input.
     This allows us to give a name to each module in the sequence.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------- DSP Definition --------------------
     in_ch = 2
     out_ch = 3
@@ -124,7 +112,7 @@ def s3_e2():
     # First filter
     filter1 = dsp.parallelGain(
         size=(in_ch,),
-        nfft=nfft,
+        nfft=args.nfft,
         requires_grad=False
     )
     # Second filter
@@ -132,19 +120,19 @@ def s3_e2():
         size=(btw_ch, in_ch),
         max_len=1000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
         requires_grad=False
     )
     # Third filter
     filter3 = dsp.GEQ(
         size=(out_ch, btw_ch),
-        nfft=nfft,
+        nfft=args.nfft,
         requires_grad=False
     )
     # Input and output layers
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     # Series class
     my_dsp = system.Series(
@@ -161,17 +149,13 @@ def s3_e2():
     return None
 
 
-def s3_e3():
+def example_series_nesting(args):
     """
     The Series class is designed to un-nest nested torch.nn.Sequential instances,
     OrderedDict instances, and/or other Series instances.
     This makes checking attribute matching i/o compatibility and between modules easier.
     If nested OrderedDict instances are used to generate the dsp, the custom key names will be maintained.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------- DSP Definition --------------------
     in_ch = 2
     out_ch = 3
@@ -180,7 +164,7 @@ def s3_e3():
     # First filter
     filter1 = dsp.parallelGain(
         size=(in_ch,),
-        nfft=nfft,
+        nfft=args.nfft,
         requires_grad=False
     )
     # Second filter
@@ -188,19 +172,19 @@ def s3_e3():
         size=(btw_ch, in_ch),
         max_len=1000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
         requires_grad=False
     )
     # Third filter
     filter3 = dsp.GEQ(
         size=(out_ch, btw_ch),
-        nfft=nfft,
+        nfft=args.nfft,
         requires_grad=False
     )
     # Input and output layers
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     # Series class
     filters = OrderedDict({
@@ -220,33 +204,29 @@ def s3_e3():
 
     return None
 
-def s3_e4(args):
+def example_series_training(args):
     """
     The Series class allows us to train a chain of filters (or just one filter in the chain) as
-    we did in the example s2_e3.
+    we did in the example example_chaining_filters.py's example_requires_grad.
     Let's reproduce the example with the Series class.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------- DSP Definition --------------------
     in_ch = 2
     out_ch = 3
     filter1 = dsp.parallelGain(
         size=(in_ch,),
-        nfft=nfft,
+        nfft=args.nfft,
         requires_grad=True
     )
     filter2 = dsp.Delay(
         size=(out_ch, in_ch),
         max_len=1000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=args.nfft)
+    output_layer = dsp.iFFT(nfft=args.nfft)
 
     # Series of filters
     filters = OrderedDict({
@@ -264,15 +244,15 @@ def s3_e4(args):
     # ----------------- Initialize dataset ------------------
 
     # Input unit impulse
-    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=samplerate, n=in_ch, fs=samplerate)
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate)
 
     # Target
     target_gains = [0.5, -1.0]
     target_delays = filter2.s2sample(filter2.param)
-    target = torch.zeros(nfft, out_ch)
+    target = torch.zeros(args.nfft, out_ch)
     for i in range(out_ch):
         for j in range(in_ch):
-            target[int(target_delays[i,j].item()), i] = target_gains[j]
+            target[int(torch.round(target_delays[i,j]).item()), i] = target_gains[j]
     
 
     # Dataset
@@ -318,6 +298,7 @@ def s3_e4(args):
         plt.plot(target.squeeze()[:,i].numpy(), '--', label='Target')
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
+        plt.xlim(0, 1200)
         plt.grid()
         plt.title(f'Output channel {i+1}')
     plt.subplot(out_ch, 1, 1)
@@ -334,6 +315,9 @@ if __name__ == '__main__':
     # Define system parameters and pipeline hyperparameters
     parser = argparse.ArgumentParser()
     
+    # ---------------------- Processing -------------------
+    parser.add_argument('--nfft', type=int, default=96000, help='FFT size')
+    parser.add_argument('--samplerate', type=int, default=48000, help='sampling rate')
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
@@ -361,8 +345,8 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    s3_e0()
-    # s3_e1()
-    # s3_e2()
-    # s3_e3()
-    # s3_e4(args)
+    example_series(args)
+    # example_series_with_error(args)
+    example_series_OrderedDict(args)
+    example_series_nesting(args)
+    example_series_training(args)

@@ -36,7 +36,7 @@ def example_fdn(args):
 
     # FDN parameters
     N = 6  # number of delays
-    alias_decay_db = 30  # alias decay in dB
+    alias_decay_db = 0  # alias decay in dB
     delay_lengths = torch.tensor([593, 743, 929, 1153, 1399, 1699])
 
     ## ---------------- CONSTRUCT FDN ---------------- ##

@@ -13,7 +13,7 @@ from flamo.optimize.dataset import DatasetColorless, load_dataset
 from flamo.optimize.trainer import Trainer
 
 
-def s4_e0():
+def example_shell(args):
     """
     In all previous examples, we always defined input and output layers for the DSP.
     This is because the DSP needs to interface with the dataset input and to provide the output in
@@ -23,40 +23,35 @@ def s4_e0():
     The core is the DSP or the model that we want to train. 
     The input_layer and the output_layer are the same ones we so far defined.
     The important property of the Shell class is that is keeps the three components separate instead
-    of merging them into a single torch.nn.Sequential object or Series class instance.
+    of merging them into a single torch.nn.Sequential object, torch.nn.Model, or Series class instance.
     This means we can easily keep the dsp fixed and change the input and output layers according to
     the dataset and the loss function that we want to use.
     The Shell function provides dedicated methods to change the input and output layers.
     """
-
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 96000
-
     # ------------------- DSP Definition --------------------
     in_ch = 3
     out_ch = 1
     # Filters
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
-        nfft=nfft,
+        nfft=args.nfft,
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
         max_len=5000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
     filter3 = dsp.parallelFilter(
         size=(50, out_ch,),
-        nfft=nfft
+        nfft=args.nfft
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
         n_sections=1,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
     filters = OrderedDict({
         'Gain': filter1,
@@ -71,11 +66,11 @@ def s4_e0():
     # ---------- DSP time and frequency responses -----------
 
     # Input unit impulse
-    unit_imp = signal_gallery(signal_type='impulse', batch_size=1, n_samples=samplerate, n=in_ch, fs=samplerate)
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.samplerate, n=in_ch, fs=args.samplerate)
 
     # Time response
-    my_dsp.set_inputLayer(dsp.FFT(nfft=nfft))
-    my_dsp.set_outputLayer(dsp.iFFT(nfft=nfft))
+    my_dsp.set_inputLayer(dsp.FFT(nfft=args.nfft))
+    my_dsp.set_outputLayer(dsp.iFFT(nfft=args.nfft))
     imp_resp = my_dsp(unit_imp)
 
     # Magnitude response
@@ -94,6 +89,7 @@ def s4_e0():
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
+    plt.xlim(0, 5500)
     plt.subplot(212)
     plt.plot(mag_resp.squeeze().numpy())
     plt.xlabel('Frequency bins')
@@ -103,7 +99,7 @@ def s4_e0():
 
     return None
 
-def s4_e1():
+def example_shell_error(args):
     """
     In addition to that, the Shell checks that all three components
     are comparitible in terms of attributes and input/output channels.
@@ -111,35 +107,30 @@ def s4_e1():
     The Shell class will tell us what the error is and where the error is located.
     It will through an error at the first erroneuos test found.
     """
-
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 96000
-
     # ------------------- DSP Definition --------------------
     in_ch = 3
     out_ch = 3
     # Filters
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
-        nfft=nfft,
+        nfft=args.nfft,
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
         max_len=5000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
     filter3 = dsp.parallelFilter(
         size=(50, out_ch,),
-        nfft=nfft
+        nfft=args.nfft
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
         n_sections=2,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
     filters = OrderedDict({
         'Gain': filter1,
@@ -149,8 +140,8 @@ def s4_e1():
     })
 
     # Layers
-    in_layer1 = dsp.FFT(nfft=nfft)
-    in_layer2 = dsp.Gain(size=(in_ch, in_ch), nfft=nfft, requires_grad=False)          # NOTE: Error here
+    in_layer1 = dsp.FFT(nfft=args.nfft)
+    in_layer2 = dsp.Gain(size=(in_ch, in_ch), nfft=args.nfft, requires_grad=False)          # NOTE: Error here
     in_layer = nn.Sequential(in_layer1, in_layer2)
 
     out_layer = dsp.iFFT(nfft=2**8)          # NOTE: Error here
@@ -161,41 +152,36 @@ def s4_e1():
     return None
 
 
-def s4_e2():
+def example_shell_gets(args):
     """
     Finally, the Shell class provides useful functionalities to retrieve the time and frequency responses
     directly, without having to modify input and output layers manually.
     We can repeat the first example of the section using the get_time_response() and get_freq_response() methods.
     """
-
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 96000
-
     # ------------------- DSP Definition --------------------
     in_ch = 2
     out_ch = 1
     # Filters
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
-        nfft=nfft,
+        nfft=args.nfft,
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
         max_len=5000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
     filter3 = dsp.parallelFilter(
         size=(50, out_ch,),
-        nfft=nfft
+        nfft=args.nfft
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
         n_sections=1,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
     filters = OrderedDict({
         'Gain': filter1,
@@ -210,10 +196,10 @@ def s4_e2():
     # ----------- DSP time a frequency responses ------------
 
     # Time response
-    imp_resp = my_dsp.get_time_response(fs=samplerate)
+    imp_resp = my_dsp.get_time_response(fs=args.samplerate)
 
     # Magnitude response
-    freq_resp = my_dsp.get_freq_response(fs=samplerate)
+    freq_resp = my_dsp.get_freq_response(fs=args.samplerate)
     mag_resp = mag2db(get_magnitude(freq_resp))
 
     # ------------------------ Plot -------------------------
@@ -223,6 +209,7 @@ def s4_e2():
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
+    plt.xlim(0, 5500)
     plt.subplot(212)
     plt.plot(mag_resp.squeeze().cpu().numpy())
     plt.xlabel('Frequency bins')
@@ -232,7 +219,7 @@ def s4_e2():
 
     return None
 
-def s4_e3():
+def example_shell_gets_2(args):
     """
     Thanks to the Shell class it is very easy to check what is happening inside the core.
     We can retrieve the time and frequency responses of:
@@ -241,35 +228,30 @@ def s4_e3():
         - the full dsp without the final mixing (see Shell.get_time_response() documentation for more details)
         - the single modules without the final mixing NOTE: not implemented yet
     """
-
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
-    # ------------------- DSP Definition --------------------
+   # ------------------- DSP Definition --------------------
     in_ch = 2
     out_ch = 1
     # Filters
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
-        nfft=nfft,
+        nfft=args.nfft,
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
         max_len=5000,
         isint=True,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
     filter3 = dsp.parallelFilter(
         size=(50, out_ch,),
-        nfft=nfft
+        nfft=args.nfft
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
         n_sections=1,
-        nfft=nfft,
-        fs=samplerate,
+        nfft=args.nfft,
+        fs=args.samplerate,
     )
     filters = OrderedDict({
         'Gain': filter1,
@@ -284,10 +266,10 @@ def s4_e3():
     # ----------- DSP time a frequency responses ------------
 
     # Time response
-    imp_resp = my_dsp.get_time_response(fs=samplerate, identity=True)
+    imp_resp = my_dsp.get_time_response(fs=args.samplerate, identity=True)
 
     # Magnitude response
-    freq_resp = my_dsp.get_freq_response(fs=samplerate, identity=True)
+    freq_resp = my_dsp.get_freq_response(fs=args.samplerate, identity=True)
     mag_resp = mag2db(get_magnitude(freq_resp))
 
     # ------------------------ Plot -------------------------
@@ -298,6 +280,7 @@ def s4_e3():
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
         plt.grid()
+        plt.xlim(0, 5500)
         plt.title(f'Input channel {i+1}')
         plt.subplot(2, in_ch, i+3)
         plt.plot(mag_resp.squeeze().numpy()[:,i])
@@ -310,24 +293,20 @@ def s4_e3():
     return None
 
 
-def s4_e4(args):
+def example_shell_training(args):
     """
     In this example, we will see how flexible the Shell class can be.
     We will define the DSP just one time. We will istantiate the Shell class only once.
     We will then change input and output layers of the Shell accordingly to the type of
     training we want to perform.
     """
-    # -------------- Time-frequency parameters --------------
-    samplerate = 48000
-    nfft = 2**10
-
     # ------------------ Model Definition -------------------
     FIR_order = 1000
     in_ch = 2
     out_ch = 2
     my_dsp = dsp.Filter(
         size=(FIR_order, out_ch, in_ch),
-        nfft=nfft,
+        nfft=args.nfft,
         requires_grad=True
     )
 
@@ -335,9 +314,9 @@ def s4_e4(args):
     model = system.Shell( core=my_dsp )
 
     # Get the initial response for the comparison
-    fr_init = model.get_freq_response(fs=samplerate, identity=False)
-    all_fr_init = model.get_freq_response(fs=samplerate, identity=True)
-    evs_init = get_magnitude(get_eigenvalues(model.get_freq_response(fs=samplerate, identity=True)))
+    fr_init = model.get_freq_response(fs=args.samplerate, identity=False)
+    all_fr_init = model.get_freq_response(fs=args.samplerate, identity=True)
+    evs_init = get_magnitude(get_eigenvalues(model.get_freq_response(fs=args.samplerate, identity=True)))
 
     # ========================================================================================================
     # Case 1: Train the DSP to have all flat magnitude responses
@@ -348,8 +327,8 @@ def s4_e4(args):
 
     # Initialize dataset
     dataset = DatasetColorless(
-        input_shape=(args.batch_size, nfft//2+1, in_ch),
-        target_shape=(args.batch_size, nfft//2+1, out_ch, in_ch),
+        input_shape=(args.batch_size, args.nfft//2+1, in_ch),
+        target_shape=(args.batch_size, args.nfft//2+1, out_ch, in_ch),
         expand=args.num,
         device=args.device,
     )
@@ -359,7 +338,7 @@ def s4_e4(args):
     criterion = torch.nn.MSELoss()
 
     # Interface DSP with dataset and loss function
-    model.set_inputLayer(nn.Sequential(dsp.Transform(lambda x: x.diag_embed()), dsp.FFT(nfft)))
+    model.set_inputLayer(nn.Sequential(dsp.Transform(lambda x: x.diag_embed()), dsp.FFT(args.nfft)))
     model.set_outputLayer(dsp.Transform(get_magnitude))
 
     # Initialize training process
@@ -375,7 +354,7 @@ def s4_e4(args):
     trainer.train(train_loader, valid_loader)
 
     # Get the optimized response
-    all_fr_optim = model.get_freq_response(fs=samplerate, identity=True)
+    all_fr_optim = model.get_freq_response(fs=args.samplerate, identity=True)
 
     plt.figure()
     for i in range(out_ch):
@@ -399,8 +378,8 @@ def s4_e4(args):
 
     # Change the dataset
     dataset = DatasetColorless(
-        input_shape=(args.batch_size, nfft//2+1, in_ch),
-        target_shape=(args.batch_size, nfft//2+1, out_ch), # The target has the a different shape now
+        input_shape=(args.batch_size, args.nfft//2+1, in_ch),
+        target_shape=(args.batch_size, args.nfft//2+1, out_ch), # The target has the a different shape now
         expand=args.num,
         device=args.device,
     )
@@ -413,7 +392,7 @@ def s4_e4(args):
     trainer.train(train_loader, valid_loader)
 
     # Get the optimized response
-    evs_optim = get_magnitude(get_eigenvalues(model.get_freq_response(fs=samplerate, identity=True)))
+    evs_optim = get_magnitude(get_eigenvalues(model.get_freq_response(fs=args.samplerate, identity=True)))
 
     plt.figure()
     for i in range(out_ch):
@@ -436,14 +415,14 @@ def s4_e4(args):
     #       In this case we can also keep the last DatasetColorless instance.
 
     # Interface DSP with dataset and loss function
-    model.set_inputLayer(dsp.FFT(nfft))
+    model.set_inputLayer(dsp.FFT(args.nfft))
     model.set_outputLayer(dsp.Transform(get_magnitude))
 
     # Train the model
     trainer.train(train_loader, valid_loader)
 
     # Get the optimized response
-    fr_optim = model.get_freq_response(fs=samplerate, identity=False)
+    fr_optim = model.get_freq_response(fs=args.samplerate, identity=False)
 
     plt.figure()
     for i in range(out_ch):
@@ -467,6 +446,9 @@ if __name__ == '__main__':
     # Define system parameters and pipeline hyperparameters
     parser = argparse.ArgumentParser()
     
+    # ---------------------- Processing -------------------
+    parser.add_argument('--nfft', type=int, default=96000, help='FFT size')
+    parser.add_argument('--samplerate', type=int, default=48000, help='sampling rate')
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
@@ -494,8 +476,8 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    # s4_e0()
-    # s4_e1()
-    # s4_e2()
-    # s4_e3()
-    s4_e4(args)
+    # example_shell(args)
+    # example_shell_error(args)
+    # example_shell_gets(args)
+    # example_shell_gets_2(args)
+    example_shell_training(args)

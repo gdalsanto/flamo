@@ -168,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('--samplerate', type=int, default=48000, help='sampling rate')
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
-    parser.add_argument('--num', type=int, default=2**9,help = 'dataset size')
+    parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
     parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
     parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------

@@ -104,11 +104,11 @@ def example_parallel_biquad(args):
         None
     """
     n_ch = 2
-    n_filters = 2
+    n_sections = 2
     ## ---------------- TARGET ---------------- ##
     b, a = highpass_filter(
-        fc=torch.randint(0, args.samplerate//2, size=(n_filters, n_ch)), 
-        gain=torch.randint(-1, 1, size=(n_filters, n_ch)), 
+        fc=torch.randint(0, args.samplerate//2, size=(n_sections, n_ch)), 
+        gain=torch.randint(-1, 1, size=(n_sections, n_ch)), 
         fs=args.samplerate)
     B = torch.fft.rfft(b, args.nfft, dim=0)
     A = torch.fft.rfft(a, args.nfft, dim=0)
@@ -119,7 +119,7 @@ def example_parallel_biquad(args):
     # create another instance of the model 
     filt = dsp.parallelBiquad(
         size=(n_ch,), 
-        n_filters=n_filters,
+        n_sections=n_sections,
         filter_type='highpass',
         nfft=args.nfft, 
         fs=args.samplerate,
