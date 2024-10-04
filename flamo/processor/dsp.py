@@ -1678,7 +1678,7 @@ class Delay(DSP):
         r"""
         Computes the frequency response of the delay module.
         """
-        m = self.s2sample(self.map(self.param))
+        m = self.get_delays()
         self.freq_response = (self.gamma**m) * torch.exp(
             -1j
             * torch.einsum(
@@ -1688,6 +1688,12 @@ class Delay(DSP):
             )
         )
 
+    def get_delays(self):
+        r"""
+        Computes the delay values from the raw parameters.
+        """
+        return self.s2sample(self.map(self.param))
+                                      
     def check_input_shape(self, x):
         r"""
         Checks if the input dimensions are compatible with the delay parameters.
@@ -1797,7 +1803,7 @@ class parallelDelay(Delay):
         """
         Computes the frequency response of the delay module.
         """
-        m = self.s2sample(self.map(self.param))
+        m = self.get_delays()
         self.freq_response = (self.gamma**m) * torch.exp(
             -1j
             * torch.einsum(
