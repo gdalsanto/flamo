@@ -82,7 +82,7 @@ def example_anti_aliasing(args):
 
     # generate the same IIR filter but with time-aliasing reduction
     my_dsp_aa = get_system(args, alias_decay_db=30)
-    model_aa = system.Shell( core=my_dsp_aa )
+    model_aa = system.Shell(core=my_dsp_aa )
 
     # Get the initial response for the comparison
     imp_resp_aa = model_aa.get_time_response(fs=args.samplerate).squeeze()
@@ -142,3 +142,4 @@ if __name__ == '__main__':
 
     # Run examples
     example_anti_aliasing(args)
+    # TODO add exampe of training with antialiasing

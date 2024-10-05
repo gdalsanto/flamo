@@ -36,7 +36,7 @@ def example_fdn(args):
 
     # FDN parameters
     N = 6  # number of delays
-    alias_decay_db = 0  # alias decay in dB
+    alias_decay_db = 30  # alias decay in dB
     delay_lengths = torch.tensor([593, 743, 929, 1153, 1399, 1699])
 
     ## ---------------- CONSTRUCT FDN ---------------- ##
@@ -92,7 +92,9 @@ def example_fdn(args):
 
     # Create the model with Shell
     input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.iFFT(args.nfft)
+    # Since time aliasing mitigation is enabled, we use the iFFTAntiAlias layer
+    # to undo the effect of the anti aliasing modulation introduced by the system's layers
+    output_layer = dsp.iFFTAntiAlias(nfft=args.nfft, alias_decay_db=alias_decay_db)
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
     # Get initial impulse response
