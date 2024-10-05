@@ -1,4 +1,137 @@
 # flamo
-FLAMO: An Open-Source Library for Frequency-Domain Differentiable Audio Processing 
+Open-source library for frequency-domain differentiable audio processing.
 
-More about it soon! 
+It containes differentiable implementation of common LTI audio systems modules with learnable parameters.
+
+---
+
+### Optimization of LTI systems
+
+Available differentiable audio signal processors - in `flamo.processor.dsp`: 
+- **Gains** : Gains, Matrices, Householder Matrices
+- **Filters** : Biquads, State Variable Filters (SVF), Graphic Equilizers (GEQ), Parametric Equiliers (PEQ - not released yet)
+- **Delays** : Integer Delays, Fractional Delays 
+
+Transforms  - in `flamo.processor.dsp`: 
+- **Transform** : FFT, iFFT, time anti-aliasing enabled FFT and iFFT 
+
+
+Utilities, system designers and optimization - in `flamo.processor.system`:
+- **Series** : Serial chaining of differentiable systems 
+- **Recursion** : Closed loop with assignable feedward and feedback paths
+- **Shell**: Container class for safe interaction between system, dataset, and loss functions
+
+Optimization - in `flamo.optimize`:
+- **Trianer** : Handling of the training and validation steps 
+- **Dataset** : Customazable dataset class and helper methods 
+
+### NOTE 
+This is a preview of the `flamo` package. We are working on a few last features and improving the documentation before distributing it.  
+
+--- 
+
+### Installation
+
+To clone and install dependencies run on a new environemnt `flamo-env` 
+```
+git clone https://github.com/gdalsanto/flamo
+cd flamo
+python3 -m venv .flamo-env
+source .flamo-env/bin/activate
+pip install -e .
+```
+
+---
+
+### How to use the library
+
+We included a few examples in [`./flamo/examples`](https://github.com/gdalsanto/flamo/tree/main/flamo/examples) that take you through library's API. 
+
+The following example demonstrates how to train a set of Biquad filters to match a target magnitude response. This is just a toy example; you can create and optimize much more complex systems by cascading modules either serially or recursively. 
+
+Import modules 
+```
+
+import torch
+import torch.nn as nn
+from flamo.optimize.dataset import Dataset, load_dataset
+from flamo.optimize.trainer import Trainer
+from flamo.processor import dsp, system
+from flamo.functional import signal_gallery, highpass_filter
+
+```
+Define parameters and target response with randomized cutoff frequency and gains
+
+```
+in_ch, out_ch = 1, 2    # input and output channels
+n_sections = 2  # number of cascaded biquad sections
+fs = 48000      # sampling frequency
+nfft = fs*2     # number of fft points
+
+b, a = highpass_filter(
+    fc=torch.tensor(fs//2)*torch.rand(size=(n_sections, out_ch, in_ch)), 
+    gain=torch.tensor(-1) + (torch.tensor(2))*torch.rand(size=(n_sections, out_ch, in_ch)), 
+    fs=fs)
+B = torch.fft.rfft(b, nfft, dim=0)
+A = torch.fft.rfft(a, nfft, dim=0)
+target_filter = torch.prod(B, dim=1) / torch.prod(A, dim=1)
+
+```
+
+Define an instance of learnable Biquads
+
+````
+filt = dsp.Biquad(
+    size=(out_ch, in_ch), 
+    n_sections=n_sections,
+    filter_type='highpass',
+    nfft=nfft,
+    fs=fs,
+    requires_grad=True,
+    alias_decay_db=0,
+)   
+````
+
+Use the `Shell` class to add input and output layers and to get the magnitude response at initialization 
+Optimization is done in frequency domain. The input will be an impulse in time domain, thus the input lateyer should perform the Fourier transfrom.
+The target is the magnitude response, so the output layet takes the absolute value of the filter's output.  
+
+````
+input_layer = dsp.FFT(nfft)
+output_layer = dsp.Transform(transform=lambda x : torch.abs(x))
+model = system.Shell(core=filt, input_layer=input_layer, output_layer=output_layer)    
+estimation_init = model.get_freq_response()
+
+````
+
+Set up optimization framework and lunch it. The `Trainer` class is used contain the model, training parameters, and training/valid steps in one class. 
+
+````
+input = signal_gallery(1, n_samples=nfft, n=in_ch, signal_type='impulse', fs=fs)
+target = torch.einsum('...ji,...i->...j', target_filter, input_layer(input))
+
+dataset = Dataset(
+    input=input,
+    target=torch.abs(target),
+    expand=100,
+)
+train_loader, valid_loader = load_dataset(dataset, batch_size=1)
+
+trainer = Trainer(model, max_epochs=10, lr=1e-2, train_dir="./output")
+trainer.register_criterion(nn.MSELoss(), 1)
+
+trainer.train(train_loader, valid_loader)
+````
+end get the resulting response after optimization! 
+
+````
+estimation = model.get_freq_response()
+````
+
+---
+### Reference
+
+This work has been submitted to ICASSP 2025. Pre-print is available on [arxiv](https://arxiv.org/abs/2409.08723). 
+```
+Dal Santo, G., De Bortoli, G. M., Prawda, K., Schlecht, S. J., & Välimäki, V. (2024). FLAMO: An Open-Source Library for Frequency-Domain Differentiable Audio Processing. arXiv preprint arXiv:2409.08723.
+```
