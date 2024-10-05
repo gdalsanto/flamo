@@ -5,7 +5,7 @@ from tqdm import trange
 
 class Trainer:   
     r"""
-        Trainer class for training a neural network model with multiple loss functions.
+        Trainer class for training differenitbale system with multiple loss functions.
         It handles the training step, validation steps, results logging, and the early stopping criterion.
         By default, it uses :meth:`torch.optim.Adam` as the optimizer, and :meth:`torch.optim.lr_scheduler.StepLR` as the learning rate scheduler.
         Each loss (criterion) can be registered using the :meth:`register_criterion` method.
@@ -14,7 +14,7 @@ class Trainer:
         requires the model as an input, which might be needed when the loss depends on the model's parameters.
         
             **Args**:
-                - net (nn.Module): The neural network model to be trained.
+                - net (nn.Module): The differentiable system to be trained.
                 - max_epochs (int): Maximum number of training epochs. Default: 10.
                 - lr (float): Learning rate for the optimizer. Default: 1e-3.
                 - patience (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.
@@ -26,7 +26,7 @@ class Trainer:
 
             **Attributes**:
                 - device (str): Device to use for training.
-                - net (nn.Module): The neural network model.
+                - net (nn.Module): The ifferentiable system.
                 - max_epochs (int): Maximum number of training epochs.
                 - lr (float): Learning rate for the optimizer.
                 - patience (int): Number of epochs to wait for improvement in validation loss before early stopping.

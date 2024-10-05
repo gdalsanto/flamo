@@ -1140,8 +1140,6 @@ class SVF(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
         )
-        if self.alias_decay_db != 0:
-            print("Warning: Anti time-aliasiang might not work properly. We need to debug it")
 
     def check_param_shape(self):
         assert (
@@ -1462,10 +1460,6 @@ class GEQ(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
         )
-        if self.alias_decay_db != 0:
-            print(
-                "Warning: Anti time-aliasiang might not work properly. We need to debug it"
-            )
 
     def init_param(self):
         torch.nn.init.uniform_(self.param, a=10**(-6/20), b=10**(6/20))  
@@ -1677,10 +1671,6 @@ class Delay(DSP):
             alias_decay_db=alias_decay_db,
         )
         self.initialize_class()
-        if self.alias_decay_db != 0 and (not self.isint):
-            print(
-                "Warning: Anti time-aliasiang might not work properly under these conditions. We need to debug it"
-            )
 
     def forward(self, x):
         r"""

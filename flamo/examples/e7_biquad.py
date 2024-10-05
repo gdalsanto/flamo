@@ -3,9 +3,7 @@ import torch.nn as nn
 import argparse
 import os
 import time
-import scipy
 import matplotlib.pyplot as plt
-from collections import OrderedDict
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
