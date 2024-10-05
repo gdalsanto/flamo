@@ -104,18 +104,70 @@ class iFFT(Transform):
         transform = lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
         super().__init__(transform=transform)
 
-if __name__ == "__main__":
-    # Create an instance of the Transform class
-    transform = Transform(lambda x: x ** 2)
+class FFTAntiAlias(Transform):
+    r"""
+    Real Fast Fourier Transform (FFT) class with time-aliasing mitigation enabled.
+    Inherits from the :class:`Transform` class.
 
-    # Create an input tensor
-    input_tensor = torch.tensor([1, 2, 3])
+    Computes the one dimensional Fourier transform of real-valued input after mupltiplying it by an 
+    by an exponentially decaying envelope to mitigate time aliasing.
+    The input is interpreted as a real-valued signal in time domain. 
+    The output contains only the positive frequencies below the Nyquist frequency. 
+    
+        **Args**:
+            - nfft (int): The number of points to compute the FFT.
+            - norm (str): The normalization mode for the FFT.  
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.
+        **Attributes**:
+            - nfft (int): The number of points to compute the FFT.
+            - norm (str): The normalization mode for the FFT.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+        **Methods**:
+            - foward(x): Apply the FFT to the input tensor x and return the one sided FFT.
 
-    # Apply the transformation to the input tensor
-    output_tensor = transform(input_tensor)
+    For details on the FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
+    """
+    def __init__(self, nfft=2**11, norm="backward", alias_decay_db=0.0):
+        self.nfft = nfft
+        self.norm = norm
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (self.nfft) / 20)
+        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1))
+        fft = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
+        transform = lambda x: fft(torch.einsum('btm, t->btm', x, self.alias_envelope))
+        super().__init__(transform=transform)
 
-    # Print the transformed tensor
-    print(output_tensor)
+class iFFTAntiAlias(Transform):
+    r"""
+    Inverse Fast Fourier Transform (iFFT) class with time-aliasing mitigation enabled.
+    Inherits from the :class:`Transform` class.
+
+    Computes the inverse of the Fourier transform of a real-valued tensor to which anti time aliasing has been applied. 
+    The input is interpreted as a one-sided Hermitian signal in the Fourier domain. 
+    The output is a real-valued signal in the time domain. The output is multiplied 
+    by an exponentially decaying envelope to mitigate time aliasing.
+
+        **Args**:
+            - nfft (int): The size of the FFT. Default: 2**11.
+            - norm (str): The normalization mode. Default: "backward".
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.
+        **Attributes**:
+            - nfft (int): The size of the FFT.
+            - norm (str): The normalization mode.
+            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+        **Methods**:
+            - foward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor multiplied by an exponentially decaying envelope.
+
+    For details on the inverse FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
+    """
+
+    def __init__(self, nfft=2**11, norm="backward", alias_decay_db=0.0):
+        self.nfft = nfft
+        self.norm = norm
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (self.nfft) / 20)
+        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1))
+        ifft =  lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
+        transform = lambda x: torch.einsum('btm, t->btm', ifft(x), self.alias_envelope)
+        super().__init__(transform=transform)
 
 
 # ============================= CORE ================================
