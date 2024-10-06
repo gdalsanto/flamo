@@ -36,7 +36,7 @@
   <dl class="py class">
 <dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.optimize.trainer.</span></span><span class="sig-name descname"><span class="pre">Trainer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">net</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer" title="Link to this definition">¶</a></dt>
-<dd><p>Trainer class for training a neural network model with multiple loss functions.
+<dd><p>Trainer class for training differenitbale system with multiple loss functions.
 It handles the training step, validation steps, results logging, and the early stopping criterion.
 By default, it uses <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.optim.Adam()</span></code> as the optimizer, and <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.optim.lr_scheduler.StepLR()</span></code> as the learning rate scheduler.
 Each loss (criterion) can be registered using the <a class="reference internal" href="#flamo.optimize.trainer.Trainer.register_criterion" title="flamo.optimize.trainer.Trainer.register_criterion"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_criterion()</span></code></a> method.
@@ -46,7 +46,7 @@ requires the model as an input, which might be needed when the loss depends on t
 <blockquote>
 <div><dl class="simple">
 <dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>net (nn.Module): The neural network model to be trained.</p></li>
+<li><p>net (nn.Module): The differentiable system to be trained.</p></li>
 <li><p>max_epochs (int): Maximum number of training epochs. Default: 10.</p></li>
 <li><p>lr (float): Learning rate for the optimizer. Default: 1e-3.</p></li>
 <li><p>patience (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.</p></li>
@@ -59,7 +59,7 @@ requires the model as an input, which might be needed when the loss depends on t
 </dd>
 <dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
 <li><p>device (str): Device to use for training.</p></li>
-<li><p>net (nn.Module): The neural network model.</p></li>
+<li><p>net (nn.Module): The ifferentiable system.</p></li>
 <li><p>max_epochs (int): Maximum number of training epochs.</p></li>
 <li><p>lr (float): Learning rate for the optimizer.</p></li>
 <li><p>patience (int): Number of epochs to wait for improvement in validation loss before early stopping.</p></li>
