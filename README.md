@@ -1,7 +1,7 @@
 # flamo
 Open-source library for frequency-domain differentiable audio processing.
 
-It containes differentiable implementation of common LTI audio systems modules with learnable parameters.
+It contains differentiable implementation of common LTI audio systems modules with learnable parameters.
 
 ---
 
@@ -9,21 +9,21 @@ It containes differentiable implementation of common LTI audio systems modules w
 
 Available differentiable audio signal processors - in `flamo.processor.dsp`: 
 - **Gains** : Gains, Matrices, Householder Matrices
-- **Filters** : Biquads, State Variable Filters (SVF), Graphic Equilizers (GEQ), Parametric Equiliers (PEQ - not released yet)
+- **Filters** : Biquads, State Variable Filters (SVF), Graphic Equalizers (GEQ), Parametric Equiliers (PEQ - not released yet)
 - **Delays** : Integer Delays, Fractional Delays 
 
 Transforms  - in `flamo.processor.dsp`: 
 - **Transform** : FFT, iFFT, time anti-aliasing enabled FFT and iFFT 
 
 
-Utilities, system designers and optimization - in `flamo.processor.system`:
+Utilities, system designers, and optimization - in `flamo.processor.system`:
 - **Series** : Serial chaining of differentiable systems 
-- **Recursion** : Closed loop with assignable feedward and feedback paths
+- **Recursion** : Closed loop with assignable feedforward and feedback paths
 - **Shell**: Container class for safe interaction between system, dataset, and loss functions
 
 Optimization - in `flamo.optimize`:
 - **Trianer** : Handling of the training and validation steps 
-- **Dataset** : Customazable dataset class and helper methods 
+- **Dataset** : Customizable dataset class and helper methods 
 
 ### NOTE 
 This is a preview of the `flamo` package. We are working on a few last features and improving the documentation before distributing it.  
@@ -32,7 +32,7 @@ This is a preview of the `flamo` package. We are working on a few last features 
 
 ### Installation
 
-To clone and install dependencies run on a new environemnt `flamo-env` 
+To clone and install dependencies on a new environment `flamo-env` 
 ```
 git clone https://github.com/gdalsanto/flamo
 cd flamo
@@ -45,9 +45,9 @@ pip install -e .
 
 ### How to use the library
 
-We included a few examples in [`./flamo/examples`](https://github.com/gdalsanto/flamo/tree/main/flamo/examples) that take you through library's API. 
+We included a few examples in [`./flamo/examples`](https://github.com/gdalsanto/flamo/tree/main/flamo/examples) that take you through the library's API. 
 
-The following example demonstrates how to train a set of Biquad filters to match a target magnitude response. This is just a toy example; you can create and optimize much more complex systems by cascading modules either serially or recursively. 
+The following example demonstrates how to optimize the parameters of Biquad filters to match a target magnitude response. This is just a toy example; you can create and optimize much more complex systems by cascading modules either serially or recursively. 
 
 Import modules 
 ```ruby
@@ -92,8 +92,8 @@ filt = dsp.Biquad(
 ```
 
 Use the `Shell` class to add input and output layers and to get the magnitude response at initialization 
-Optimization is done in frequency domain. The input will be an impulse in time domain, thus the input lateyer should perform the Fourier transfrom.
-The target is the magnitude response, so the output layet takes the absolute value of the filter's output.  
+Optimization is done in the frequency domain. The input will be an impulse in the time domain, thus the input layer should perform the Fourier transform.
+The target is the magnitude response, so the output layer takes the absolute value of the filter's output.  
 
 ```ruby
 input_layer = dsp.FFT(nfft)
@@ -103,7 +103,7 @@ estimation_init = model.get_freq_response()
 
 ````
 
-Set up optimization framework and lunch it. The `Trainer` class is used contain the model, training parameters, and training/valid steps in one class. 
+Set up optimization framework and launch it. The `Trainer` class is used to contain the model, training parameters, and training/valid steps in one class. 
 
 ```ruby
 input = signal_gallery(1, n_samples=nfft, n=in_ch, signal_type='impulse', fs=fs)
