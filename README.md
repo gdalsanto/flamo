@@ -6,7 +6,7 @@ It contains differentiable implementation of common LTI audio systems modules wi
 
 ---
 
-### Optimization of LTI systems
+### Optimization of audio LTI systems
 
 Available differentiable audio signal processors - in `flamo.processor.dsp`: 
 - **Gains** : Gains, Matrices, Householder Matrices
