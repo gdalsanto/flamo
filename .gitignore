@@ -6,4 +6,5 @@ dist/
 /output
 test.py
 .flamo-env
+.flamo-env-win
 
