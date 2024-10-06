@@ -131,6 +131,5 @@ estimation = model.get_freq_response()
 ### Reference
 
 This work has been submitted to ICASSP 2025. Pre-print is available on [arxiv](https://arxiv.org/abs/2409.08723). 
-```
-Dal Santo, G., De Bortoli, G. M., Prawda, K., Schlecht, S. J., & Välimäki, V. (2024). FLAMO: An Open-Source Library for Frequency-Domain Differentiable Audio Processing. arXiv preprint arXiv:2409.08723.
-```
+
+```Dal Santo, G., De Bortoli, G. M., Prawda, K., Schlecht, S. J., & Välimäki, V. (2024). FLAMO: An Open-Source Library for Frequency-Domain Differentiable Audio Processing. arXiv preprint arXiv:2409.08723.```
