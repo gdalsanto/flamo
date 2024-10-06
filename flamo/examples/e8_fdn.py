@@ -42,10 +42,10 @@ def example_fdn(args):
 
     # Input and output gains
     input_gain = dsp.Gain(
-        size=(N, 1), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db
+        size=(N, 1), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db, device=args.device
     )
     output_gain = dsp.Gain(
-        size=(1, N), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db
+        size=(1, N), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db, device=args.device
     )
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -55,6 +55,7 @@ def example_fdn(args):
         isint=True,
         requires_grad=False,
         alias_decay_db=alias_decay_db,
+        device=args.device
     )
     delays.assign_value(delays.sample2s(delay_lengths))
     # Feedback path with orthogonal matrix
@@ -64,6 +65,7 @@ def example_fdn(args):
         matrix_type="orthogonal",
         requires_grad=True,
         alias_decay_db=alias_decay_db,
+        device=args.device
     )
     attenuation = dsp.parallelGEQ(
         size=(N,),
@@ -72,6 +74,7 @@ def example_fdn(args):
         fs=args.samplerate,
         requires_grad=True,
         alias_decay_db=alias_decay_db,
+        device=args.device
     )
     attenuation.map = lambda x : 20*torch.log10(torch.sigmoid(x))
     feedback = system.Series(OrderedDict({
@@ -93,7 +96,7 @@ def example_fdn(args):
     input_layer = dsp.FFT(args.nfft)
     # Since time aliasing mitigation is enabled, we use the iFFTAntiAlias layer
     # to undo the effect of the anti aliasing modulation introduced by the system's layers
-    output_layer = dsp.iFFTAntiAlias(nfft=args.nfft, alias_decay_db=alias_decay_db)
+    output_layer = dsp.iFFTAntiAlias(nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device)
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
     # Get initial impulse response
@@ -104,7 +107,7 @@ def example_fdn(args):
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
 
     # read target RIR
-    input = signal_gallery(1, n_samples=args.nfft, n=1, signal_type='impulse', fs=args.samplerate)
+    input = signal_gallery(1, n_samples=args.nfft, n=1, signal_type='impulse', fs=args.samplerate, device=args.device)
     target_rir = torch.tensor(sf.read(args.target_rir)[0], dtype=torch.float32)
     target_rir = target_rir/torch.max(torch.abs(target_rir))
     rir_onset = find_onset(target_rir)
@@ -119,7 +122,7 @@ def example_fdn(args):
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
     # Initialize training process
-    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, device=args.device, train_dir=args.train_dir)
+    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr,train_dir=args.train_dir, device=args.device)
     trainer.register_criterion(MultiResoSTFT(), 1)
     trainer.register_criterion(sparsity_loss(), 1, requires_model=True)
 
@@ -140,7 +143,7 @@ if __name__ == "__main__":
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
     parser.add_argument('--num', type=int, default=100,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--max_epochs', type=int, default=20, help='maximum number of epochs')
     parser.add_argument('--lr', type=float, default=1e-2, help='learning rate')
@@ -150,6 +153,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
+        
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):

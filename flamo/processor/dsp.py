@@ -23,8 +23,10 @@ class Transform(nn.Module):
 
         **Args**:
             - transform (callable): The transformation function to be applied to the input. Default: lambda x: x  
+            - device (str): The device of the constructed tensor, if any. Default: None.
         **Attributes**:
             - transform (callable): The transformation function to be applied to the input.  
+            - device (str): The device of constructed tensors.
         **Methods**:
             - forward(x): Applies the transformation function to the input.  
 
@@ -35,19 +37,20 @@ class Transform(nn.Module):
             >>> pow2(input)
             tensor([1, 4, 9])
     """
-    def __init__(self, transform: callable = lambda x: x):
+    def __init__(self, transform: callable = lambda x: x, device=None):
         super().__init__()
         self.transform = transform
+        self.device = device
 
     def forward(self, x):
-        """
+        r"""
         Applies the transformation to the input tensor.
 
-        Parameters:
-            x (Tensor): The input tensor.
+            **Args**:
+                x (Tensor): The input tensor.
 
-        Returns:
-            Tensor: The transformed tensor.
+            **Returns**:
+                Tensor: The transformed tensor.
         """
         return self.transform(x)
 
@@ -118,20 +121,25 @@ class FFTAntiAlias(Transform):
             - nfft (int): The number of points to compute the FFT.
             - norm (str): The normalization mode for the FFT.  
             - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.
+            - device (str): The device of the constructed tensors. Default: None.
         **Attributes**:
             - nfft (int): The number of points to compute the FFT.
             - norm (str): The normalization mode for the FFT.
             - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
+            - device (str): The device of constructed tensors.
         **Methods**:
             - foward(x): Apply the FFT to the input tensor x and return the one sided FFT.
 
     For details on the FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
     """
-    def __init__(self, nfft=2**11, norm="backward", alias_decay_db=0.0):
+    def __init__(self, nfft=2**11, norm="backward", alias_decay_db=0.0, device=None):
         self.nfft = nfft
         self.norm = norm
-        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (self.nfft) / 20)
-        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1))
+        self.device = device
+        
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=self.device)) / (self.nfft) / 20)
+        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1, device=self.device))
+        
         fft = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
         transform = lambda x: fft(torch.einsum('btm, t->btm', x, self.alias_envelope))
         super().__init__(transform=transform)
@@ -160,11 +168,14 @@ class iFFTAntiAlias(Transform):
     For details on the inverse FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
     """
 
-    def __init__(self, nfft=2**11, norm="backward", alias_decay_db=0.0):
+    def __init__(self, nfft=2**11, norm="backward", alias_decay_db=0.0, device=None):
         self.nfft = nfft
         self.norm = norm
-        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (self.nfft) / 20)
-        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1))
+        self.device = device
+        
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=self.device)) / (self.nfft) / 20)
+        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1, device=self.device))
+        
         ifft =  lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
         transform = lambda x: torch.einsum('btm, t->btm', ifft(x), self.alias_envelope)
         super().__init__(transform=transform)
@@ -192,6 +203,7 @@ class DSP(nn.Module):
             - map (function, optional): The mapping function applied to the raw parameters. Default: lambda x: x.
             - requires_grad (bool, optional): Whether the parameters require gradients. Default: False.
             - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - device (str): The device of the constructed tensor, if any. Default: None.
 
         **Attributes**:
             - size (tuple): The shape of the parameters.
@@ -203,7 +215,9 @@ class DSP(nn.Module):
             - fft (function): The FFT function. Calls the :func:`torch.fft.rfft` function.
             - ifft (function): The Inverse FFT function. Calls the :func:`torch.fft.irfft`.
             - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
-
+            - new_value (int): Flag indicating if new values have been assigned.
+            - device (str): The device of the constructed tensors.
+            
         **Methods**:
             - forward(x): Applies the processor core module to the input tensor x by multiplication.
             - init_param(): Initializes the parameters of the DSP module.
@@ -218,21 +232,21 @@ class DSP(nn.Module):
         map=lambda x: x,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         super().__init__()
         assert isinstance(size, tuple), "Size must be a tuple."
         self.size = size 
         self.nfft = nfft
-        self.map = (
-            map
-        )
+        self.map = map
         self.new_value = 0  # flag indicating if new values have been assigned
         self.requires_grad = requires_grad 
-        self.param = nn.Parameter(torch.empty(self.size), requires_grad=self.requires_grad) 
+        self.device = device
+        self.param = nn.Parameter(torch.empty(self.size, device=self.device), requires_grad=self.requires_grad)
         self.fft = lambda x: torch.fft.rfft(x, n=self.nfft, dim=0)  
         self.ifft = lambda x: torch.fft.irfft(x, n=self.nfft, dim=0)  
         # initialize time anti-aliasing envelope function
-        self.alias_decay_db = torch.tensor(alias_decay_db)
+        self.alias_decay_db = torch.tensor(alias_decay_db, device=self.device)
         self.init_param()
         self.get_gamma()
 
@@ -318,7 +332,8 @@ class Gain(DSP):
             - map (function): A mapping function applied to the raw parameters. Default: lambda x: x.
             - requires_grad (bool): Whether the parameters requires gradients. Default: False.
             - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-
+            - device (str): The device of the constructed tensors. Default: None.
+            
         **Attributes**:
             - size (tuple): The size of the gain parameters.
             - nfft (int): The number of FFT points required to compute the frequency response.
@@ -329,7 +344,9 @@ class Gain(DSP):
             - fft (function): The FFT function. Calls the torch.fft.rfft function.
             - ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
             - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
-
+            - new_value (int): Flag indicating if new values have been assigned.
+            - device (str): The device of the constructed tensors.
+            
         **Methods**:
             - forward(x): Applies the Gain module to the input tensor x by multiplication.
             - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
@@ -345,6 +362,7 @@ class Gain(DSP):
         map=lambda x: x,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         super().__init__(
             size=size,
@@ -352,6 +370,7 @@ class Gain(DSP):
             map=map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
         self.initialize_class()
 
@@ -442,6 +461,7 @@ class parallelGain(Gain):
         map=lambda x: x,
         requires_grad=False,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         super().__init__(
             size=size,
@@ -449,6 +469,7 @@ class parallelGain(Gain):
             map=map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def check_param_shape(self):
@@ -494,7 +515,8 @@ class Matrix(Gain):
             - matrix_type (str, optional): The type of matrix to generate. Default: "random".
             - requires_grad (bool, optional): Whether the matrix requires gradient computation. Default: False.
             - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-
+            - device (str, optional): The device of the constructed tensors. Default: None.
+            
         **Attributes**:
             - size (tuple): The size of the matrix.
             - nfft (int): The number of FFT points required to compute the frequency response.
@@ -506,7 +528,8 @@ class Matrix(Gain):
             - fft (function): The FFT function. Calls the torch.fft.rfft function.
             - ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
             - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
-
+            - device (str): The device of the constructed tensors.
+            
         **Methods**:
             - forward(x): Applies the Matrix module to the input tensor x by multiplication.
             - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
@@ -524,6 +547,7 @@ class Matrix(Gain):
         matrix_type: str = "random",
         requires_grad=False,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         self.matrix_type = matrix_type
         super().__init__(
@@ -532,6 +556,7 @@ class Matrix(Gain):
             map=map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def matrix_gallery(self):
@@ -593,7 +618,8 @@ class Filter(DSP):
             - map (function): A mapping function applied to the raw parameters. Default: lambda x: x.
             - requires_grad (bool): Whether the filter parameters require gradients. Default: False.
             - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-    
+            - device (str): The device of the constructed tensors. Default: None.
+            
         **Attributes**:
             - size (tuple): The size of the filter parameters.
             - nfft (int): The number of FFT points required to compute the frequency response.
@@ -606,6 +632,7 @@ class Filter(DSP):
             - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
             - freq_response (torch.Tensor): The frequency response of the filter.
             - freq_convolve (function): The frequency convolution function.
+            - device (str): The device of the constructed tensors.
 
         **Methods**:
             - forward(x): Applies the Filter module to the input tensor x by convolution in frequency domain.
@@ -623,6 +650,7 @@ class Filter(DSP):
         map=lambda x: x,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         super().__init__(
             size=size,
@@ -630,6 +658,7 @@ class Filter(DSP):
             map=map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
         self.initialize_class()
 
@@ -676,7 +705,7 @@ class Filter(DSP):
         the frequency response is obtained by computing the FFT of the filter impulse responses.
         """
         self.ir = self.map(self.param)
-        self.decaying_envelope = (self.gamma ** torch.arange(0, self.ir.shape[0])).view(
+        self.decaying_envelope = (self.gamma ** torch.arange(0, self.ir.shape[0], device=self.device)).view(
             -1, *tuple([1 for i in self.ir.shape[1:]])
         )
         self.freq_response = self.fft(self.ir * self.decaying_envelope)
@@ -740,6 +769,7 @@ class parallelFilter(Filter):
         map=lambda x: x,
         requires_grad: bool=False,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         super().__init__(
             size=size,
@@ -747,6 +777,7 @@ class parallelFilter(Filter):
             map=map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def check_param_shape(self):
@@ -812,7 +843,8 @@ class Biquad(Filter):
             - fs (int, optional): Sampling frequency. Default: 48000.
             - requires_grad (bool, optional): Whether the filter parameters require gradient computation. Default: True.
             - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-
+            - device (str, optional): The device of the constructed tensors. Default: None.
+            
         **Attributes**:
             - filter_type (str): Type of the filter.
             - fs (int): Sampling frequency.
@@ -836,19 +868,22 @@ class Biquad(Filter):
         fs: int = 48000,
         requires_grad: bool=True,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         assert filter_type in ["lowpass", "highpass", "bandpass"], "Invalid filter type"
         self.filter_type = filter_type
         self.fs = fs
+        self.device = device
         self.get_map()
-        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (nfft) / 20)
-        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1))
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=self.device)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=self.device))
         super().__init__(
             size=(n_sections, *self.get_size(), *size),
             nfft=nfft,
             map=self.map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def get_size(self):
@@ -878,12 +913,12 @@ class Biquad(Filter):
         param = self.map(self.param)
         match self.filter_type:
             case "lowpass":
-                b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), gain=param[:, 1, :, :], fs=self.fs)
+                b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), gain=param[:, 1, :, :], fs=self.fs, device=self.device)
             case "highpass":
-                b, a = highpass_filter(fc=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), gain=param[:, 1, :, :], fs=self.fs)
+                b, a = highpass_filter(fc=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), gain=param[:, 1, :, :], fs=self.fs, device=self.device)
             case "bandpass":
                 b, a = bandpass_filter(
-                    fc1=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), fc2=rad2hertz(param[:, 1, :, :]*torch.pi, fs=self.fs), gain=param[:, 2, :, :], fs=self.fs
+                    fc1=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), fc2=rad2hertz(param[:, 1, :, :]*torch.pi, fs=self.fs), gain=param[:, 2, :, :], fs=self.fs, device=self.device
                 )
         b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
         a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
@@ -903,14 +938,14 @@ class Biquad(Filter):
             case "lowpass" | "highpass":
                 self.map = lambda x: torch.clamp(
                     x,
-                    min=torch.tensor([0, -60]).view(-1, 1, 1).expand_as(x),
-                    max=torch.tensor([1, 60]).view(-1, 1, 1).expand_as(x),
+                    min=torch.tensor([0, -60], device=self.device).view(-1, 1, 1).expand_as(x),
+                    max=torch.tensor([1, 60], device=self.device).view(-1, 1, 1).expand_as(x),
                 )
             case "bandpass":   
                 self.map = lambda x: torch.clamp(
                     x,
-                    min=torch.tensor([0, 0, -60]).view(-1, 1, 1).expand_as(x),
-                    max=torch.tensor([1, 1, 60]).view(-1, 1, 1).expand_as(x),
+                    min=torch.tensor([0, 0, -60], device=self.device).view(-1, 1, 1).expand_as(x),
+                    max=torch.tensor([1, 1, 60], device=self.device).view(-1, 1, 1).expand_as(x),
                 )
 
     def init_param(self):
@@ -975,6 +1010,7 @@ class parallelBiquad(Biquad):
         fs: int = 48000,
         requires_grad=True,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         super().__init__(
             size=size,
@@ -984,6 +1020,7 @@ class parallelBiquad(Biquad):
             fs=fs,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def check_param_shape(self):
@@ -1000,14 +1037,14 @@ class parallelBiquad(Biquad):
             case "lowpass" | "highpass":
                 self.map = lambda x: torch.clamp(
                     x,
-                    min=torch.tensor([0, -60]).view(-1, 1).expand_as(x),
-                    max=torch.tensor([1, 60]).view(-1, 1).expand_as(x),
+                    min=torch.tensor([0, -60], device=self.device).view(-1, 1).expand_as(x),
+                    max=torch.tensor([1, 60], device=self.device).view(-1, 1).expand_as(x),
                 )
             case "bandpass":
                 self.map = lambda x: torch.clamp(
                     x,
-                    min=torch.tensor([0, 0, -60]).view(-1, 1).expand_as(x),
-                    max=torch.tensor([1, 1, 60]).view(-1, 1).expand_as(x),
+                    min=torch.tensor([0, 0, -60], device=self.device).view(-1, 1).expand_as(x),
+                    max=torch.tensor([1, 1, 60], device=self.device).view(-1, 1).expand_as(x),
                 )
 
     def get_freq_response(self):
@@ -1018,12 +1055,12 @@ class parallelBiquad(Biquad):
         param = self.map(self.param)
         match self.filter_type:
             case "lowpass":
-                b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs)
+                b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs, device=self.device)
             case "highpass":
-                b, a = highpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs)
+                b, a = highpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs, device=self.device)
             case "bandpass":
                 b, a = bandpass_filter(
-                    fc1=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), fc2=rad2hertz(param[:, 1, :]*torch.pi, fs=self.fs), gain=param[:, 2, :], fs=self.fs
+                    fc1=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), fc2=rad2hertz(param[:, 1, :]*torch.pi, fs=self.fs), gain=param[:, 2, :], fs=self.fs, device=self.device
                 )
         b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
         a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
@@ -1091,7 +1128,8 @@ class SVF(Filter):
             - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: x.
             - requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.
             - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-
+            - device (str, optional): The device of the constructed tensors. Default: None.
+            
         **Attributes**:
             - fs (int): The sampling frequency.
             - n_sections (int): The number of cascaded filters.
@@ -1117,6 +1155,7 @@ class SVF(Filter):
         fs: int = 48000,
         requires_grad: bool = True,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         self.fs = fs
         self.n_sections = n_sections
@@ -1131,14 +1170,15 @@ class SVF(Filter):
             None,
         ], "Invalid filter type"
         self.filter_type = filter_type
-        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (nfft) / 20)
-        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1))
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=device))
         super().__init__(
             size=(5, self.n_sections, *size),
             nfft=nfft,
             map=self.map_param2svf,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def check_param_shape(self):
@@ -1163,8 +1203,8 @@ class SVF(Filter):
         Compute the frequency response of the filter.
         """
         f, R, mLP, mBP, mHP = self.map(self.param)
-        b = torch.zeros((3, *f.shape))
-        a = torch.zeros((3, *f.shape))
+        b = torch.zeros((3, *f.shape), device=self.device)
+        a = torch.zeros((3, *f.shape), device=self.device)
 
         b[0] = (f**2) * mLP + f * mBP + mHP
         b[1] = 2 * (f**2) * mLP - 2 * mHP
@@ -1202,7 +1242,7 @@ class SVF(Filter):
             R = \text{softplus}(x) / log(2).
 
         """
-        return torch.div(torch.log(torch.ones(1) + torch.exp(param)), torch.log(torch.tensor(2)))
+        return torch.div(torch.log(torch.ones(1, device=self.device) + torch.exp(param)), torch.log(torch.tensor(2, device=self.device)))
 
     def param2mix(self, param, R=None):
         r"""
@@ -1282,8 +1322,8 @@ class SVF(Filter):
                 )
             case None:
                 # general SVF filter
-                bias = torch.ones((param.shape))
-                bias[1] = 2 * torch.ones((param.shape[1:]))
+                bias = torch.ones((param.shape), device=self.device)
+                bias[1] = 2 * torch.ones((param.shape[1:]), device=self.device)
                 return param + bias
 
     def map_param2svf(self, param):
@@ -1294,7 +1334,7 @@ class SVF(Filter):
         r = self.param2R(param[1])
         if self.filter_type == "lowshelf" or self.filter_type == "highshelf":
             # R = r + torch.sqrt(torch.tensor(2))
-            R = torch.tensor(1)
+            R = torch.tensor(1, device=self.device)
         if self.filter_type == "peaking":
             R = 1 / r  # temporary fix for peaking filter
             m = self.param2mix(param[2:], r)
@@ -1337,6 +1377,7 @@ class parallelSVF(SVF):
         fs: int = 48000,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
+        device=None,
     ):
         super().__init__(
             size=size,
@@ -1346,6 +1387,7 @@ class parallelSVF(SVF):
             fs=fs,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def check_param_shape(self):
@@ -1358,8 +1400,8 @@ class parallelSVF(SVF):
         Compute the frequency response of the filter.
         """
         f, R, mLP, mBP, mHP = self.map(self.param)
-        b = torch.zeros((3, *f.shape))
-        a = torch.zeros((3, *f.shape))
+        b = torch.zeros((3, *f.shape), device=self.device)
+        a = torch.zeros((3, *f.shape), device=self.device)
 
         b[0] = (f**2) * mLP + f * mBP + mHP
         b[1] = 2 * (f**2) * mLP - 2 * mHP
@@ -1414,7 +1456,8 @@ class GEQ(Filter):
             - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: 20*torch.log10(x).
             - requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.
             - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-
+            - device (str, optional): The device of the constructed tensors. Default: None.
+            
         **Attributes**:
             - fs (int): The sampling frequency.
             - center_freq (torch.Tensor): The center frequencies of the filter bands.
@@ -1445,20 +1488,22 @@ class GEQ(Filter):
         map=lambda x: 20*torch.log10(x),
         requires_grad: bool = True,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         self.octave_interval = octave_interval
         self.fs = fs
         self.center_freq, self.shelving_crossover = eq_freqs(
             interval=self.octave_interval)
         self.n_gains = len(self.center_freq) + 3
-        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db)) / (nfft) / 20)
-        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1))
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=device))
         super().__init__(
             size=(self.n_gains, *size),
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def init_param(self):
@@ -1474,9 +1519,9 @@ class GEQ(Filter):
         Infer the second order sections from the center frequencies and compute the frequency response.
         """
         param = self.map(self.param)
-        a = torch.zeros((3, *self.size))
-        b = torch.zeros((3, *self.size))
-        R = torch.tensor(2.7)
+        a = torch.zeros((3, *self.size), device=self.device)
+        b = torch.zeros((3, *self.size), device=self.device)
+        R = torch.tensor(2.7, device=self.device)
         for m_i in range(self.size[-2]):
             for n_i in range(self.size[-1]):
                 a[:, :, m_i, n_i], b[:, :, m_i, n_i] = geq(
@@ -1485,6 +1530,7 @@ class GEQ(Filter):
                     R=R,
                     gain_db=param[:, m_i, n_i],
                     fs=self.fs,
+                    device=self.device
                 )
          
         b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
@@ -1537,6 +1583,7 @@ class parallelGEQ(GEQ):
         map=lambda x: 20*torch.log10(x),
         requires_grad: bool = True,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         super().__init__(
             size=size,
@@ -1546,6 +1593,7 @@ class parallelGEQ(GEQ):
             map=map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def check_param_shape(self):
@@ -1558,9 +1606,9 @@ class parallelGEQ(GEQ):
         Infer the second order sections from the center frequencies and compute the frequency response.
         """
         param = self.map(self.param)
-        a = torch.zeros((3, *self.size))
-        b = torch.zeros((3, *self.size))
-        R = torch.tensor(2.7)
+        a = torch.zeros((3, *self.size), device=self.device)
+        b = torch.zeros((3, *self.size), device=self.device)
+        R = torch.tensor(2.7, device=self.device)
         for n_i in range(self.size[-1]):
                 a[:, :, n_i], b[:, :, n_i] = geq(
                     center_freq=self.center_freq,
@@ -1568,6 +1616,7 @@ class parallelGEQ(GEQ):
                     R=R,
                     gain_db=param[:, n_i],
                     fs=self.fs,
+                    device=self.device
                 )
          
         b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
@@ -1625,7 +1674,8 @@ class Delay(DSP):
             - fs (int, optional): Sampling frequency. Default: 48000.
             - requires_grad (bool, optional): Flag indicating whether the module parameters require gradients. Default: False.
             - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to 0.
-
+            - device (str, optional): The device of the constructed tensors. Default: None.
+            
         **Attributes**:
             - fs (int): Sampling frequency.
             - max_len (int): Maximum length of the delay in samples.
@@ -1659,6 +1709,7 @@ class Delay(DSP):
         fs: int = 48000,
         requires_grad=False,
         alias_decay_db: float = 0.0,
+        device=None,
     ):
         self.fs = fs  
         self.max_len = max_len  
@@ -1669,6 +1720,7 @@ class Delay(DSP):
             nfft=nfft,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
         self.initialize_class()
 
@@ -1692,9 +1744,9 @@ class Delay(DSP):
         Initializes the delay parameters.
         """
         if self.isint:
-            delay_len = torch.randint(1, self.max_len, self.size)
+            delay_len = torch.randint(1, self.max_len, self.size, device=self.device)
         else:
-            delay_len = torch.rand(self.size) * self.max_len
+            delay_len = torch.rand(self.size, device=self.device) * self.max_len
         self.assign_value(self.sample2s(delay_len))
         self.order = (delay_len).max() + 1
 
@@ -1778,7 +1830,7 @@ class Delay(DSP):
             else:
                 self.map = lambda x: nn.functional.softplus(x)
         self.omega = (
-            2 * torch.pi * torch.arange(0, self.nfft // 2 + 1) / self.nfft
+            2 * torch.pi * torch.arange(0, self.nfft // 2 + 1, device=self.device) / self.nfft
         ).unsqueeze(1)
         self.get_freq_response()
         self.get_freq_convolve()
@@ -1815,6 +1867,7 @@ class parallelDelay(Delay):
         fs: int = 48000,
         requires_grad=False,
         alias_decay_db: float = 0.0,
+        device=None
     ):
         super().__init__(
             size=size,
@@ -1825,6 +1878,7 @@ class parallelDelay(Delay):
             fs=fs,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
+            device=device
         )
 
     def check_param_shape(self):

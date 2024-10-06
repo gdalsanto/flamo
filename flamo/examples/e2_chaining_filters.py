@@ -26,7 +26,8 @@ def example_mimo(args):
     out_ch = 1
     filter1 = dsp.parallelGain(
         size=(in_ch,),
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
     filter2 = dsp.Delay(
         size=(out_ch, in_ch),
@@ -34,6 +35,7 @@ def example_mimo(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     input_layer = dsp.FFT(nfft=args.nfft)
     output_layer = dsp.iFFT(nfft=args.nfft)
@@ -43,14 +45,14 @@ def example_mimo(args):
     # -------------- Apply unit impulse to DSP --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate)
+    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Apply filter
     output_sig = my_dsp(input_sig)
 
     # ----------------------- Plot --------------------------
     plt.figure()
-    plt.plot(output_sig.squeeze().numpy())
+    plt.plot(output_sig.squeeze().cpu().numpy())
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
@@ -73,14 +75,16 @@ def example_siso(args):
     out_ch = 3
     filter1 = dsp.parallelGain(
         size=(in_ch,),
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
     filter2 = dsp.Delay(
         size=(out_ch, in_ch),
         max_len=1000,
         isint=True,
         nfft=args.nfft,
-        fs=args.samplerate
+        fs=args.samplerate,
+        device=args.device
     )
     input_layer = dsp.FFT(nfft=args.nfft)
     output_layer = dsp.iFFT(nfft=args.nfft)
@@ -90,7 +94,7 @@ def example_siso(args):
     # -------------- Apply unit impulse to DSP --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate)
+    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Apply filter
     output_sig = my_dsp(input_sig)
@@ -99,7 +103,7 @@ def example_siso(args):
     plt.figure()
     for i in range(out_ch):
         plt.subplot(out_ch, 1, i+1)
-        plt.plot(output_sig.squeeze()[:,i].numpy())
+        plt.plot(output_sig.squeeze()[:,i].cpu().numpy())
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
         plt.grid()
@@ -123,14 +127,16 @@ def example_assign_new_values(args):
     out_ch = 3
     filter1 = dsp.parallelGain(
         size=(in_ch,),
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
     filter2 = dsp.Delay(
         size=(out_ch, in_ch),
         max_len=1000,
         isint=True,
         nfft=args.nfft,
-        fs=args.samplerate
+        fs=args.samplerate,
+        device=args.device
     )
     input_layer = dsp.FFT(nfft=args.nfft)
     output_layer = dsp.iFFT(nfft=args.nfft)
@@ -155,7 +161,7 @@ def example_assign_new_values(args):
     # -------------- Apply unit impulse to DSP --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate)
+    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Apply filter
     output_sig = my_dsp(input_sig)
@@ -164,7 +170,7 @@ def example_assign_new_values(args):
     plt.figure()
     for i in range(out_ch):
         plt.subplot(out_ch, 1, i+1)
-        plt.plot(output_sig.squeeze()[:,i].numpy())
+        plt.plot(output_sig.squeeze()[:,i].cpu().numpy())
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
         plt.grid()
@@ -185,7 +191,8 @@ def example_requires_grad(args):
     filter1 = dsp.parallelGain(
         size=(in_ch,),
         nfft=args.nfft,
-        requires_grad=True
+        requires_grad=True,
+        device=args.device
     )
     filter2 = dsp.Delay(
         size=(out_ch, in_ch),
@@ -193,6 +200,7 @@ def example_requires_grad(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     input_layer = dsp.FFT(nfft=args.nfft)
     output_layer = dsp.iFFT(nfft=args.nfft)
@@ -202,7 +210,7 @@ def example_requires_grad(args):
     # ----------------- Initialize dataset ------------------
 
     # Input unit impulse
-    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate)
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Target
     target_gains = [0.5, -1.0]
@@ -227,7 +235,7 @@ def example_requires_grad(args):
         net=model,
         max_epochs=args.max_epochs,
         lr=args.lr,
-        patience_delta=args.patience_delta,
+        patience_delta=0,
         train_dir=args.train_dir,
         device=args.device
     )
@@ -250,9 +258,9 @@ def example_requires_grad(args):
     plt.figure()
     for i in range(out_ch):
         plt.subplot(out_ch, 1, i+1)
-        plt.plot(ir_init.squeeze()[:,i].numpy(), label='Initial')
-        plt.plot(ir_optim.squeeze()[:,i].numpy(), label='Optimized')
-        plt.plot(target.squeeze()[:,i].numpy(), ':', label='Target')
+        plt.plot(ir_init.squeeze()[:,i].cpu().numpy(), label='Initial')
+        plt.plot(ir_optim.squeeze()[:,i].cpu().numpy(), label='Optimized')
+        plt.plot(target.squeeze()[:,i].cpu().numpy(), ':', label='Target')
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
         plt.grid()
@@ -278,7 +286,7 @@ if __name__ == '__main__':
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
@@ -289,6 +297,10 @@ if __name__ == '__main__':
     #----------------- Parse the arguments ----------------
     args = parser.parse_args()
 
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
+        
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):
@@ -302,7 +314,7 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    # example_mimo(args)
+    example_mimo(args)
     # example_siso(args)
     # example_assign_new_values(args)
-    example_requires_grad(args)
+    # example_requires_grad(args)

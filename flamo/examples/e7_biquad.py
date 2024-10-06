@@ -41,6 +41,7 @@ def example_biquad(args):
         fs=args.samplerate,
         requires_grad=True,
         alias_decay_db=30,
+        device=args.device,
     )   
     # Create the model with Shell
     input_layer = dsp.FFT(args.nfft)
@@ -61,7 +62,7 @@ def example_biquad(args):
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
     # Initialize training process
-    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, step_size=25, device=args.device, train_dir=args.train_dir, patience_delta=1e-5)
+    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, step_size=25, train_dir=args.train_dir, patience_delta=1e-5, device=args.device)
     trainer.register_criterion(nn.MSELoss(), 1)
 
     ## ---------------- TRAIN ---------------- ##
@@ -74,17 +75,17 @@ def example_biquad(args):
     # plot magniture response of target and estimated filter
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
 
-    ax1.plot(torch.abs(target[0, :, 0]).detach().numpy(), label='Target')
-    ax1.plot(torch.abs(estimation_init[0, :, 0]).detach().numpy(), label='Estimation Init')
-    ax1.plot(torch.abs(estimation[0, :, 0]).detach().numpy(), '--', label='Estimation')
+    ax1.plot(torch.abs(target[0, :, 0]).detach().cpu().numpy(), label='Target')
+    ax1.plot(torch.abs(estimation_init[0, :, 0]).detach().cpu().numpy(), label='Estimation Init')
+    ax1.plot(torch.abs(estimation[0, :, 0]).detach().cpu().numpy(), '--', label='Estimation')
     ax1.set_title('Magnitude Response')
     ax1.set_xlabel('Frequency')
     ax1.set_ylabel('Magnitude')
     ax1.legend()
 
-    ax2.plot(torch.abs(target[0, :, 1]).detach().numpy(), label='Target')
-    ax2.plot(torch.abs(estimation_init[0, :, 1]).detach().numpy(), label='Estimation Init')
-    ax2.plot(torch.abs(estimation[0, :, 1]).detach().numpy(), '--', label='Estimation')
+    ax2.plot(torch.abs(target[0, :, 1]).detach().cpu().numpy(), label='Target')
+    ax2.plot(torch.abs(estimation_init[0, :, 1]).detach().cpu().numpy(), label='Estimation Init')
+    ax2.plot(torch.abs(estimation[0, :, 1]).detach().cpu().numpy(), '--', label='Estimation')
     ax2.set_title('Magnitude Response')
     ax2.set_xlabel('Frequency')
     ax2.set_ylabel('Magnitude')
@@ -123,6 +124,7 @@ def example_parallel_biquad(args):
         fs=args.samplerate,
         requires_grad=True,
         alias_decay_db=30,
+        device=args.device,
     )   
     # Create the model with Shell
     input_layer = dsp.FFT(args.nfft)
@@ -143,7 +145,7 @@ def example_parallel_biquad(args):
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
     # Initialize training process
-    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, step_size=25, device=args.device, train_dir=args.train_dir, patience_delta=1e-5)
+    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, step_size=25, train_dir=args.train_dir, patience_delta=1e-5, device=args.device)
     trainer.register_criterion(nn.MSELoss(), 1)
 
     ## ---------------- TRAIN ---------------- ##
@@ -156,17 +158,17 @@ def example_parallel_biquad(args):
     # plot magniture response of target and estimated filter
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
 
-    ax1.plot(torch.abs(target[0, :, 0]).detach().numpy(), label='Target')
-    ax1.plot(torch.abs(estimation_init[0, :, 0]).detach().numpy(), label='Estimation Init')
-    ax1.plot(torch.abs(estimation[0, :, 0]).detach().numpy(), '--', label='Estimation')
+    ax1.plot(torch.abs(target[0, :, 0]).detach().cpu().numpy(), label='Target')
+    ax1.plot(torch.abs(estimation_init[0, :, 0]).detach().cpu().numpy(), label='Estimation Init')
+    ax1.plot(torch.abs(estimation[0, :, 0]).detach().cpu().numpy(), '--', label='Estimation')
     ax1.set_title('Magnitude Response')
     ax1.set_xlabel('Frequency')
     ax1.set_ylabel('Magnitude')
     ax1.legend()
 
-    ax2.plot(torch.abs(target[0, :, 1]).detach().numpy(), label='Target')
-    ax2.plot(torch.abs(estimation_init[0, :, 1]).detach().numpy(), label='Estimation Init')
-    ax2.plot(torch.abs(estimation[0, :, 1]).detach().numpy(), '--', label='Estimation')
+    ax2.plot(torch.abs(target[0, :, 1]).detach().cpu().numpy(), label='Target')
+    ax2.plot(torch.abs(estimation_init[0, :, 1]).detach().cpu().numpy(), label='Estimation Init')
+    ax2.plot(torch.abs(estimation[0, :, 1]).detach().cpu().numpy(), '--', label='Estimation')
     ax2.set_title('Magnitude Response')
     ax2.set_xlabel('Frequency')
     ax2.set_ylabel('Magnitude')
@@ -182,7 +184,7 @@ if __name__ == "__main__":
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--max_epochs', type=int, default=100, help='maximum number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
@@ -191,6 +193,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
+        
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):
@@ -203,6 +209,7 @@ if __name__ == "__main__":
     with open(os.path.join(args.train_dir, 'args.txt'), 'w') as f:
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
-    example_biquad(args)
+    # example_biquad(args)
+    example_parallel_biquad(args)
 
     

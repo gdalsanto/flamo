@@ -47,7 +47,7 @@ def octave_bands(interval=1, start_freq=31.25, end_freq=16000):
         c_freq = central_freq[-1]       
     return central_freq
 
-def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor, gain_db: torch.Tensor, fs: int = 48000):
+def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor, gain_db: torch.Tensor, fs: int = 48000, device=None):
     r"""
     Computes the second-order sections coefficents of a graphic equalizer.
 
@@ -56,25 +56,27 @@ def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor,
         - shelving_freq (torch.Tensor): Tensor containing the corner frequencies of the shelving filters in Hz.
         - R (torch.Tensor): Tensor containing the resonance factor for the bandpass filters.
         - gain_db (torch.Tensor): Tensor containing the gain values in decibels for each frequency band.
+        - fs (int, optional): Sampling frequency. Default: 48000 Hz.
+        - device (str, optional): Device to use for constructing tensors. Default: None.
 
     **Returns**:
         - tuple: A tuple containing the numerator and denominator coefficients of the GEQ filter.
     """
     num_bands = len(center_freq) + len(shelving_freq) + 1
     assert len(gain_db) == num_bands, 'The number of gains must be equal to the number of frequencies.'
-    sos = torch.zeros((6, num_bands))
+    sos = torch.zeros((6, num_bands), device=device)
 
     for band in range(num_bands):
         if band == 0:
-            b = torch.tensor([db2mag(gain_db[band]), 0, 0])
-            a = torch.tensor([1, 0, 0])
+            b = torch.tensor([db2mag(gain_db[band]), 0, 0], device=device)
+            a = torch.tensor([1, 0, 0], device=device)
         elif band == 1:
-            b, a = shelving_filter(shelving_freq[0], db2mag(gain_db[band]), 'low', fs=fs)
+            b, a = shelving_filter(shelving_freq[0], db2mag(gain_db[band]), 'low', fs=fs, device=device)
         elif band == num_bands - 1:
-            b, a = shelving_filter(shelving_freq[1], db2mag(gain_db[band]), 'high', fs=fs)
+            b, a = shelving_filter(shelving_freq[1], db2mag(gain_db[band]), 'high', fs=fs, device=device)
         else:
             Q = torch.sqrt(R) / (R - 1)
-            b, a = peak_filter(center_freq[band-2], db2mag(gain_db[band]), Q , fs=fs)
+            b, a = peak_filter(center_freq[band-2], db2mag(gain_db[band]), Q , fs=fs, device=device)
             
         sos_band = torch.hstack((b, a))
         sos[:, band] = sos_band

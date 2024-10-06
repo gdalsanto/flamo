@@ -29,10 +29,10 @@ def example_fdn(args):
 
     # Input and output gains
     input_gain = dsp.Gain(
-        size=(N, 1), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db
+        size=(N, 1), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db, device=args.device
     )
     output_gain = dsp.Gain(
-        size=(1, N), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db
+        size=(1, N), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db, device=args.device
     )
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -42,6 +42,7 @@ def example_fdn(args):
         isint=True,
         requires_grad=False,
         alias_decay_db=alias_decay_db,
+        device=args.device,
     )
     delays.assign_value(delays.sample2s(delay_lengths))
     # Feedback path with orthogonal matrix
@@ -51,6 +52,7 @@ def example_fdn(args):
         matrix_type="orthogonal",
         requires_grad=True,
         alias_decay_db=alias_decay_db,
+        device=args.device,
     )
     # Recursion
     feedback_loop = system.Recursion(fF=delays, fB=feedback)
@@ -84,7 +86,7 @@ def example_fdn(args):
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
     # Initialize training process
-    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, device=args.device, train_dir=args.train_dir)
+    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, train_dir=args.train_dir, device=args.device)
     trainer.register_criterion(mse_loss(is_masked=args.masked_loss, n_sections=args.num, nfft=args.nfft), 1)
     trainer.register_criterion(sparsity_loss(), 0.2, requires_model=True)
 
@@ -132,7 +134,7 @@ if __name__ == "__main__":
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--max_epochs', type=int, default=10, help='maximum number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
@@ -141,6 +143,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
+        
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):

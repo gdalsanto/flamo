@@ -34,7 +34,8 @@ def example_series(args):
     filter1 = dsp.parallelGain(
         size=(in_ch,),
         nfft=args.nfft,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Second filter
     filter2 = dsp.Delay(
@@ -43,13 +44,15 @@ def example_series(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Third filter
     filter3 = dsp.GEQ(
         size=(out_ch, btw_ch),
         nfft=args.nfft,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Input and output layers
     input_layer = dsp.FFT(nfft=args.nfft)
@@ -73,7 +76,8 @@ def example_series_with_error(args):
     filter1 = dsp.parallelGain(
         size=(in_ch,),
         nfft=args.nfft*2,                  # NOTE: This will raise an error
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Second filter
     filter2 = dsp.Delay(
@@ -82,13 +86,15 @@ def example_series_with_error(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Third filter
     filter3 = dsp.GEQ(
         size=(out_ch, 10),          # NOTE: This will raise an error
         nfft=args.nfft,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Input and output layers
     input_layer = dsp.FFT(nfft=args.nfft)
@@ -113,7 +119,8 @@ def example_series_OrderedDict(args):
     filter1 = dsp.parallelGain(
         size=(in_ch,),
         nfft=args.nfft,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Second filter
     filter2 = dsp.Delay(
@@ -122,13 +129,15 @@ def example_series_OrderedDict(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Third filter
     filter3 = dsp.GEQ(
         size=(out_ch, btw_ch),
         nfft=args.nfft,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Input and output layers
     input_layer = dsp.FFT(nfft=args.nfft)
@@ -165,7 +174,8 @@ def example_series_nesting(args):
     filter1 = dsp.parallelGain(
         size=(in_ch,),
         nfft=args.nfft,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Second filter
     filter2 = dsp.Delay(
@@ -174,13 +184,15 @@ def example_series_nesting(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Third filter
     filter3 = dsp.GEQ(
         size=(out_ch, btw_ch),
         nfft=args.nfft,
-        requires_grad=False
+        requires_grad=False,
+        device=args.device
     )
     # Input and output layers
     input_layer = dsp.FFT(nfft=args.nfft)
@@ -216,7 +228,8 @@ def example_series_training(args):
     filter1 = dsp.parallelGain(
         size=(in_ch,),
         nfft=args.nfft,
-        requires_grad=True
+        requires_grad=True,
+        device=args.device
     )
     filter2 = dsp.Delay(
         size=(out_ch, in_ch),
@@ -224,6 +237,7 @@ def example_series_training(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     input_layer = dsp.FFT(nfft=args.nfft)
     output_layer = dsp.iFFT(nfft=args.nfft)
@@ -244,7 +258,7 @@ def example_series_training(args):
     # ----------------- Initialize dataset ------------------
 
     # Input unit impulse
-    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate)
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Target
     target_gains = [0.5, -1.0]
@@ -270,7 +284,7 @@ def example_series_training(args):
         net=model,
         max_epochs=args.max_epochs,
         lr=args.lr,
-        patience_delta=args.patience_delta,
+        patience_delta=0,
         train_dir=args.train_dir,
         device=args.device
     )
@@ -293,9 +307,9 @@ def example_series_training(args):
     plt.figure()
     for i in range(out_ch):
         plt.subplot(out_ch, 1, i+1)
-        plt.plot(ir_init.squeeze()[:,i].numpy(), label='Initial')
-        plt.plot(ir_optim.squeeze()[:,i].numpy(), label='Optimized')
-        plt.plot(target.squeeze()[:,i].numpy(), '--', label='Target')
+        plt.plot(ir_init.squeeze()[:,i].cpu().numpy(), label='Initial')
+        plt.plot(ir_optim.squeeze()[:,i].cpu().numpy(), label='Optimized')
+        plt.plot(target.squeeze()[:,i].cpu().numpy(), '--', label='Target')
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
         plt.xlim(0, 1200)
@@ -321,17 +335,21 @@ if __name__ == '__main__':
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
-    parser.add_argument('--max_epochs', type=int, default=50, help='maximum number of epochs')
+    parser.add_argument('--max_epochs', type=int, default=25, help='maximum number of epochs')
     parser.add_argument('--patience_delta', type=float, default=0.0001, help='Minimum improvement in validation loss to be considered as an improvement')
     #---------------------- Optimizer ---------------------
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     #----------------- Parse the arguments ----------------
     args = parser.parse_args()
 
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
+        
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):

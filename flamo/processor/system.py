@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import warnings
 from collections import OrderedDict
-from flamo.utils import to_complex
 from flamo.processor.dsp import FFT, iFFT, Transform
 from flamo.functional import signal_gallery
 
@@ -237,7 +236,7 @@ class Recursion(nn.Module):
         self.input_channels, self.output_channels = self.__check_io()
 
         # Identity matrix for the forward computation
-        self.I = self.__generate_identity()
+        self.I = self.__generate_identity().to(device=self.alias_decay_db.device)
 
 
     def forward(self, X):
@@ -533,7 +532,7 @@ class Shell(nn.Module):
 
         # construct anti aliasing reconstruction envelope
         gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1)).view(1,-1,1).expand(1, -1, self.output_channels)
+        self.alias_envelope = (gamma ** torch.arange(0, -self.nfft, -1, device=gamma.device)).view(1,-1,1).expand(1, -1, self.output_channels)
         
         # save input/output layers
         input_save = self.get_inputLayer()
@@ -549,7 +548,7 @@ class Shell(nn.Module):
         )
 
         # generate input signal
-        x = signal_gallery( batch_size=1, n_samples=self.nfft, n=self.input_channels, signal_type="impulse", fs=fs )
+        x = signal_gallery( batch_size=1, n_samples=self.nfft, n=self.input_channels, signal_type="impulse", fs=fs, device=gamma.device)
         if identity and self.input_channels > 1:
             self.alias_envelope = self.alias_envelope.unsqueeze(-1).expand(1, -1, -1, self.input_channels)
             x = x.diag_embed()
@@ -589,7 +588,7 @@ class Shell(nn.Module):
 
         # contruct anti aliasing reconstruction envelope
         gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        self.alias_envelope_exp = (gamma ** torch.arange(0, -self.nfft, -1)).view(1,-1,1).expand(1,-1,self.output_channels)
+        self.alias_envelope_exp = (gamma ** torch.arange(0, -self.nfft, -1, device=gamma.device)).view(1,-1,1).expand(1,-1,self.output_channels)
         
         # save input/output layers
         input_save = self.get_inputLayer()
@@ -604,7 +603,7 @@ class Shell(nn.Module):
                 FFT(self.nfft))) #TODO, this is a very suboptimal way to do this, we need to find a better way 
 
         # generate input signal
-        x = signal_gallery( batch_size=1, n_samples=self.nfft, n=self.input_channels, signal_type="impulse", fs=fs )
+        x = signal_gallery( batch_size=1, n_samples=self.nfft, n=self.input_channels, signal_type="impulse", fs=fs, device=gamma.device)
         if identity and self.input_channels > 1:
             x = x.diag_embed()
 

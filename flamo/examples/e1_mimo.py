@@ -34,6 +34,7 @@ def example_delays(args) -> None:
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     input_layer = dsp.FFT(nfft=args.nfft)
     output_layer = dsp.iFFT(nfft=args.nfft)
@@ -43,7 +44,7 @@ def example_delays(args) -> None:
     # -------------- Apply unit impulse to DSP --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate)
+    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Apply filter
     output_sig = my_dsp(input_sig)
@@ -77,7 +78,8 @@ def example_biquads(args) -> None:
         filter_type='lowpass',
         nfft=args.nfft,
         fs=args.samplerate,
-        requires_grad=True
+        requires_grad=True,
+        device=args.device
     )
     input_layer = dsp.FFT(nfft=args.nfft)
     output_layer = dsp.Transform(lambda x: torch.abs(x))
@@ -87,17 +89,17 @@ def example_biquads(args) -> None:
     # ----------------- Initialize dataset ------------------
 
     # Input unit impulse
-    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate)
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.samplerate, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Target frequency responses
     f_cut_1 = 500   # Cut-off frequency for the first lowpass filter
     g_1 = 10        # Bandpass gain for the first lowpass filter
-    b_lp_1, a_lp_1 = lowpass_filter(f_cut_1, g_1, args.samplerate)
+    b_lp_1, a_lp_1 = lowpass_filter(f_cut_1, g_1, args.samplerate, device=args.device)
     H_lp_1 = biquad2tf(b=b_lp_1, a=a_lp_1, nfft=args.nfft)
 
     f_cut_2 = 5000   # Cut-off frequency for the second lowpass filter
     g_2 = 0.7        # Bandpass gain for the second lowpass filter
-    b_lp_2, a_lp_2 = lowpass_filter(f_cut_2, g_2, args.samplerate)
+    b_lp_2, a_lp_2 = lowpass_filter(f_cut_2, g_2, args.samplerate, device=args.device)
     H_lp_2 = biquad2tf(b=b_lp_2, a=a_lp_2, nfft=args.nfft)
 
     target = torch.stack([torch.abs(H_lp_1), torch.abs(H_lp_2)], dim=1).unsqueeze(0)
@@ -138,17 +140,17 @@ def example_biquads(args) -> None:
 
     plt.figure()
     plt.subplot(2, 1, 1)
-    plt.plot(mag2db(mag_resp_init[0,:,0]).squeeze().numpy(), label='Initial')
-    plt.plot(mag2db(mag_resp_optim[0,:,0]).squeeze().numpy(), label='Optimized')
-    plt.plot(mag2db(target[0,:,0]).numpy(), '-.', label='Target')
+    plt.plot(mag2db(mag_resp_init[0,:,0]).squeeze().cpu().numpy(), label='Initial')
+    plt.plot(mag2db(mag_resp_optim[0,:,0]).squeeze().cpu().numpy(), label='Optimized')
+    plt.plot(mag2db(target[0,:,0]).cpu().numpy(), '-.', label='Target')
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude in dB')
     plt.grid()
     plt.legend()
     plt.subplot(2, 1, 2)
-    plt.plot(mag2db(mag_resp_init[0,:,1]).squeeze().numpy(), label='Initial')
-    plt.plot(mag2db(mag_resp_optim[0,:,1]).squeeze().numpy(), label='Optimized')
-    plt.plot(mag2db(target[0,:,1]).numpy(), '--', label='Target')
+    plt.plot(mag2db(mag_resp_init[0,:,1]).squeeze().cpu().numpy(), label='Initial')
+    plt.plot(mag2db(mag_resp_optim[0,:,1]).squeeze().cpu().numpy(), label='Optimized')
+    plt.plot(mag2db(target[0,:,1]).cpu().numpy(), '--', label='Target')
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude in dB')
     plt.grid()
@@ -169,7 +171,7 @@ if __name__ == '__main__':
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
@@ -180,6 +182,10 @@ if __name__ == '__main__':
     #----------------- Parse the arguments ----------------
     args = parser.parse_args()
 
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
+        
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):
@@ -193,5 +199,5 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    example_delays(args)
+    # example_delays(args)
     example_biquads(args)

@@ -9,21 +9,20 @@ import torch.nn as nn
 
 from flamo.processor import dsp, system
 
-
 in_ch = 1
 n_chs = 6
 
 def get_system(args, alias_decay_db=0):
     torch.manual_seed(130799)  # needed to generate the same paramer values
     input_gain = dsp.Gain(
-        size=(n_chs, 1), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db
+        size=(n_chs, 1), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db, device=args.device
     )
     input_gain.assign_value(torch.ones(input_gain.param.shape))
     # output gains
     output_gain = dsp.Gain(
-        size=(1, n_chs), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db
+        size=(1, n_chs), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db, device=args.device
     )
-    output_gain.assign_value(torch.ones(output_gain.param.shape))
+    output_gain.assign_value(torch.ones(output_gain.param.shape, device=args.device))
 
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -33,6 +32,7 @@ def get_system(args, alias_decay_db=0):
         isint=True,
         requires_grad=False,
         alias_decay_db=alias_decay_db,
+        device=args.device
     )
     # Feedback path with orthogonal matrix
     feedback = dsp.Matrix(
@@ -41,11 +41,13 @@ def get_system(args, alias_decay_db=0):
         matrix_type="orthogonal",
         requires_grad=True,
         alias_decay_db=alias_decay_db,
+        device=args.device
     )
     attenuation = dsp.parallelGain(
         size=(n_chs,),
         nfft=args.nfft, 
         alias_decay_db=alias_decay_db,
+        device=args.device
     )
     attenuation.assign_value(0.99999**(delays.get_delays()))
     # Recursion
@@ -86,21 +88,22 @@ def example_anti_aliasing(args):
     mag_resp_aa = torch.abs(model_aa.get_freq_response(fs=args.samplerate).squeeze())
 
     plt.subplot(2, in_ch, 1)
-    plt.plot(imp_resp.squeeze().numpy(), label='Original')
-    plt.plot(imp_resp_aa.squeeze().numpy(), label='Anti-aliasing')
+    plt.plot(imp_resp.squeeze().cpu().numpy(), label='Original')
+    plt.plot(imp_resp_aa.squeeze().cpu().numpy(), label='Anti-aliasing')
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.legend()
-    plt.xlim([0, 10000])
+    plt.xlim([0, 1000])
     plt.grid()
     plt.subplot(2, in_ch, 2)
-    plt.plot(mag_resp.squeeze().numpy(), label='Original')
-    plt.plot(mag_resp_aa.squeeze().numpy(), label='Anti-aliasing')
+    plt.plot(mag_resp.squeeze().cpu().numpy(), label='Original')
+    plt.plot(mag_resp_aa.squeeze().cpu().numpy(), label='Anti-aliasing')
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude')
     plt.grid()
     plt.show()
 
+    return
 ###########################################################################################
 
 if __name__ == '__main__':
@@ -114,7 +117,7 @@ if __name__ == '__main__':
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
@@ -124,7 +127,10 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     #----------------- Parse the arguments ----------------
     args = parser.parse_args()
-
+    
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):

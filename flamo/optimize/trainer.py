@@ -94,6 +94,7 @@ class Trainer:
                 - train_dataset (torch.utils.data.Dataset): The training dataset.
                 - valid_dataset (torch.utils.data.Dataset): The validation dataset.
         """
+        
         self.train_loss, self.valid_loss = [], []
         
         st = time.time()    # start time
@@ -137,6 +138,7 @@ class Trainer:
                 - float: The loss value of the training step.
         """
         inputs, targets = data
+        inputs, targets = inputs.to(self.device), targets.to(self.device)
         # batch processing
         self.optimizer.zero_grad()
         estimations = self.net(inputs)
@@ -162,6 +164,7 @@ class Trainer:
         """
         # batch processing
         inputs, targets = data
+        inputs, targets = inputs.to(self.device), targets.to(self.device)
         self.optimizer.zero_grad()
         estimations = self.net(inputs)
         loss = 0

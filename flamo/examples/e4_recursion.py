@@ -34,11 +34,13 @@ def example_recursion(args):
         max_len=5000,
         isint=True,
         nfft=args.nfft,
-        fs=args.samplerate
+        fs=args.samplerate,
+        device=args.device
     )
     attenuation = dsp.parallelGain(
         size=(out_ch,),
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
     rand_vector = torch.rand(attenuation.param.shape)
     attenuation.assign_value(0.3*rand_vector/torch.norm(rand_vector, p=2))
@@ -51,7 +53,8 @@ def example_recursion(args):
     feedback_matrix = dsp.Matrix(
         size=(in_ch, out_ch),
         matrix_type='orthogonal',
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
 
     feedback_path = OrderedDict({
@@ -76,7 +79,7 @@ def example_recursion(args):
     # -------------- Apply unit impulse to DSP --------------
 
     # Input signal
-    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate)
+    input_sig = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.nfft, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Apply filter
     output_sig = my_dsp(input_sig)
@@ -85,7 +88,7 @@ def example_recursion(args):
     plt.figure()
     for i in range(out_ch):
         plt.subplot(out_ch, 1, i+1)
-        plt.plot(output_sig.squeeze().numpy()[:,i])
+        plt.plot(output_sig.squeeze().cpu().numpy()[:,i])
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
         plt.grid()
@@ -109,7 +112,7 @@ if __name__ == '__main__':
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
@@ -121,6 +124,10 @@ if __name__ == '__main__':
     #----------------- Parse the arguments ----------------
     args = parser.parse_args()
 
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
+        
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):

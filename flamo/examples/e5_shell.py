@@ -35,6 +35,7 @@ def example_shell(args):
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
         nfft=args.nfft,
+        device=args.device
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
@@ -42,16 +43,19 @@ def example_shell(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     filter3 = dsp.parallelFilter(
         size=(50, out_ch,),
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
         n_sections=1,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     filters = OrderedDict({
         'Gain': filter1,
@@ -66,7 +70,7 @@ def example_shell(args):
     # ---------- DSP time and frequency responses -----------
 
     # Input unit impulse
-    unit_imp = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.samplerate, n=in_ch, fs=args.samplerate)
+    unit_imp = signal_gallery(signal_type='impulse', batch_size=1, n_samples=args.samplerate, n=in_ch, fs=args.samplerate, device=args.device)
 
     # Time response
     my_dsp.set_inputLayer(dsp.FFT(nfft=args.nfft))
@@ -85,13 +89,13 @@ def example_shell(args):
     # ------------------------ Plot -------------------------
     plt.figure()
     plt.subplot(211)
-    plt.plot(imp_resp.squeeze().numpy())
+    plt.plot(imp_resp.squeeze().cpu().numpy())
     plt.xlabel('Samples')
     plt.ylabel('Amplitude')
     plt.grid()
     plt.xlim(0, 5500)
     plt.subplot(212)
-    plt.plot(mag_resp.squeeze().numpy())
+    plt.plot(mag_resp.squeeze().cpu().numpy())
     plt.xlabel('Frequency bins')
     plt.ylabel('Magnitude')
     plt.grid()
@@ -114,6 +118,7 @@ def example_shell_error(args):
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
         nfft=args.nfft,
+        device=args.device
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
@@ -121,16 +126,19 @@ def example_shell_error(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     filter3 = dsp.parallelFilter(
         size=(50, out_ch,),
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
         n_sections=2,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     filters = OrderedDict({
         'Gain': filter1,
@@ -141,7 +149,7 @@ def example_shell_error(args):
 
     # Layers
     in_layer1 = dsp.FFT(nfft=args.nfft)
-    in_layer2 = dsp.Gain(size=(in_ch, in_ch), nfft=args.nfft, requires_grad=False)          # NOTE: Error here
+    in_layer2 = dsp.Gain(size=(in_ch, in_ch), nfft=args.nfft, requires_grad=False, device=args.device)          # NOTE: Error here
     in_layer = nn.Sequential(in_layer1, in_layer2)
 
     out_layer = dsp.iFFT(nfft=2**8)          # NOTE: Error here
@@ -165,6 +173,7 @@ def example_shell_gets(args):
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
         nfft=args.nfft,
+        device=args.device
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
@@ -172,16 +181,19 @@ def example_shell_gets(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     filter3 = dsp.parallelFilter(
         size=(50, out_ch,),
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
         n_sections=1,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     filters = OrderedDict({
         'Gain': filter1,
@@ -235,6 +247,7 @@ def example_shell_gets_2(args):
     filter1 = dsp.Gain(
         size=(out_ch, in_ch),
         nfft=args.nfft,
+        device=args.device
     )
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
@@ -242,16 +255,19 @@ def example_shell_gets_2(args):
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     filter3 = dsp.parallelFilter(
         size=(50, out_ch,),
-        nfft=args.nfft
+        nfft=args.nfft,
+        device=args.device
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
         n_sections=1,
         nfft=args.nfft,
         fs=args.samplerate,
+        device=args.device
     )
     filters = OrderedDict({
         'Gain': filter1,
@@ -276,14 +292,14 @@ def example_shell_gets_2(args):
     plt.figure()
     for i in range(in_ch):
         plt.subplot(2, in_ch, i+1)
-        plt.plot(imp_resp.squeeze().numpy()[:,i])
+        plt.plot(imp_resp.squeeze().cpu().numpy()[:,i])
         plt.xlabel('Samples')
         plt.ylabel('Amplitude')
         plt.grid()
         plt.xlim(0, 5500)
         plt.title(f'Input channel {i+1}')
         plt.subplot(2, in_ch, i+3)
-        plt.plot(mag_resp.squeeze().numpy()[:,i])
+        plt.plot(mag_resp.squeeze().cpu().numpy()[:,i])
         plt.xlabel('Frequency bins')
         plt.ylabel('Magnitude')
         plt.grid()
@@ -307,7 +323,8 @@ def example_shell_training(args):
     my_dsp = dsp.Filter(
         size=(FIR_order, out_ch, in_ch),
         nfft=args.nfft,
-        requires_grad=True
+        requires_grad=True,
+        device=args.device
     )
 
     # Shell instance
@@ -360,8 +377,8 @@ def example_shell_training(args):
     for i in range(out_ch):
         for j in range(in_ch):
             plt.subplot(out_ch, in_ch, i * in_ch + j + 1)
-            plt.plot(mag2db(get_magnitude(all_fr_init[0, :, i, j]).detach()).numpy(), label='Init')
-            plt.plot(mag2db(get_magnitude(all_fr_optim[0, :, i, j]).detach()).numpy(), label='Optim')
+            plt.plot(mag2db(get_magnitude(all_fr_init[0, :, i, j]).detach()).cpu().numpy(), label='Init')
+            plt.plot(mag2db(get_magnitude(all_fr_optim[0, :, i, j]).detach()).cpu().numpy(), label='Optim')
             plt.xlabel('Frequency bins')
             plt.ylabel('Magnitude [dB]')
             plt.grid()
@@ -397,8 +414,8 @@ def example_shell_training(args):
     plt.figure()
     for i in range(out_ch):
             plt.subplot(out_ch, 1, i+1)
-            plt.plot(mag2db(torch.abs(evs_init[0, :, i])).detach().numpy(), label='Init')
-            plt.plot(mag2db(torch.abs(evs_optim[0, :, i])).detach().numpy(), label='Optim')
+            plt.plot(mag2db(torch.abs(evs_init[0, :, i])).detach().cpu().numpy(), label='Init')
+            plt.plot(mag2db(torch.abs(evs_optim[0, :, i])).detach().cpu().numpy(), label='Optim')
             plt.xlabel('Frequency bins')
             plt.ylabel('Magnitude [dB]')
             plt.grid()
@@ -427,8 +444,8 @@ def example_shell_training(args):
     plt.figure()
     for i in range(out_ch):
             plt.subplot(out_ch, 1, i+1)
-            plt.plot(mag2db(get_magnitude(fr_init[0, :, i]).detach()).numpy(), label='Init')
-            plt.plot(mag2db(get_magnitude(fr_optim[0, :, i]).detach()).numpy(), label='Optim')
+            plt.plot(mag2db(get_magnitude(fr_init[0, :, i]).detach()).cpu().numpy(), label='Init')
+            plt.plot(mag2db(get_magnitude(fr_optim[0, :, i]).detach()).cpu().numpy(), label='Optim')
             plt.xlabel('Frequency bins')
             plt.ylabel('Magnitude [dB]')
             plt.grid()
@@ -452,7 +469,7 @@ if __name__ == '__main__':
     #----------------------- Dataset ----------------------
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
     parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cpu', help='device to use for computation')
+    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--split', type=float, default=0.8, help='split ratio for training and validation')
     #---------------------- Training ----------------------
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
@@ -463,6 +480,10 @@ if __name__ == '__main__':
     #----------------- Parse the arguments ----------------
     args = parser.parse_args()
 
+    # check for compatible device 
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        args.device = 'cpu'
+        
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):
@@ -479,5 +500,5 @@ if __name__ == '__main__':
     # example_shell(args)
     # example_shell_error(args)
     # example_shell_gets(args)
-    # example_shell_gets_2(args)
-    example_shell_training(args)
+    example_shell_gets_2(args)
+    # example_shell_training(args)

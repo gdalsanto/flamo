@@ -85,7 +85,6 @@ def get_dataloader(dataset, batch_size=2000, shuffle=True):
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        generator=torch.Generator(device=get_device()),
         drop_last = True
     )
     return dataloader
@@ -105,8 +104,7 @@ def split_dataset(dataset, split):
     train_set_size = int(len(dataset) * split)
     valid_set_size = len(dataset) - train_set_size
     
-    seed = torch.Generator(device=get_device()) # .manual_seed(42)
-    train_set, valid_set = data.random_split(dataset, [train_set_size, valid_set_size], generator=seed)
+    train_set, valid_set = data.random_split(dataset, [train_set_size, valid_set_size])
 
     return train_set, valid_set
 

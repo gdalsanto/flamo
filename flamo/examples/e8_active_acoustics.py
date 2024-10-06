@@ -24,6 +24,7 @@ from flamo.optimize.trainer import Trainer
 
 torch.manual_seed(130297)
 
+# TODO: test the adapt code for GPU 
 # ==================================================================================================
 # ===================================== Active Acoustics Class =====================================
 
