@@ -1,0 +1,11 @@
+__pycache__/
+.DS_Store
+dist/
+.vscode
+*.asv 
+/output
+test.py
+.flamo-env
+.flamo-env-win
+docs/
+

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>FLAMO &#8212; FLAMO 0.0.3 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=61cd365c" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=47de8214"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Processor" href="processor/dsp.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="flamo">
+<h1>FLAMO<a class="headerlink" href="#flamo" title="Link to this heading">¶</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">FLAMO</span></code> is an open-source frequecy-sampling library for audio-module optimization in <code class="docutils literal notranslate"><span class="pre">PyTorch</span></code>.
+The code can be found in <a class="reference external" href="https://github.com/gdalsanto/flamo">this github repository</a>.</p>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>flamo
+</pre></div>
+</div>
+</section>
+<section id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Differentiable Digitial Signal Processor:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Transform.forward"><code class="docutils literal notranslate"><span class="pre">Transform.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.DSP.assign_value"><code class="docutils literal notranslate"><span class="pre">DSP.assign_value()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.DSP.forward"><code class="docutils literal notranslate"><span class="pre">DSP.forward()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.DSP.get_gamma"><code class="docutils literal notranslate"><span class="pre">DSP.get_gamma()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.DSP.init_param"><code class="docutils literal notranslate"><span class="pre">DSP.init_param()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain.check_input_shape"><code class="docutils literal notranslate"><span class="pre">Gain.check_input_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain.check_param_shape"><code class="docutils literal notranslate"><span class="pre">Gain.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain.forward"><code class="docutils literal notranslate"><span class="pre">Gain.forward()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">Gain.get_freq_convolve()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain.get_io"><code class="docutils literal notranslate"><span class="pre">Gain.get_io()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain.initialize_class"><code class="docutils literal notranslate"><span class="pre">Gain.initialize_class()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Matrix.initialize_class"><code class="docutils literal notranslate"><span class="pre">Matrix.initialize_class()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Matrix.matrix_gallery"><code class="docutils literal notranslate"><span class="pre">Matrix.matrix_gallery()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.check_input_shape"><code class="docutils literal notranslate"><span class="pre">Delay.check_input_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.check_param_shape"><code class="docutils literal notranslate"><span class="pre">Delay.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.forward"><code class="docutils literal notranslate"><span class="pre">Delay.forward()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.get_delays"><code class="docutils literal notranslate"><span class="pre">Delay.get_delays()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">Delay.get_freq_convolve()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.get_freq_response"><code class="docutils literal notranslate"><span class="pre">Delay.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.get_io"><code class="docutils literal notranslate"><span class="pre">Delay.get_io()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.init_param"><code class="docutils literal notranslate"><span class="pre">Delay.init_param()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.initialize_class"><code class="docutils literal notranslate"><span class="pre">Delay.initialize_class()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.s2sample"><code class="docutils literal notranslate"><span class="pre">Delay.s2sample()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay.sample2s"><code class="docutils literal notranslate"><span class="pre">Delay.sample2s()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay.check_param_shape"><code class="docutils literal notranslate"><span class="pre">parallelDelay.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">parallelDelay.get_freq_convolve()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay.get_freq_response"><code class="docutils literal notranslate"><span class="pre">parallelDelay.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay.get_io"><code class="docutils literal notranslate"><span class="pre">parallelDelay.get_io()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad.check_param_shape"><code class="docutils literal notranslate"><span class="pre">Biquad.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad.get_freq_response"><code class="docutils literal notranslate"><span class="pre">Biquad.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad.get_io"><code class="docutils literal notranslate"><span class="pre">Biquad.get_io()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad.get_map"><code class="docutils literal notranslate"><span class="pre">Biquad.get_map()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad.get_size"><code class="docutils literal notranslate"><span class="pre">Biquad.get_size()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad.init_param"><code class="docutils literal notranslate"><span class="pre">Biquad.init_param()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad.initialize_class"><code class="docutils literal notranslate"><span class="pre">Biquad.initialize_class()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.check_param_shape"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_freq_convolve()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.get_freq_response"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.get_io"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_io()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad.get_map"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_map()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF.check_input_shape"><code class="docutils literal notranslate"><span class="pre">SVF.check_input_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF.check_param_shape"><code class="docutils literal notranslate"><span class="pre">SVF.check_param_shape()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF.get_freq_response"><code class="docutils literal notranslate"><span class="pre">SVF.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF.get_io"><code class="docutils literal notranslate"><span class="pre">SVF.get_io()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF.map_param2svf"><code class="docutils literal notranslate"><span class="pre">SVF.map_param2svf()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF.param2R"><code class="docutils literal notranslate"><span class="pre">SVF.param2R()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF.param2freq"><code class="docutils literal notranslate"><span class="pre">SVF.param2freq()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF.param2mix"><code class="docutils literal notranslate"><span class="pre">SVF.param2mix()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/system.html#flamo.processor.system.Recursion.forward"><code class="docutils literal notranslate"><span class="pre">Recursion.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="processor/system.html#flamo.processor.system.Shell.forward"><code class="docutils literal notranslate"><span class="pre">Shell.forward()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/system.html#flamo.processor.system.Shell.get_freq_response"><code class="docutils literal notranslate"><span class="pre">Shell.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="processor/system.html#flamo.processor.system.Shell.get_time_response"><code class="docutils literal notranslate"><span class="pre">Shell.get_time_response()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.Trainer.early_stop"><code class="docutils literal notranslate"><span class="pre">Trainer.early_stop()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.Trainer.get_train_dir"><code class="docutils literal notranslate"><span class="pre">Trainer.get_train_dir()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.Trainer.print_results"><code class="docutils literal notranslate"><span class="pre">Trainer.print_results()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.Trainer.register_criterion"><code class="docutils literal notranslate"><span class="pre">Trainer.register_criterion()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.Trainer.save_model"><code class="docutils literal notranslate"><span class="pre">Trainer.save_model()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.Trainer.train"><code class="docutils literal notranslate"><span class="pre">Trainer.train()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.Trainer.train_step"><code class="docutils literal notranslate"><span class="pre">Trainer.train_step()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.Trainer.valid_step"><code class="docutils literal notranslate"><span class="pre">Trainer.valid_step()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="functional.html"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
+</ul>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">FLAMO</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Differentiable Digitial Signal Processor:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="functional.html"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="processor/dsp.html" title="next chapter">Processor</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.3.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
