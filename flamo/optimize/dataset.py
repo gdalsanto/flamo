@@ -58,8 +58,12 @@ class DatasetColorless(Dataset):
     """
 
     def __init__(self, input_shape, target_shape, expand=1000, device='cpu'):
+        input_shape = (1,) + input_shape
+        target_shape = (1,) + target_shape
+
         input = torch.zeros(input_shape)
-        input[:,0,:] = 1
+        input[:, 0, :] = 1
+
         target = torch.ones(target_shape)
         super().__init__(input=input, target=target, expand=expand, device=device)
 
