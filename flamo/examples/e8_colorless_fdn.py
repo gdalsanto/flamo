@@ -78,8 +78,8 @@ def example_fdn(args):
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
 
     dataset = DatasetColorless(
-        input_shape=(args.nfft // 2 + 1, 1),
-        target_shape=(args.nfft // 2 + 1, 1),
+        input_shape=(1, args.nfft // 2 + 1, 1),
+        target_shape=(1, args.nfft // 2 + 1, 1),
         expand=args.num,
         device=args.device,
     )
