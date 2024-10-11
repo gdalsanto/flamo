@@ -753,7 +753,7 @@ class parallelFilter(Filter):
 
     Shape:
         - input: :math:`(B, M, N, ...)`
-        - param: :math:`(N_{taps}, N, N)`
+        - param: :math:`(N_{taps}, N)`
         - output: :math:`(B, M, N, ...)`
 
     where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
