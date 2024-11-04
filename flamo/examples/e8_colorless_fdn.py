@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_epochs', type=int, default=10, help='maximum number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
-    parser.add_argument('--masked_loss', type=bool, default=False, help='use masked loss', action='store_false')
+    parser.add_argument('--masked_loss', action='store_false', help='use masked loss')
 
     args = parser.parse_args()
 
