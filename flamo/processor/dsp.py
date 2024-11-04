@@ -281,9 +281,7 @@ class DSP(nn.Module):
         and :math:`n` is the descrete time index :math:`0\\leq n < N`, where N is the length of the signal.
         """
 
-        self.gamma = torch.tensor(
-            10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        )
+        self.gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
 
     def assign_value(self, new_value, indx: tuple = tuple([slice(None)])):
         """
