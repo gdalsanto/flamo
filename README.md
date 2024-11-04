@@ -41,6 +41,7 @@ python3 -m venv .flamo-env
 source .flamo-env/bin/activate
 pip install -e .
 ```
+Note that it requires python>=3.10
 
 ---
 
