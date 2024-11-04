@@ -17,12 +17,12 @@ class sparsity_loss(nn.Module):
     
 class mse_loss(nn.Module):
     '''Means squared error between abs(x1) and x2'''
-    def __init__(self, is_masked=False, nfft=None, n_sections=10):
+    def __init__(self, is_masked=False, nfft=None, n_sections=10, device='cpu'):
         super().__init__()
         self.is_masked = is_masked
         self.n_sections = n_sections    
         self.nfft = nfft
-        self.mask_indices = torch.chunk(torch.arange(0, self.nfft//2+1), self.n_sections)
+        self.mask_indices = torch.chunk(torch.arange(0, self.nfft//2+1, device=device), self.n_sections)
         self.i = -1
 
         # create 
