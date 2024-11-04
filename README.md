@@ -36,7 +36,7 @@ This is a preview of the `flamo` package. We are working on a few last features 
 To clone and install dependencies on a new environment `flamo-env` 
 ```
 git clone https://github.com/gdalsanto/flamo
-cd flamo
+cd flamo/flamo
 python3 -m venv .flamo-env
 source .flamo-env/bin/activate
 pip install -e .
