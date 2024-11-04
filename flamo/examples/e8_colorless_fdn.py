@@ -149,7 +149,7 @@ if __name__ == "__main__":
     # check for compatible device 
     if args.device == 'cuda' and not torch.cuda.is_available():
         args.device = 'cpu'
-        print('cuda not available, will use cpu)
+        print('cuda not available, will use cpu')
         
     # make output directory
     if args.train_dir is not None:
