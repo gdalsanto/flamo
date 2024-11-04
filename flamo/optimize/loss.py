@@ -22,21 +22,21 @@ class mse_loss(nn.Module):
         self.is_masked = is_masked
         self.n_sections = n_sections    
         self.nfft = nfft
+        self.device = device
         self.mask_indices = torch.chunk(torch.arange(0, self.nfft//2+1, device=device), self.n_sections)
         self.i = -1
 
         # create 
     def forward(self, y_pred, y_true):
         self.i += 1
-        loss = 0.0
         N = y_pred.size(dim=-1)
         y_pred_sum = torch.sum(y_pred, dim=-1)
         # generate random mask for sparse sampling 
         if self.is_masked:
             self.i = self.i % self.n_sections
-            return torch.mean(torch.pow(torch.abs(y_pred_sum[:,self.mask_indices[self.i]])-torch.abs(y_true.squeeze(-1)[:,self.mask_indices[self.i]]), 2*torch.ones(y_pred[:,self.mask_indices[self.i]].size(1)))) 
+            return torch.mean(torch.pow(torch.abs(y_pred_sum[:,self.mask_indices[self.i]])-torch.abs(y_true.squeeze(-1)[:,self.mask_indices[self.i]]), 2*torch.ones(y_pred[:,self.mask_indices[self.i]].size(1), device=self.device))) 
         else:
-            return torch.mean(torch.pow(torch.abs(y_pred_sum)-torch.abs(y_true.squeeze(-1)), 2*torch.ones(y_pred.size(1)))) 
+            return torch.mean(torch.pow(torch.abs(y_pred_sum)-torch.abs(y_true.squeeze(-1)), 2*torch.ones(y_pred.size(1), device=self.device))) 
 
 class amse_loss(nn.Module):
     '''Asymmetric Means squared error between abs(x1) and x2'''
