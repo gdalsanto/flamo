@@ -3,12 +3,15 @@ import argparse
 import os
 import time
 import scipy
+
 from collections import OrderedDict
+
 from flamo.optimize.dataset import DatasetColorless, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
 from flamo.optimize.loss import mse_loss, sparsity_loss
 from flamo.utils import save_audio
+
 torch.manual_seed(130709)
 
 def example_fdn(args):
@@ -87,7 +90,7 @@ def example_fdn(args):
 
     # Initialize training process
     trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, train_dir=args.train_dir, device=args.device)
-    trainer.register_criterion(mse_loss(is_masked=args.masked_loss, n_sections=args.num, nfft=args.nfft), 1)
+    trainer.register_criterion(mse_loss(is_masked=args.masked_loss, n_sections=args.num, nfft=args.nfft, device=args.device), 1)
     trainer.register_criterion(sparsity_loss(), 0.2, requires_model=True)
 
     ## ---------------- TRAIN ---------------- ##
