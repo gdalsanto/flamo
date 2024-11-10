@@ -1,4 +1,5 @@
 # flamo
+[PyPI](https://pypi.org/project/flamo/) | [ICASSP25-arXiv](https://arxiv.org/abs/2409.08723) 
 
 Open-source library for frequency-domain differentiable audio processing.
 
@@ -26,14 +27,24 @@ Optimization - in `flamo.optimize`:
 - **Trianer** : Handling of the training and validation steps 
 - **Dataset** : Customizable dataset class and helper methods 
 
-### ⚠️ NOTE 
-This is a preview of the `flamo` package. We are working on a few last features and improving the documentation before distributing it.  
-
 --- 
 
 ### 🛠️ Installation
+To install it via pip, on a new python virtual environment `flamo-env` 
+```
+python3.10 -m venv .flamo-env
+source .flamo-env/bin/activate
+pip install flamo
+```
+If you are using conda, you might need to install `libsndfile` manually
+```
+conda create -n flamo-env python=3.10
+conda activate flamo-env
+pip install flamo
+conda install -c conda-forge libsndfile
+```
 
-To clone and install dependencies on a new environment `flamo-env` 
+For local installation: clone and install dependencies on a new pyton virtual environment `flamo-env` 
 ```
 git clone https://github.com/gdalsanto/flamo
 cd flamo
