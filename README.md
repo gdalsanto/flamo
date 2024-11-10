@@ -58,7 +58,7 @@ Note that it requires python>=3.10
 
 ### 💻 How to use the library
 
-We included a few examples in [`./flamo/examples`](https://github.com/gdalsanto/flamo/tree/main/flamo/examples) that take you through the library's API. 
+We included a few examples in [`./examples`](https://github.com/gdalsanto/flamo/tree/main/examples) that take you through the library's API. 
 
 The following example demonstrates how to optimize the parameters of Biquad filters to match a target magnitude response. This is just a toy example; you can create and optimize much more complex systems by cascading modules either serially or recursively. 
 
