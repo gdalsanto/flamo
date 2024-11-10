@@ -9,10 +9,14 @@ authors = [
   { name="Gian Marco De Bortoli", email="gian.debortoli@aalto.fi"},
   { name="Sebastian J. Schlecht", email="sebastian.schlecht@fau.de"}
 ]
+maintainers = [
+  { name="Gloria Dal Santo", email="gloria.dalsanto@aalto.fi" },
+  { name="Gian Marco De Bortoli", email="gian.debortoli@aalto.fi"},
+]
 description = "An Open-Source Library for Frequency-Domain Differentiable Audio Processing"
 readme = "README.md"
 license = {file = "LICENSE"}
-keywords = ["audio", "signal processing", "differentiable programming"]
+keywords = ["audio", "signal processing", "differentiable programming", "machine learning", "optimization"]
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -20,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "torch",
+    "torchaudio",
     "numpy",
     "scipy",
     "pysoundfile",
