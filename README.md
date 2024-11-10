@@ -48,7 +48,7 @@ For local installation: clone and install dependencies on a new pyton virtual en
 ```
 git clone https://github.com/gdalsanto/flamo
 cd flamo
-python3 -m venv .flamo-env
+python3.10 -m venv .flamo-env
 source .flamo-env/bin/activate
 pip install -e .
 ```
