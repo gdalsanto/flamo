@@ -6,7 +6,7 @@ It contains differentiable implementation of common LTI audio systems modules wi
 
 ---
 
-### Optimization of audio LTI systems
+### ⚙️ Optimization of audio LTI systems
 
 Available differentiable audio signal processors - in `flamo.processor.dsp`: 
 - **Gains** : Gains, Matrices, Householder Matrices
@@ -26,12 +26,12 @@ Optimization - in `flamo.optimize`:
 - **Trianer** : Handling of the training and validation steps 
 - **Dataset** : Customizable dataset class and helper methods 
 
-### NOTE 
+### ⚠️ NOTE 
 This is a preview of the `flamo` package. We are working on a few last features and improving the documentation before distributing it.  
 
 --- 
 
-### Installation
+### 🛠️ Installation
 
 To clone and install dependencies on a new environment `flamo-env` 
 ```
@@ -45,7 +45,7 @@ Note that it requires python>=3.10
 
 ---
 
-### How to use the library
+### 💻 How to use the library
 
 We included a few examples in [`./flamo/examples`](https://github.com/gdalsanto/flamo/tree/main/flamo/examples) that take you through the library's API. 
 
@@ -130,7 +130,7 @@ estimation = model.get_freq_response()
 ```
 
 ---
-### Reference
+### 📖 Reference
 
 This work has been submitted to ICASSP 2025. Pre-print is available on [arxiv](https://arxiv.org/abs/2409.08723). 
 
