@@ -44,13 +44,13 @@ class amse_loss(nn.Module):
 
         # loss on system's output
         y_pred_sum = torch.sum(y_pred, dim=-1)
-        loss = self.p_loss(y_pred_sum, y_true)*torch.sqrt(torch.tensor(y_pred.size(0)))
+        loss = self.p_loss(y_pred_sum, y_true) # *torch.sqrt(torch.tensor(y_pred.size(0)))
 
         return loss
     
     def p_loss(self, y_pred, y_true):
         gT = 2*torch.ones((y_pred.size(0),y_pred.size(1)))
-        gT = gT + 2*torch.gt((torch.abs(y_pred) - torch.abs(y_true.squeeze(-1))),0).type(torch.uint8)
+        gT = gT + 2*torch.gt((torch.abs(y_pred) - torch.abs(y_true.squeeze(-1))),1).type(torch.uint8)
         loss = torch.mean(torch.pow(torch.abs(y_pred)-torch.abs(y_true.squeeze(-1)),gT))   
 
         return loss  
