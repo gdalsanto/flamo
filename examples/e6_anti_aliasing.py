@@ -51,7 +51,7 @@ def get_system(args, alias_decay_db=0):
     )
     attenuation.assign_value(0.99999**(delays.get_delays()))
     # Recursion
-    feedback_loop = system.Recursion(fF=delays, fB=nn.Sequential(feedback, attenuation))
+    feedback_loop = system.Recursion(fF=delays, fB=system.Series(feedback, attenuation))
 
     # Full FDN
     my_dsp = system.Series(OrderedDict({
