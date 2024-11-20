@@ -29,6 +29,94 @@ class Series(nn.Sequential):
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
 
+    def prepend(self, new_module: nn.Module | nn.Sequential | OrderedDict) -> "Series":
+        r"""
+        Prepends a given item to the beginning of the Series instance.
+
+            **Args**:
+                new_module (nn.Module | nn.Sequential | OrderedDict): item to append.
+
+            **Returns**:
+                Series: self.
+        """
+        return self.insert(index=0, new_module=new_module)
+
+    def append(self, new_module: nn.Module | nn.Sequential | OrderedDict) -> "Series":
+        r"""
+        Appends a given item to the end of the Series instance.
+
+            **Args**:
+                new_module (nn.Module | nn.Sequential | OrderedDict): item to append.
+
+            **Returns**:
+                Series: self.
+        """
+        # Get current keys
+        current_keys = self._modules.keys()
+        
+        # Unpack the new module
+        unpacked_modules = self.__unpack_modules((new_module,), [*current_keys])
+
+        # Add the unpacked modules at the end of the Series
+        for k, v in unpacked_modules.items():
+            self.add_module(k, v)
+
+        # Check nfft and alpha values
+        self.nfft = self.__check_attribute('nfft')
+        self.alias_decay_db = self.__check_attribute('alias_decay_db')
+
+        # Check I/O compatibility
+        self.input_channels, self.output_channels = self.__check_io()
+
+        return self
+
+    def insert(self, index: int, new_module: nn.Module | nn.Sequential | OrderedDict) -> "Series":
+        r"""
+        Inserts a given item at the given index in the Series instance.
+
+            **Args**:
+                index (int): index at which to insert the new module.
+                new_module (nn.Module | nn.Sequential | OrderedDict): item to append.
+
+            **Returns**:
+                Series: self.
+        """
+        # Check that the index is within the range of the current modules
+        n_current_modules = len(self._modules)
+        if not (-n_current_modules <= index <= n_current_modules):
+            raise IndexError(f"Index out of range.")
+        if index < 0:
+            index += n_current_modules
+
+        # Get current keys
+        current_keys = self._modules.keys()
+        
+        # Unpack the new module
+        unpacked_modules = list(self.__unpack_modules((new_module,), [*current_keys]).items())
+
+        # Get current keys-modules
+        current_items = self._modules
+
+        # Replicate the current modules in list
+        items = list(current_items.items())
+
+        # Add new modules to the list
+        for i in range(index, index+len(unpacked_modules)):
+            items.insert(i, unpacked_modules[i-index])
+
+        # Propagate addition to original modules
+        current_items.clear()
+        current_items.update(items)
+
+        # Check nfft and alpha values
+        self.nfft = self.__check_attribute('nfft')
+        self.alias_decay_db = self.__check_attribute('alias_decay_db')
+
+        # Check I/O compatibility
+        self.input_channels, self.output_channels = self.__check_io()
+
+        return self
+
     def __unpack_modules(self, modules: tuple, current_keys: list) -> OrderedDict:
         r"""
         Generate an :class:`OrderedDict` containing the modules given in the input 
@@ -57,7 +145,6 @@ class Series(nn.Sequential):
             - ValueError: If modules are not of type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
             - ValueError: If a custom key is not unique.
         """
-        # TODO: Consider .modules() method
         # initialize the unpacked modules as empty OrderedDict
         unpacked_modules = OrderedDict()
         # iterate over the modules
