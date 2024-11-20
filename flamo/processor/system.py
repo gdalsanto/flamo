@@ -69,7 +69,7 @@ class Series(nn.Sequential):
                         (module._modules,), [*current_keys, *unpacked_modules.keys()]
                     )
                 )
-            elif isinstance(module, OrderedDict) or isinstance(module, dict):
+            elif isinstance(module, OrderedDict):
                 for k, v in module.items():
                     if isinstance(v, nn.Sequential):
                         # nested nn.Sequential
@@ -78,7 +78,7 @@ class Series(nn.Sequential):
                                 (v._modules,), [*current_keys, *unpacked_modules.keys()]
                             )
                         )
-                    elif isinstance(v, OrderedDict) or isinstance(module, dict):
+                    elif isinstance(v, OrderedDict):
                         # nested OrderedDict
                         unpacked_modules.update(
                             self.__unpack_modules(
