@@ -13,7 +13,7 @@ class sparsity_loss(nn.Module):
             A = core.feedback_loop.feedback.mixing_matrix.map(core.feedback_loop.feedback.mixing_matrix.param)
         N = A.shape[-1]
         # A = torch.matrix_exp(skew_matrix(A))
-        return -(torch.sum(torch.abs(A)) - N)/(N*(np.sqrt(N)-1))
+        return -(torch.sum(torch.abs(A)) - N*np.sqrt(N))/(N*(np.sqrt(N)-1))
     
 class mse_loss(nn.Module):
     '''Means squared error between abs(x1) and x2'''
