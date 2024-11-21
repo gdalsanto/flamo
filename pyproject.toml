@@ -30,6 +30,7 @@ dependencies = [
     "PySoundFile",
     "tqdm",
     "matplotlib",
+    "pydantic",
 ]
 
 [project.urls]
