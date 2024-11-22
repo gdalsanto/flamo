@@ -250,7 +250,7 @@ class DSP(nn.Module):
         self.init_param()
         self.get_gamma()
 
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         r"""
         Forward method.
 
@@ -372,18 +372,24 @@ class Gain(DSP):
         )
         self.initialize_class()
 
-    def forward(self, x):
+    def forward(self, x, ext_param=None):
         r"""
         Applies the Gain module to the input tensor x.
 
             **Args**:
                 x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
-
+                ext_paran (torch.Tensor, optional): Parameter values from outer modules. Default: None.
             **Returns**:
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
         self.check_input_shape(x)
-        return self.freq_convolve(x)
+        if ext_param is None:
+            return self.freq_convolve(x, self.param)
+        else: 
+            # log the parameters that are being passed 
+            with torch.no_grad():
+                self.assign_value(ext_param)
+            return self.freq_convolve(x, ext_param)
 
     def check_input_shape(self, x):
         r"""
@@ -415,8 +421,8 @@ class Gain(DSP):
             **Returns**:
                 torch.Tensor: Output tensor after frequency convolution.
         """
-        self.freq_convolve = lambda x: torch.einsum(
-            "mn,bfn...->bfm...", to_complex(self.map(self.param)), x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "mn,bfn...->bfm...", to_complex(self.map(param)), x
         )
 
     def initialize_class(self):
@@ -488,8 +494,8 @@ class parallelGain(Gain):
             **Returns**:
                 torch.Tensor: Output tensor after frequency convolution.
         """
-        self.freq_convolve = lambda x: torch.einsum(
-            "n,bfn...->bfn...", to_complex(self.map(self.param)), x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "n,bfn...->bfn...", to_complex(self.map(param)), x
         )
 
     def get_io(self):
@@ -660,22 +666,26 @@ class Filter(DSP):
         )
         self.initialize_class()
 
-    def forward(self, x):
+    def forward(self, x, ext_param=None):
         r"""
         Applies the Filter module to the input tensor x.
 
             **Args**:
                 x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+                ext_paran (torch.Tensor, optional): Parameter values from outer modules. Default: None.
 
             **Returns**:
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
         self.check_input_shape(x)
-        if self.requires_grad or self.new_value:
-            self.get_freq_response()
-            self.new_value = 0
-        return self.freq_convolve(x)
-
+        if ext_param is None:
+            return self.freq_convolve(x, self.param)
+        else: 
+            # log the parameters that are being passed 
+            with torch.no_grad():
+                self.assign_value(ext_param)
+            return self.freq_convolve(x, ext_param)
+    
     def check_input_shape(self, x):
         r"""
         Checks if the dimensions of the input tensor x are compatible with the module.
@@ -702,11 +712,11 @@ class Filter(DSP):
         Then, the time anti-aliasing envelope is computed and applied to the impulse responses. Finally,
         the frequency response is obtained by computing the FFT of the filter impulse responses.
         """
-        self.ir = self.map(self.param)
+        self.ir = lambda param: self.map(param)
         self.decaying_envelope = (self.gamma ** torch.arange(0, self.ir.shape[0], device=self.device)).view(
             -1, *tuple([1 for i in self.ir.shape[1:]])
         )
-        self.freq_response = self.fft(self.ir * self.decaying_envelope)
+        self.freq_response = lambda param: self.fft(self.ir(param) * self.decaying_envelope)
 
     def get_freq_convolve(self):
         r"""
@@ -720,8 +730,8 @@ class Filter(DSP):
             **Returns**:
                 torch.Tensor: Output tensor after frequency convolution.
         """
-        self.freq_convolve = lambda x: torch.einsum(
-            "fmn,bfn...->bfm...", self.freq_response, x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fmn,bfn...->bfm...", self.freq_response(param), x
         )
 
     def initialize_class(self):
@@ -797,8 +807,8 @@ class parallelFilter(Filter):
             **Returns**:
                 torch.Tensor: Output tensor after frequency convolution.
         """
-        self.freq_convolve = lambda x: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response, x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -1722,20 +1732,25 @@ class Delay(DSP):
         )
         self.initialize_class()
 
-    def forward(self, x):
+    def forward(self, x, ext_param=None):
         r"""
         Applies the Delay module to the input tensor x.
 
             **Args**:
                 x (torch.Tensor): Input tensor of shape (B, M, N_in, ...).
+                ext_paran (torch.Tensor, optional): Parameter values from outer modules. Default: None.
 
             **Returns**:
                 torch.Tensor: Output tensor of shape (B, M, N_out, ...).
         """
         self.check_input_shape(x)
-        if self.requires_grad or self.new_value:
-            self.get_freq_response()
-        return self.freq_convolve(x)
+        if ext_param is None:
+            return self.freq_convolve(x, self.param)
+        else: 
+            # log the parameters that are being passed 
+            with torch.no_grad():
+                self.assign_value(ext_param)
+            return self.freq_convolve(x, ext_param)
 
     def init_param(self):
         r"""
@@ -1771,12 +1786,12 @@ class Delay(DSP):
         Computes the frequency response of the delay module.
         """
         m = self.get_delays()
-        self.freq_response = (self.gamma**m) * torch.exp(
+        self.freq_response = lambda param: (self.gamma**m(param)) * torch.exp(
             -1j
             * torch.einsum(
                 "fo, omn -> fmn",
                 self.omega,
-                m.unsqueeze(0),
+                m(param).unsqueeze(0),
             )
         )
 
@@ -1784,7 +1799,7 @@ class Delay(DSP):
         r"""
         Computes the delay values from the raw parameters.
         """
-        return self.s2sample(self.map(self.param))
+        return lambda param: self.s2sample(self.map(param))
                                       
     def check_input_shape(self, x):
         r"""
@@ -1795,7 +1810,7 @@ class Delay(DSP):
         """
         if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
             raise ValueError(
-                f"parameter shape = {self.freq_response.shape} not compatible with input signal of shape = ({x.shape})."
+                f"parameter shape = {self.param.shape} not compatible with input signal of shape = ({x.shape})."
             )
 
     def check_param_shape(self):
@@ -1810,8 +1825,8 @@ class Delay(DSP):
         r"""
         Computes the frequency convolution function.
         """
-        self.freq_convolve = lambda x: torch.einsum(
-            "fmn,bfn...->bfm...", self.freq_response, x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fmn,bfn...->bfm...", self.freq_response(param), x
         )
 
     def initialize_class(self):
@@ -1889,8 +1904,8 @@ class parallelDelay(Delay):
         """
         Computes the frequency convolution function.
         """
-        self.freq_convolve = lambda x: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response, x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_freq_response(self):
@@ -1898,12 +1913,12 @@ class parallelDelay(Delay):
         Computes the frequency response of the delay module.
         """
         m = self.get_delays()
-        self.freq_response = (self.gamma**m) * torch.exp(
+        self.freq_response = lambda param: (self.gamma**m(param)) * torch.exp(
             -1j
             * torch.einsum(
                 "fo, on -> fn",
                 self.omega,
-                m.unsqueeze(0),
+                m(param).unsqueeze(0),
             )
         )
 
