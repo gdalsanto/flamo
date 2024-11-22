@@ -30,16 +30,17 @@ class HomogeneousFDN:
 
         # create a random isntance of the FDN 
         self.fdn = self.get_fdn_instance()
+        
+        self.set_model()
 
-        # define input and output layers
-        input_layer = dsp.FFT(self.config_dict.nfft)
-        output_layer = dsp.iFFT(nfft=self.config_dict.nfft)
+    def set_model(self, input_layer=None , output_layer=None):
+        # set the input and output layers of the FDN model
+        if input_layer is None:
+            input_layer = dsp.FFT(self.config_dict.nfft)
+        if output_layer is None:
+            output_layer = dsp.iFFTAntiAlias(nfft=self.config_dict.nfft, alias_decay_db=self.config_dict.alias_decay_db)
 
-        # create the FDN model using the Shell class
         self.model = self.get_shell(input_layer, output_layer)
-
-        # normalize the energy of the impulse response 
-        self.normalize_energy(target_energy = 1)
         
     def get_fdn_instance(self):
 
@@ -98,7 +99,7 @@ class HomogeneousFDN:
         attenuation.assign_value(4*torch.ones((self.N, ),))
         
         feedforward = system.Series(OrderedDict({
-            'mixing_matrix': delays,
+            'delays': delays,
             'attenuation': attenuation
         }))
         # Build recursion
