@@ -16,7 +16,7 @@ print("sys.path:", sys.path)
 project = 'FLAMO'
 copyright = '2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht'
 author = 'Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht'
-release = '0.0.3'
+release = '0.0.11'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
