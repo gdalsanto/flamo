@@ -3,3 +3,6 @@ __pycache__/
 dist/
 .vscode
 *.asv 
+/.flamo-env-win
+/.flamo-env
+/output
