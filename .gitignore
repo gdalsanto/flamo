@@ -7,6 +7,5 @@ dist/
 test.py
 .flamo-env
 .flamo-env-win
-docs/
 /notebooks/output
 
