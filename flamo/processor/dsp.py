@@ -712,11 +712,12 @@ class Filter(DSP):
         Then, the time anti-aliasing envelope is computed and applied to the impulse responses. Finally,
         the frequency response is obtained by computing the FFT of the filter impulse responses.
         """
-        self.ir = lambda param: self.map(param)
-        self.decaying_envelope = (self.gamma ** torch.arange(0, self.ir.shape[0], device=self.device)).view(
-            -1, *tuple([1 for i in self.ir.shape[1:]])
+        self.ir = lambda x: self.map(x)  
+        self.freq_response = lambda param: self.fft(
+            self.ir(param) * (self.gamma ** torch.arange(0, self.ir(param).shape[0], device=self.device)).view(
+            -1, *tuple([1 for i in self.map(param).shape[1:]])
+            )
         )
-        self.freq_response = lambda param: self.fft(self.ir(param) * self.decaying_envelope)
 
     def get_freq_convolve(self):
         r"""
@@ -916,9 +917,34 @@ class Biquad(Filter):
     def get_freq_response(self):
         r"""
         Compute the frequency response of the filter.
-        It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
         """
-        param = self.map(self.param)
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the specified filter type.
+        It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
+
+        **Args**:
+            - param (torch.Tensor): A tensor containing the filter parameters. 
+            The shape of the tensor should be (batch_size, num_params, height, width). 
+            The parameters are interpreted differently based on the filter type:
+            - For "lowpass" and "highpass" filters, param[:, 0, :, :] represents 
+            the cutoff frequency and param[:, 1, :, :] represents the gain.
+            - For "bandpass" filters, param[:, 0, :, :] represents the lower 
+            cutoff frequency, param[:, 1, :, :] represents the upper cutoff 
+            frequency, and param[:, 2, :, :] represents the gain.
+        **Returns**:       
+            - H (torch.Tensor): The frequency response of the filter.
+            - B (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
+            - A (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
+
+
+        The method uses the filter type specified in `self.filter_type` to determine 
+        which filter to apply. It applies an aliasing envelope decay to the filter coefficients.
+        Zero values in the denominator polynomial coefficients are replaced with 
+        a small constant to avoid division by zero.
+        """
         match self.filter_type:
             case "lowpass":
                 b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :, :]*torch.pi, fs=self.fs), gain=param[:, 1, :, :], fs=self.fs, device=self.device)
@@ -933,9 +959,10 @@ class Biquad(Filter):
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         A[A == 0+1j*0] = torch.tensor(1e-12)
-        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        if torch.isnan(self.freq_response).any():
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        if torch.isnan(H).any():
             print("Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate.")
+        return H, B, A
 
     def get_map(self):
         r"""
@@ -945,13 +972,13 @@ class Biquad(Filter):
         match self.filter_type:
             case "lowpass" | "highpass":
                 self.map = lambda x: torch.clamp(
-                    x,
+                    torch.stack((x[:, 0, :, :], 20*torch.log10(torch.abs(x[:, 1, :, :]))), dim=1),
                     min=torch.tensor([0, -60], device=self.device).view(-1, 1, 1).expand_as(x),
                     max=torch.tensor([1, 60], device=self.device).view(-1, 1, 1).expand_as(x),
                 )
             case "bandpass":   
                 self.map = lambda x: torch.clamp(
-                    x,
+                    torch.stack((x[:, 0, :, :], x[:, 1, :, :], 20*torch.log10(torch.abs(x[:, -1, :, :]))), dim=1),
                     min=torch.tensor([0, 0, -60], device=self.device).view(-1, 1, 1).expand_as(x),
                     max=torch.tensor([1, 1, 60], device=self.device).view(-1, 1, 1).expand_as(x),
                 )
@@ -1044,13 +1071,13 @@ class parallelBiquad(Biquad):
         match self.filter_type:
             case "lowpass" | "highpass":
                 self.map = lambda x: torch.clamp(
-                    x,
+                    torch.stack((x[:, 0, :], 20*torch.log10(torch.abs(x[:, -1, :]))), dim=1),
                     min=torch.tensor([0, -60], device=self.device).view(-1, 1).expand_as(x),
                     max=torch.tensor([1, 60], device=self.device).view(-1, 1).expand_as(x),
                 )
             case "bandpass":
                 self.map = lambda x: torch.clamp(
-                    x,
+                    torch.stack((x[:, 0, :], x[:, 1, :], 20*torch.log10(torch.abs(x[:, -1, :]))), dim=1),
                     min=torch.tensor([0, 0, -60], device=self.device).view(-1, 1).expand_as(x),
                     max=torch.tensor([1, 1, 60], device=self.device).view(-1, 1).expand_as(x),
                 )
@@ -1058,9 +1085,34 @@ class parallelBiquad(Biquad):
     def get_freq_response(self):
         r"""
         Compute the frequency response of the filter.
-        It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
         """
-        param = self.map(self.param)
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the specified filter type.
+        It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
+
+        **Args**:
+            - param (torch.Tensor): A tensor containing the filter parameters. 
+            The shape of the tensor should be (batch_size, num_params, height). 
+            The parameters are interpreted differently based on the filter type:
+            - For "lowpass" and "highpass" filters, param[:, 0, :] represents 
+            the cutoff frequency and param[:, 1, :] represents the gain.
+            - For "bandpass" filters, param[:, 0, :] represents the lower 
+            cutoff frequency, param[:, 1, :] represents the upper cutoff 
+            frequency, and param[:, 2, :] represents the gain.
+        **Returns**:       
+            - H (torch.Tensor): The frequency response of the filter.
+            - B (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
+            - A (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
+
+
+        The method uses the filter type specified in `self.filter_type` to determine 
+        which filter to apply. It applies an aliasing envelope decay to the filter coefficients.
+        Zero values in the denominator polynomial coefficients are replaced with 
+        a small constant to avoid division by zero.
+        """
         match self.filter_type:
             case "lowpass":
                 b, a = lowpass_filter(fc=rad2hertz(param[:, 0, :]*torch.pi, fs=self.fs), gain=param[:, 1, :], fs=self.fs, device=self.device)
@@ -1075,11 +1127,14 @@ class parallelBiquad(Biquad):
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         A[A == 0+1j*0] = torch.tensor(1e-12)
-        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1) )
-
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1) )
+        if torch.isnan(H).any():
+            print("Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate.")
+        return H, B, A
+    
     def get_freq_convolve(self):
-        self.freq_convolve = lambda x: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response, x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
