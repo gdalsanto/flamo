@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>Optimize &#8212; FLAMO 0.0.3 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=61cd365c" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=47de8214"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Functional" href="../functional.html" />
+    <link rel="prev" title="System" href="../processor/system.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <dl class="py class">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.optimize.trainer.</span></span><span class="sig-name descname"><span class="pre">Trainer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">net</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer" title="Link to this definition">¶</a></dt>
+<dd><p>Trainer class for training differenitbale system with multiple loss functions.
+It handles the training step, validation steps, results logging, and the early stopping criterion.
+By default, it uses <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.optim.Adam()</span></code> as the optimizer, and <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.optim.lr_scheduler.StepLR()</span></code> as the learning rate scheduler.
+Each loss (criterion) can be registered using the <a class="reference internal" href="#flamo.optimize.trainer.Trainer.register_criterion" title="flamo.optimize.trainer.Trainer.register_criterion"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_criterion()</span></code></a> method.
+The training process can be started using the <a class="reference internal" href="#flamo.optimize.trainer.Trainer.train" title="flamo.optimize.trainer.Trainer.train"><code class="xref py py-meth docutils literal notranslate"><span class="pre">train()</span></code></a> method with the training and validation datasets.
+To each loss it is possible to assign a weigth <span class="math notranslate nohighlight">\(\alpha\)</span> and a flag indicating whether the loss function 
+requires the model as an input, which might be needed when the loss depends on the model’s parameters.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>net (nn.Module): The differentiable system to be trained.</p></li>
+<li><p>max_epochs (int): Maximum number of training epochs. Default: 10.</p></li>
+<li><p>lr (float): Learning rate for the optimizer. Default: 1e-3.</p></li>
+<li><p>patience (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.</p></li>
+<li><p>patience_delta (float): Minimum improvement in validation loss to be considered as an improvement. Default: 0.01.</p></li>
+<li><p>step_size (int): Period of learning rate decay. Default: 50.</p></li>
+<li><p>step_factor (float): Multiplicative factor of learning rate decay. Default: 0.1.</p></li>
+<li><p>train_dir (str): The directory for saving training outputs. Default: None.</p></li>
+<li><p>device (str): Device to use for training. Default: ‘cpu’.</p></li>
+</ul>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
+<li><p>device (str): Device to use for training.</p></li>
+<li><p>net (nn.Module): The ifferentiable system.</p></li>
+<li><p>max_epochs (int): Maximum number of training epochs.</p></li>
+<li><p>lr (float): Learning rate for the optimizer.</p></li>
+<li><p>patience (int): Number of epochs to wait for improvement in validation loss before early stopping.</p></li>
+<li><p>patience_delta (float): Minimum improvement in validation loss to be considered as an improvement.</p></li>
+<li><p>min_val_loss (float): Minimum validation loss to be updated by the early stopper.</p></li>
+<li><p>optimizer (torch.optim.Optimizer): The optimizer.</p></li>
+<li><p>train_dir (str): The directory for saving training outputs.</p></li>
+<li><p>criterion (list): List of loss functions.</p></li>
+<li><p>alpha (list): List of weights for the loss functions.</p></li>
+<li><p>requires_model (list): List of flags indicating whether the loss functions require the model as an input.</p></li>
+<li><p>scheduler (torch.optim.lr_scheduler.StepLR): The learning rate scheduler.</p></li>
+</ul>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>register_criterion(criterion, alpha, requires_model=False): Register a loss function and its weight.</p></li>
+<li><p>train(train_dataset, valid_dataset): Train the neural network model.</p></li>
+<li><p>train_step(data): Perform a single training step.</p></li>
+<li><p>valid_step(data): Perform a single validation step.</p></li>
+<li><p>print_results(epoch, time): Print the training results for an epoch.</p></li>
+<li><p>get_train_dir(): Get the directory path for saving training outputs.</p></li>
+<li><p>save_model(epoch): Save the model parameters to a file.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Examples:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>  <span class="c1"># initialize the trainer with a trainable nn.Module net </span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">alpha_1</span><span class="p">,</span> <span class="n">alpha_2</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">loss_1</span><span class="p">,</span> <span class="n">loss_2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">MSELoss</span><span class="p">(),</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">L1Loss</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">register_criterion</span><span class="p">(</span><span class="n">loss_1</span><span class="p">,</span> <span class="n">alpha_1</span><span class="p">)</span>  <span class="c1"># register the first loss function with weight 1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">register_criterion</span><span class="p">(</span><span class="n">loss_2</span><span class="p">,</span> <span class="n">alpha_2</span><span class="p">)</span>  <span class="c1"># register the second loss function with weight 0.1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">valid_dataset</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer.early_stop">
+<span class="sig-name descname"><span class="pre">early_stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.early_stop" title="Link to this definition">¶</a></dt>
+<dd><p>Early stopping criterion.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer.get_train_dir">
+<span class="sig-name descname"><span class="pre">get_train_dir</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.get_train_dir" title="Link to this definition">¶</a></dt>
+<dd><p>Get the directory path for saving training outputs.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer.print_results">
+<span class="sig-name descname"><span class="pre">print_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_time</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.print_results" title="Link to this definition">¶</a></dt>
+<dd><p>Print the training results for an epoch.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer.register_criterion">
+<span class="sig-name descname"><span class="pre">register_criterion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.register_criterion" title="Link to this definition">¶</a></dt>
+<dd><p>Register a loss function and its weight in the loss function.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>criterion (nn.Module): The loss function.</p></li>
+<li><p>alpha (float): The weight of the loss function. Default: 1.</p></li>
+<li><p>requires_model (bool): Whether the loss function requires the model as an input. Default: False.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer.save_model">
+<span class="sig-name descname"><span class="pre">save_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.save_model" title="Link to this definition">¶</a></dt>
+<dd><p>Save the model parameters to a file.</p>
+<blockquote>
+<div><p>e (int): The epoch number.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer.train">
+<span class="sig-name descname"><span class="pre">train</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train_dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_dataset</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.train" title="Link to this definition">¶</a></dt>
+<dd><p>Train the neural network model.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>train_dataset (torch.utils.data.Dataset): The training dataset.</p></li>
+<li><p>valid_dataset (torch.utils.data.Dataset): The validation dataset.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer.train_step">
+<span class="sig-name descname"><span class="pre">train_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.train_step" title="Link to this definition">¶</a></dt>
+<dd><p>Perform a single training step.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>data (tuple): A tuple containing the input data and the target data <code class="code docutils literal notranslate"><span class="pre">(inputs,</span> <span class="pre">targets)</span></code>.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>float: The loss value of the training step.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.Trainer.valid_step">
+<span class="sig-name descname"><span class="pre">valid_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.Trainer.valid_step" title="Link to this definition">¶</a></dt>
+<dd><p>Perform a single validation step.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><ul class="simple">
+<li><p>data (tuple): A tuple containing the input data and the target data.</p></li>
+</ul>
+</dd>
+<dt>Returns:</dt><dd><ul class="simple">
+<li><p>float: The loss value for the validation step.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.trainer.get_str_results">
+<span class="sig-prename descclassname"><span class="pre">trainer.</span></span><span class="sig-name descname"><span class="pre">get_str_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train_loss</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_loss</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.get_str_results" title="Link to this definition">¶</a></dt>
+<dd><p>Construct the string that has to be printed at the end of the epoch containing 
+information relative to the training performance.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>epoch (int): The epoch number.</p></li>
+<li><p>train_loss (list): List of training loss values.</p></li>
+<li><p>valid_loss (list): List of validation loss values.</p></li>
+<li><p>time (float): The time taken for the epoch.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>str: The formatted string to be printed.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">FLAMO</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Differentiable Digitial Signal Processor:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.early_stop"><code class="docutils literal notranslate"><span class="pre">Trainer.early_stop()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.get_train_dir"><code class="docutils literal notranslate"><span class="pre">Trainer.get_train_dir()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.print_results"><code class="docutils literal notranslate"><span class="pre">Trainer.print_results()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.register_criterion"><code class="docutils literal notranslate"><span class="pre">Trainer.register_criterion()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.save_model"><code class="docutils literal notranslate"><span class="pre">Trainer.save_model()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.train"><code class="docutils literal notranslate"><span class="pre">Trainer.train()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.train_step"><code class="docutils literal notranslate"><span class="pre">Trainer.train_step()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.optimize.trainer.Trainer.valid_step"><code class="docutils literal notranslate"><span class="pre">Trainer.valid_step()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../processor/system.html" title="previous chapter">System</a></li>
+      <li>Next: <a href="../functional.html" title="next chapter">Functional</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.3.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/optimize/trainer.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

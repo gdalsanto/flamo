@@ -25,10 +25,16 @@ Contents
    :caption: Differentiable Digitial Signal Processor:
 
    processor/dsp
+   processor/system
 
-Indices and tables
-==================
+.. toctree::
+   :maxdepth: 2
+   :caption: Optimization:
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   optimize/trainer
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Functional:
+
+   functional

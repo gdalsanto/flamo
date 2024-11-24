@@ -3,26 +3,35 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
 name = "flamo"
-version = "0.0.3"
+version = "0.0.11"
 authors = [
   { name="Gloria Dal Santo", email="gloria.dalsanto@aalto.fi" },
   { name="Gian Marco De Bortoli", email="gian.debortoli@aalto.fi"},
   { name="Sebastian J. Schlecht", email="sebastian.schlecht@fau.de"}
 ]
+maintainers = [
+  { name="Gloria Dal Santo", email="gloria.dalsanto@aalto.fi" },
+  { name="Gian Marco De Bortoli", email="gian.debortoli@aalto.fi"},
+]
 description = "An Open-Source Library for Frequency-Domain Differentiable Audio Processing"
 readme = "README.md"
 license = {file = "LICENSE"}
-keywords = ["audio", "signal processing", "differentiable programming"]
-requires-python = ">=3.11"
+keywords = ["audio", "signal processing", "differentiable programming", "machine learning", "optimization"]
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "torch>=2.4.0",
-    "numpy>=2.1.0",
+    "torch",
+    "torchaudio",
+    "numpy",
+    "scipy",
+    "PySoundFile",
+    "tqdm",
+    "matplotlib",
+    "pydantic",
 ]
-
 
 [project.urls]
 Homepage = "https://github.com/gdalsanto/flamo"

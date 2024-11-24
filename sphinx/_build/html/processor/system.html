@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>System &#8212; FLAMO 0.0.3 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=61cd365c" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=47de8214"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Optimize" href="../optimize/trainer.html" />
+    <link rel="prev" title="Processor" href="dsp.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.system.Series">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.system.</span></span><span class="sig-name descname"><span class="pre">Series</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Series" title="Link to this definition">¶</a></dt>
+<dd><p>Module for cascading multiple DSP modules in series. Inherits from <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>.
+This class serves as a container for a series of DSP modules, allowing them 
+to be cascaded in a single module. It ensures that all included modules 
+share the same values for the <cite>nfft</cite> and <cite>alias_decay_db</cite> attributes, hence all parsed 
+modules are expected to have these attributes.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>*args: A variable number of DSP modules of the type <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.system.Recursion">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.system.</span></span><span class="sig-name descname"><span class="pre">Recursion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fF</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">OrderedDict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><span class="pre">Series</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">fB</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">OrderedDict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><span class="pre">Series</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Recursion" title="Link to this definition">¶</a></dt>
+<dd><p>Recursion module for computing closed-loop transfer function. Inherits from <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>.
+The feedforward and feedback paths if are given as a <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>,
+they are converted to a <a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><code class="xref py py-class docutils literal notranslate"><span class="pre">Series</span></code></a> instance.</p>
+<dl class="simple">
+<dt>Shape:</dt><dd><ul class="simple">
+<li><p>input: <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span></p></li>
+<li><p>output: <span class="math notranslate nohighlight">\((B, M, N_{out}, ...)\)</span></p></li>
+</ul>
+</dd>
+</dl>
+<p>where <span class="math notranslate nohighlight">\(B\)</span> is the batch size, <span class="math notranslate nohighlight">\(M\)</span> is the number of frequency bins,
+<span class="math notranslate nohighlight">\(N_{in}\)</span> is the number of input channels, and <span class="math notranslate nohighlight">\(N_{out}\)</span> is the number of output channels.
+Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>fF: The feedforward path with size (M, N_{out}, N_{in}).</p></li>
+<li><p>fB: The feedback path with size (M, N_{in}, N_{out}).</p></li>
+<li><p>alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
+<li><p>feedforward (nn.Module | Series): The feedforward path.</p></li>
+<li><p>feedback (nn.Module | Series): The feedback path.</p></li>
+<li><p>nfft (int): The number of frequency points.</p></li>
+<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.</p></li>
+</ul>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>forward(x): Applies the closed-loop transfer function to the input tensor x by convolution in frequency domain.</p></li>
+<li><p>__check_attribute(attr): Checks if feedforward and feedback paths have the same value of the requested attribute.</p></li>
+<li><p>__check_io(): Check if the feedforward and feedback paths have compatible input/output shapes.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p>For details on the closed-loop transfer function see <a class="reference external" href="https://en.wikipedia.org/wiki/Closed-loop_transfer_function">Wikipedia page</a>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Recursion.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Recursion.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Applies the closed-loop transfer function to the input tensor X.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p>X (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{out}, ...)\)</span>.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.system.</span></span><span class="sig-name descname"><span class="pre">Shell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#flamo.processor.system.Recursion" title="flamo.processor.system.Recursion"><span class="pre">Recursion</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#flamo.processor.system.Recursion" title="flamo.processor.system.Recursion"><span class="pre">Recursion</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><span class="pre">Series</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Module</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Identity()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#flamo.processor.system.Recursion" title="flamo.processor.system.Recursion"><span class="pre">Recursion</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><span class="pre">Series</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Module</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Identity()</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Shell" title="Link to this definition">¶</a></dt>
+<dd><p>DSP wrapper class. Interfaces the DSP with dataset and loss function. Inherits from <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>.</p>
+<dl class="simple">
+<dt>Shape:</dt><dd><ul class="simple">
+<li><p>input: <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span></p></li>
+<li><p>output: <span class="math notranslate nohighlight">\((B, M, N_{out}, ...)\)</span></p></li>
+</ul>
+</dd>
+</dl>
+<p>where <span class="math notranslate nohighlight">\(B\)</span> is the batch size, <span class="math notranslate nohighlight">\(M\)</span> is the number of frequency bins,
+<span class="math notranslate nohighlight">\(N_{in}\)</span> is the number of input channels (defined by the <cite>core</cite> and the <cite>input_layer</cite>),
+and <span class="math notranslate nohighlight">\(N_{out}\)</span> is the number of output channels (defined by the <cite>core</cite> and the <cite>output_layer</cite>).
+Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>core (nn.Module | nn.Sequential): DSP.</p></li>
+<li><p>input_layer (nn.Module, optional): layer preceeding the DSP and correctly preparing the Dataset input before the DSP processing. Default: Transform(lambda x: x).</p></li>
+<li><p>output_layer (nn.Module, optional): layer following the DSP and preparing its output for the comparison with the Dataset target. Default: Transform(lambda x: x).</p></li>
+</ul>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
+<li><p>core (nn.Module | Series): DSP.</p></li>
+<li><p>input_layer (nn.Module | Series): layer preceeding the DSP.</p></li>
+<li><p>output_layer (nn.Module | Series): layer following the DSP.</p></li>
+<li><p>nfft (int): Number of frequency points.</p></li>
+<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.</p></li>
+</ul>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>forward(x): Forward pass through the input layer, the core, and the output layer.</p></li>
+<li><p>get_inputLayer(): Returns the current input layer.</p></li>
+<li><p>set_inputLayer(input_layer): Substitutes the current input layer with a given new one.</p></li>
+<li><p>get_outputLayer(): Returns the output layer.</p></li>
+<li><p>set_outputLayer(output_layer): Substitutes the current output layer with a given new one.</p></li>
+<li><p>get_core(): Returns the core.</p></li>
+<li><p>set_core(core): Substitutes the current core with a given new one.</p></li>
+<li><p>get_time_response(fs, identity): Generates the impulse response of the DSP.</p></li>
+<li><p>get_freq_response(fs, identity): Generates the frequency response of the DSP.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Forward pass through the input layer, the core, and the output layer. Keeps the three components separated.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>x (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>torch.Tensor: Output tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{out}, ...)\)</span>.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.get_freq_response">
+<span class="sig-name descname"><span class="pre">get_freq_response</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_freq_response" title="Link to this definition">¶</a></dt>
+<dd><p>Generates the frequency response of the DSP.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>fs (int, optional): Sampling frequency. Defaults to 48000.</p></li>
+<li><dl class="simple">
+<dt>identity (bool, optional): If False, return the input-to-output frequency responses of the DSP.</dt><dd><p>If True, return the input-free frequency responses of the DSP.
+Defaults to False.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+<dt><strong>NOTE</strong>: Definition of ‘input-to-output’ and ‘input-free’</dt><dd><p>Let <span class="math notranslate nohighlight">\(A \in \mathbb{R}^{F \times  N_{out} \times N_{in}}\)</span> be a frequency filter matrix. If <span class="math notranslate nohighlight">\(x \in \mathbb{R}^{F \times  N_{in}}\)</span> is an <span class="math notranslate nohighlight">\(N_{in}\)</span>-dimensional signal having
+a unit impulse at time <span class="math notranslate nohighlight">\(t=0\)</span> spectrum for each element along <span class="math notranslate nohighlight">\(N_{in}\)</span>. Let <span class="math notranslate nohighlight">\(I \in R^{F \times  N \times N}\)</span> be an diagonal matrix across
+second and third dimension, with unit impulse at time <span class="math notranslate nohighlight">\(t=0\)</span> spectra for each element along such diagonal.
+If <span class="math notranslate nohighlight">\(*\)</span> represent the signal-wise matrix product operator, then:
+- <span class="math notranslate nohighlight">\(y = A * x\)</span> is the ‘input-to-output’ frequency response of <span class="math notranslate nohighlight">\(A\)</span>.
+- <span class="math notranslate nohighlight">\(A * I`is the 'input-free' frequency response of :math:`A\)</span>.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Generated DSP frequency response.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.get_time_response">
+<span class="sig-name descname"><span class="pre">get_time_response</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_time_response" title="Link to this definition">¶</a></dt>
+<dd><p>Generates the impulse response of the DSP.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>fs (int, optional): Sampling frequency. Defaults to 48000.</p></li>
+<li><dl class="simple">
+<dt>identity (bool, optional): If False, return the input-to-output impulse responses of the DSP.</dt><dd><p>If True, return the input-free impulse responses of the DSP.
+Defaults to False.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+<dt><strong>NOTE</strong>: Definition of ‘input-to-output’ and ‘input-free’</dt><dd><p>Let <span class="math notranslate nohighlight">\(A \in \mathbb{R}^{T \times  N_{out} \times N_{in}}\)</span> be a time filter matrix. If <span class="math notranslate nohighlight">\(x \in \mathbb{R}^{T \times  N_{in}}\)</span> is an <span class="math notranslate nohighlight">\(N_{in}\)</span>-dimensional time signal having
+a unit impulse at time <span class="math notranslate nohighlight">\(t=0\)</span> for each element along <span class="math notranslate nohighlight">\(N_{in}\)</span>. Let <span class="math notranslate nohighlight">\(I \in R^{T \times  N \times N}\)</span> be an diagonal matrix across
+second and third dimension, with unit impulse at time <span class="math notranslate nohighlight">\(t=0`for each element along such diagonal.
+If :math:`*\)</span> represent the signal-wise matrix convolution operator, then:
+- <span class="math notranslate nohighlight">\(y = A * x\)</span> is the ‘input-to-output’ impulse response of <span class="math notranslate nohighlight">\(A\)</span>.
+- <span class="math notranslate nohighlight">\(A * I\)</span> is the ‘input-free’ impulse response of <span class="math notranslate nohighlight">\(A\)</span>.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>torch.Tensor: Generated DSP impulse response.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+</dd></dl>
+
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">FLAMO</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Differentiable Digitial Signal Processor:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="dsp.html"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dsp.html#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.system.Recursion.forward"><code class="docutils literal notranslate"><span class="pre">Recursion.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.system.Shell.forward"><code class="docutils literal notranslate"><span class="pre">Shell.forward()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.system.Shell.get_freq_response"><code class="docutils literal notranslate"><span class="pre">Shell.get_freq_response()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.system.Shell.get_time_response"><code class="docutils literal notranslate"><span class="pre">Shell.get_time_response()</span></code></a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="dsp.html" title="previous chapter">Processor</a></li>
+      <li>Next: <a href="../optimize/trainer.html" title="next chapter">Optimize</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.3.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/processor/system.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

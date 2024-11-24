@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>Functional &#8212; FLAMO 0.0.3 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=61cd365c" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=47de8214"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Optimize" href="optimize/trainer.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <dl class="py method">
+<dt class="sig sig-object py" id="flamo.functional.lowpass_filter">
+<span class="sig-prename descclassname"><span class="pre">functional.</span></span><span class="sig-name descname"><span class="pre">lowpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.lowpass_filter" title="Link to this definition">¶</a></dt>
+<dd><p>Lowpass filter coefficients. It uses the <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook formulas</a> to map 
+the cutoff frequency and gain to the filter coefficients to the to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.
+The transfer function of the filter is given by</p>
+<div class="math notranslate nohighlight">
+\[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
+<p>for</p>
+<div class="math notranslate nohighlight">
+\[b_0 = \frac{1 - \cos(\omega_c)}{2},\;\; b_1 = 1 - \cos(\omega_c),\;\; b_2 = \frac{1 - \cos(\omega_c)}{2}\]</div>
+<div class="math notranslate nohighlight">
+\[a_0 = 1 + \alpha,\;\; a_1 = -2 \cos(\omega_c),\;\; a_2 = 1 - \alpha\]</div>
+<p>where <span class="math notranslate nohighlight">\(\omega_c = 2\pi f_c / f_s\)</span>, <span class="math notranslate nohighlight">\(\alpha = \sin(\omega_c)/2 \cdot \sqrt{2}\)</span> and <span class="math notranslate nohighlight">\(\cos(\omega_c)\)</span> is the cosine of the cutoff frequency.
+The gain is applied to the filter coefficients as <span class="math notranslate nohighlight">\(b = 10^{g_{\textrm{dB}}/20} b\)</span>.</p>
+<dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>fc (float): The cutoff frequency of the filter in Hz. Default: 500 Hz.</p></li>
+<li><p>gain (float): The gain of the filter in dB. Default: 0 dB.</p></li>
+<li><p>fs (int): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
+<li><p>device (torch.device, optional): The device of constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>b (ndarray): The numerator coefficients of the filter transfer function.</p></li>
+<li><p>a (ndarray): The denominator coefficients of the filter transfer function.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.functional.highpass_filter">
+<span class="sig-prename descclassname"><span class="pre">functional.</span></span><span class="sig-name descname"><span class="pre">highpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.highpass_filter" title="Link to this definition">¶</a></dt>
+<dd><p>Highpass filter coefficients. It uses the <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook formulas</a> to map 
+the cutoff frequency and gain to the filter coefficients to the to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.</p>
+<div class="math notranslate nohighlight">
+\[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
+<p>for</p>
+<div class="math notranslate nohighlight">
+\[b_0 = \frac{1 + \cos(\omega_c)}{2},\;\; b_1 = - 1 - \cos(\omega_c),\;\; b_2 = \frac{1 + \cos(\omega_c)}{2}\]</div>
+<div class="math notranslate nohighlight">
+\[a_0 = 1 + \alpha,\;\; a_1 = -2 \cos(\omega_c),\;\; a_2 = 1 - \alpha\]</div>
+<p>where <span class="math notranslate nohighlight">\(\omega_c = 2\pi f_c / f_s\)</span>, <span class="math notranslate nohighlight">\(\alpha = \sin(\omega_c)/2 \cdot \sqrt{2}\)</span> and <span class="math notranslate nohighlight">\(\cos(\omega_c)\)</span> is the cosine of the cutoff frequency.
+The gain is applied to the filter coefficients as <span class="math notranslate nohighlight">\(b = 10^{g_{\textrm{dB}}/20} b\)</span>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>fc (float, optional): The cutoff frequency of the filter in Hz. Default: 10000 Hz.</p></li>
+<li><p>gain (float, optional): The gain of the filter in dB. Default: 0 dB.</p></li>
+<li><p>fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
+<li><p>device (torch.device, optional): The device of constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>b (ndarray): The numerator coefficients of the filter transfer function.</p></li>
+<li><p>a (ndarray): The denominator coefficients of the filter transfer function.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.functional.bandpass_filter">
+<span class="sig-prename descclassname"><span class="pre">functional.</span></span><span class="sig-name descname"><span class="pre">bandpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fc2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.bandpass_filter" title="Link to this definition">¶</a></dt>
+<dd><p>Bandpass filter coefficients. It uses the <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook formulas</a> to map 
+the cutoff frequencies and gain to the filter coefficients to the to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.</p>
+<div class="math notranslate nohighlight">
+\[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
+<p>for</p>
+<div class="math notranslate nohighlight">
+\[b_0 = \alpha,\;\; b_1 = 0,\;\; b_2 = - \alpha\]</div>
+<div class="math notranslate nohighlight">
+\[a_0 = 1 + \alpha,\;\; a_1 = -2 \cos(\omega_c),\;\; a_2 = 1 - \alpha\]</div>
+<p>where</p>
+<div class="math notranslate nohighlight">
+\[\omega_c = \frac{2\pi f_{c1} + 2\pi f_{c2}}{2 f_s}`,\]</div>
+<div class="math notranslate nohighlight">
+\[\text{ BW } = \log_2\left(\frac{f_{c2}}{f_{c1}}\right), \]</div>
+<div class="math notranslate nohighlight">
+\[\alpha = \sin(\omega_c) \sinh\left(\frac{\log(2)}{2} \text{ BW } \frac{\omega_c}{\sin(\omega_c)}\right)\]</div>
+<p>The gain is applied to the filter coefficients as <span class="math notranslate nohighlight">\(b = 10^{g_{\textrm{dB}}/20} b\)</span>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>fc1 (float): The left cutoff frequency of the filter in Hz.</p></li>
+<li><p>fc2 (float): The right cutoff frequency of the filter in Hz.</p></li>
+<li><p>gain (float, optional): The gain of the filter in dB. Default: 0 dB.</p></li>
+<li><p>fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
+<li><p>device (torch.device, optional): The device of constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>b (ndarray): The numerator coefficients of the filter transfer function.</p></li>
+<li><p>a (ndarray): The denominator coefficients of the filter transfer function.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">FLAMO</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Differentiable Digitial Signal Processor:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="optimize/trainer.html" title="previous chapter">Optimize</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.3.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="_sources/functional.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
