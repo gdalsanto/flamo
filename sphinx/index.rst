@@ -14,7 +14,7 @@ Installation
 
 .. code-block:: bash
     
-    pip install flamo
+   pip install flamo
 
 
 Contents 
