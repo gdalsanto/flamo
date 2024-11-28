@@ -1265,7 +1265,13 @@ class SVF(Filter):
         r"""
         Compute the frequency response of the filter.
         """
-        f, R, mLP, mBP, mHP = self.map(self.param)
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SVF filter
+        """
+        f, R, mLP, mBP, mHP = param
         b = torch.zeros((3, *f.shape), device=self.device)
         a = torch.zeros((3, *f.shape), device=self.device)
 
@@ -1283,7 +1289,8 @@ class SVF(Filter):
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         A[A == 0+1j*0] = torch.tensor(1e-12)
-        self.freq_response = torch.prod(B, dim=1) / torch.prod(A, dim=1)
+        H = torch.prod(B, dim=1) / torch.prod(A, dim=1)
+        return H, B, A
 
     def param2freq(self, param):
         r"""
@@ -1462,7 +1469,13 @@ class parallelSVF(SVF):
         r"""
         Compute the frequency response of the filter.
         """
-        f, R, mLP, mBP, mHP = self.map(self.param)
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SVF filter
+        """
+        f, R, mLP, mBP, mHP = param
         b = torch.zeros((3, *f.shape), device=self.device)
         a = torch.zeros((3, *f.shape), device=self.device)
 
@@ -1479,11 +1492,12 @@ class parallelSVF(SVF):
         a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        return H, B, A
+    
     def get_freq_convolve(self):
-        self.freq_convolve = lambda x: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response, x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
         )
     
     def get_io(self):
@@ -1578,10 +1592,15 @@ class GEQ(Filter):
         ), "Filter must be 3D, for 2D (parallel) filters use ParallelGEQ module."
 
     def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
         """
-        Infer the second order sections from the center frequencies and compute the frequency response.
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
         """
-        param = self.map(self.param)
         a = torch.zeros((3, *self.size), device=self.device)
         b = torch.zeros((3, *self.size), device=self.device)
         R = torch.tensor(2.7, device=self.device)
@@ -1601,8 +1620,8 @@ class GEQ(Filter):
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         A[A == 0+1j*0] = torch.tensor(1e-12)
-        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        return H, B, A 
 
     def initialize_class(self):
         self.check_param_shape()
@@ -1664,11 +1683,10 @@ class parallelGEQ(GEQ):
             len(self.size) == 2
         ), "Filter must be 2D, for 3D filters use GEQ module."
 
-    def get_freq_response(self):
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
         """
-        Infer the second order sections from the center frequencies and compute the frequency response.
-        """
-        param = self.map(self.param)
         a = torch.zeros((3, *self.size), device=self.device)
         b = torch.zeros((3, *self.size), device=self.device)
         R = torch.tensor(2.7, device=self.device)
@@ -1687,11 +1705,12 @@ class parallelGEQ(GEQ):
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         A[A == 0+1j*0] = torch.tensor(1e-12)
-        self.freq_response = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        return H, B, A
 
     def get_freq_convolve(self):
-        self.freq_convolve = lambda x: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response, x
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
