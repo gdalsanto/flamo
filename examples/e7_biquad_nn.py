@@ -9,7 +9,7 @@ from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
 from flamo.functional import signal_gallery, highpass_filter
 
-torch.manual_seed(130709)
+torch.manual_seed(130798)
 
 class dBMSELoss(nn.Module):
     """
@@ -41,7 +41,7 @@ class Dataset(torch.utils.data.Dataset):
         for i in range(num):
             target_filter = generate_biquad_filter(args, in_ch, out_ch, n_sections)
             target[i] = torch.einsum('...ji,...i->...j', target_filter, input_layer(imp))
-        self.target = target
+        self.target = torch.abs(target)
         self.input = []
         for i in range(num):
             self.input.append((target[i], input_biquad[i]))
@@ -64,7 +64,7 @@ class nnBiquad(nn.Module):
         self.out_ch = out_ch
         self.n_param = n_param
 
-        # Concatenate three stacks
+        # Stack of MLPs
         self.stack = nn.Sequential(
                 nn.Linear(args.nfft // 2 + 1, 256),
                 nn.LayerNorm(256),
@@ -77,7 +77,7 @@ class nnBiquad(nn.Module):
                 nn.ReLU(), 
             )
         
-        # Final dense layer to ensure output shape (3, K, in_channels, out_channels)
+        # Final dense layer to ensure output shape (3, n_sections, in_channels, out_channels)
         self.final_dense = nn.Linear(256, n_sect * n_param * in_ch)
     
         # Create another instance of the model 
@@ -92,9 +92,14 @@ class nnBiquad(nn.Module):
             device=args.device,
         )   
 
+        # To condition the biquad filter, we will need to pass the parameters estimated
+        # by the neural network as a directory. For this to work, we need to use OrderedDict.
+        # OrderedDict allows us to indentify the modules whose parameters are to be estimated by 
+        # the neural network via their keys.
         core = OrderedDict({
             'biquad':filt,
         })
+
         # Create the model with Shell
         input_layer = dsp.FFT(args.nfft)
         output_layer = dsp.Transform(transform=lambda x : torch.abs(x))
@@ -103,8 +108,11 @@ class nnBiquad(nn.Module):
                                    output_layer=output_layer)    
         
     def forward(self, data):
-        x = torch.abs(data[0])
-        z = data[1]
+
+        # Data consists in a tuple of input to the MLPs and input to the DDSP 
+        x = torch.abs(data[0])  # input to the MLP
+        z = data[1] # input to the DDSP
+
         # Reshape the tensor so that the frequencies are in the last dimension
         x = x.permute(0, 2, 1)
         # Pass through the three stacks
@@ -113,19 +121,25 @@ class nnBiquad(nn.Module):
         # Pass through the final dense layer
         x = self.final_dense(x)
         
-        # Reshape the output to (3, K, in_channels, out_channels)
+        # Reshape the output to (3, n_sections, in_channels, out_channels)
         x = x.view(-1, self.n_sect, self.n_param, self.out_ch, self.in_ch)
         x[:,0,:,:] = torch.sigmoid(x[:,:,0,:,:])
+
+        # As of now, this is the only way to process batches larger than 1:
         y = []
         for i in range(x.size(0)):
-            param_dict = {'biquad': x[i]}
+            # Create a dictionary whose key is the name of the module whose parameters are to be estimated
+            param_dict = {'biquad': x[i]}     
             y.append(self.biquad(z[0].unsqueeze(0), param_dict))
+
         y = torch.vstack(y)
         return y 
     
 def example_biquad_nn(args):
     """
-    Example function that demonstrates the training of biquad coefficients.
+    Example function that demonstrates the training of biquad coefficients via MLPs.
+    This example shows how to use flamo's modules within a neural network model.
+    NOTE: the model and the paramaeterizasions should be fine tuned for better results.
     Args:
         args: A dictionary or object containing the necessary arguments for the function.
     Returns:
@@ -148,7 +162,8 @@ def example_biquad_nn(args):
                       max_epochs=args.max_epochs, 
                       train_dir=args.train_dir, 
                       device=args.device, 
-                      step_size=25,)
+                      step_size=10,
+                      patience_delta=1e-5)
     
     trainer.register_criterion(dBMSELoss(), 1)
 
@@ -186,7 +201,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size for training')
     parser.add_argument('--max_epochs', type=int, default=100, help='maximum number of epochs')
-    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
+    parser.add_argument('--lr', type=float, default=2e-3, help='learning rate')
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
     parser.add_argument('--masked_loss', type=bool, default=False, help='use masked loss')
 
