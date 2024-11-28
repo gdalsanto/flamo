@@ -122,10 +122,7 @@ def load_dataset(dataset, batch_size=2000, split=0.8, shuffle=True):
         **Returns**:
             tuple: A tuple containing the training and validation data loaders.
     """
-    train_set, valid_set = split_dataset(dataset, split)
-    train_loader = get_dataloader(train_set, batch_size=batch_size, shuffle=shuffle)
-    valid_loader = get_dataloader(valid_set, batch_size=batch_size, shuffle=shuffle)
-
+    
     train_set, valid_set = split_dataset(
         dataset, split)
 
