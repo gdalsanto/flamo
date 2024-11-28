@@ -146,7 +146,8 @@ class Trainer:
                 - float: The loss value of the training step.
         """
         inputs, targets = data
-        inputs, targets = inputs.to(self.device), targets.to(self.device)
+        inputs = self.move_to_device(inputs)
+        targets = self.move_to_device(targets)
         # batch processing
         self.optimizer.zero_grad()
         estimations = self.net(inputs)
@@ -164,6 +165,13 @@ class Trainer:
         self.optimizer.step()
         return loss.item()
 
+    def move_to_device(self, data):
+        if isinstance(data, list):
+            data = [x.to(self.device) for x in data]
+        else:
+            data = data.to(self.device)
+        return data
+
     def valid_step(self, data):
         r"""
         Perform a single validation step.
@@ -176,7 +184,9 @@ class Trainer:
         """
         # batch processing
         inputs, targets = data
-        inputs, targets = inputs.to(self.device), targets.to(self.device)
+        inputs = self.move_to_device(inputs)
+        targets = self.move_to_device(targets)
+        
         self.optimizer.zero_grad()
         estimations = self.net(inputs)
         loss = 0

@@ -140,6 +140,10 @@ end get the resulting response after optimization!
 estimation = model.get_freq_response()
 ```
 
+### 📖 Documentation 
+
+A first version of the documentation is available on the repo's [Github Page](https://gdalsanto.github.io/flamo/). Note that we are currently working on improving the documentation to include examples, images, and a more pleasant template. 
+
 ---
 ### 📖 Reference
 

@@ -78,7 +78,7 @@ class Series(nn.Sequential):
                                 (v._modules,), [*current_keys, *unpacked_modules.keys()]
                             )
                         )
-                    elif isinstance(v, OrderedDict):
+                    elif isinstance(v, OrderedDict) or isinstance(v, dict):
                         # nested OrderedDict
                         unpacked_modules.update(
                             self.__unpack_modules(
@@ -173,7 +173,19 @@ class Series(nn.Sequential):
         
         return input_channels, prev_out_channels
 
-
+    def forward(self, input, ext_param = None):
+        if ext_param is not None:
+            for key, module in self._modules.items():
+                # check if the key is in param_dict
+                if ext_param is not None and key in ext_param:
+                    input = module(input, ext_param[key])
+                else:
+                    input = module(input)
+        else :
+            for module in self:
+                input = module(input)
+        return input
+        
 # ============================= RECURSION ================================
 
 
@@ -405,7 +417,7 @@ class Shell(nn.Module):
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, ext_param: dict = None) -> torch.Tensor:
         r"""
         Forward pass through the input layer, the core, and the output layer. Keeps the three components separated.
 
@@ -416,7 +428,10 @@ class Shell(nn.Module):
                 - torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
         x = self.__input_layer(x)
-        x = self.__core(x)
+        if ext_param is not None:
+            x = self.__core(x, ext_param)
+        else:
+            x = self.__core(x)
         x = self.__output_layer(x)
         return x
     
