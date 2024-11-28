@@ -66,6 +66,7 @@ class Trainer:
         self.patience_delta = patience_delta
         self.min_val_loss = float('inf')
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr) 
+        self.n_loss = 0 
 
         assert os.path.isdir(train_dir), "The directory specified in train_dir does not exist."
         self.train_dir = train_dir
@@ -85,6 +86,7 @@ class Trainer:
         self.criterion.append(criterion.to(self.device))
         self.alpha.append(alpha)
         self.requires_model.append(requires_model)
+        self.n_loss += 1
 
     def train(self, train_dataset, valid_dataset):
         r"""
@@ -96,7 +98,13 @@ class Trainer:
         """
         
         self.train_loss, self.valid_loss = [], []
-        
+        self.train_loss_log, self.valid_loss_log = {}, {}
+        # initialize self.train_loss_log and self.valid_loss_log as dictionary with the name of each loss as key 
+        for i in range(self.n_loss):
+            loss_name = self.criterion[i].__class__.__name__
+            self.train_loss_log[loss_name] = []
+            self.valid_loss_log[loss_name] = []
+
         st = time.time()    # start time
         for epoch in trange(self.max_epochs, desc='Training'):
             st_epoch = time.time()
@@ -138,19 +146,31 @@ class Trainer:
                 - float: The loss value of the training step.
         """
         inputs, targets = data
-        inputs, targets = inputs.to(self.device), targets.to(self.device)
+        inputs = self.move_to_device(inputs)
+        targets = self.move_to_device(targets)
         # batch processing
         self.optimizer.zero_grad()
         estimations = self.net(inputs)
         loss = 0
         for alpha, criterion, requires_model in zip(self.alpha, self.criterion, self.requires_model):
             if requires_model:
-                loss += alpha*criterion(estimations, targets, self.net)
+                temp = criterion(estimations, targets, self.net)
+                self.train_loss_log[criterion.__class__.__name__].append(temp.item())
+                loss += alpha*temp
             else:
-                loss += alpha*criterion(estimations, targets)
+                temp = criterion(estimations, targets)
+                self.train_loss_log[criterion.__class__.__name__].append(temp.item())
+                loss += alpha*temp
         loss.backward()
         self.optimizer.step()
         return loss.item()
+
+    def move_to_device(self, data):
+        if isinstance(data, list):
+            data = [x.to(self.device) for x in data]
+        else:
+            data = data.to(self.device)
+        return data
 
     def valid_step(self, data):
         r"""
@@ -164,15 +184,21 @@ class Trainer:
         """
         # batch processing
         inputs, targets = data
-        inputs, targets = inputs.to(self.device), targets.to(self.device)
+        inputs = self.move_to_device(inputs)
+        targets = self.move_to_device(targets)
+        
         self.optimizer.zero_grad()
         estimations = self.net(inputs)
         loss = 0
         for alpha, criterion, requires_model in zip(self.alpha, self.criterion, self.requires_model):
             if requires_model:
-                loss += alpha*criterion(estimations, targets, self.net)
+                temp = criterion(estimations, targets, self.net)
+                self.valid_loss_log[criterion.__class__.__name__].append(temp.item())
+                loss += alpha*temp
             else:
-                loss += alpha*criterion(estimations, targets)
+                temp = criterion(estimations, targets)
+                self.valid_loss_log[criterion.__class__.__name__].append(temp.item())
+                loss += alpha*temp
         return loss.item()
 
     def print_results(self, e, e_time):
