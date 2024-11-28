@@ -150,11 +150,18 @@ class HomogeneousFDN:
         # set the raw parameters of the FDN from a dictionary
         with torch.no_grad():
             core = self.model.get_core()
-            core.feedback_loop.feedback.assign_value(torch.tensor(param['A']))
-            core.feedback_loop.feedforward.attenuation.assign_value(torch.tensor(param['attenuation']).squeeze())
-            core.input_gain.assign_value(torch.tensor(param['B']))
-            core.output_gain.assign_value(torch.tensor(param['C']))
-            core.feedback_loop.feedforward.delays.assign_value(torch.tensor(param['m']).squeeze())
+            for key, value in param.items():
+                tensor_value = torch.tensor(value)
+                if key == 'A':
+                    core.feedback_loop.feedback.assign_value(tensor_value)
+                elif key == 'attenuation':
+                    core.feedback_loop.feedforward.attenuation.assign_value(tensor_value.squeeze())
+                elif key == 'B':
+                    core.input_gain.assign_value(tensor_value)
+                elif key == 'C':
+                    core.output_gain.assign_value(tensor_value)
+                elif key == 'm':
+                    core.feedback_loop.feedforward.delays.assign_value(tensor_value.squeeze())
             self.model.set_core(core)
                
     def normalize_energy(self, target_energy = 1, ):
