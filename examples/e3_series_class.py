@@ -322,6 +322,93 @@ def example_series_training(args):
 
     return None
 
+def example_series_utils(args):
+    """
+    The Series class comes with three utility functions: prepend, append, and insert.
+    These functions allow the user to add a modules to the beginning, to the end, or in the middle of the chain.
+    All three functions can accept a single module, an OrderedDict, or another Series instance.
+    In the case of an OrderedDict and of a Series, the functions will unpack the modules, check that the new keys
+    are not already present in the Series, and that the new modules are compatible with the existing ones in terms
+    of input/output channels and attributes.
+    """
+    # ------------------- DSP Definition --------------------
+    channel_n = 2
+
+    # Initial filters
+    feedforward = dsp.Delay(
+        size=(channel_n, channel_n),
+        max_len=1000,
+        isint=True,
+        nfft=args.nfft,
+        fs=args.samplerate,
+        device=args.device
+    )
+    feedback = dsp.Matrix(
+        size=(channel_n, channel_n),
+        nfft=args.nfft,
+        matrix_type="orthogonal",
+        device=args.device
+    )
+    feedback_loop = system.Recursion(fF=feedforward, fB=feedback)
+
+    # Series class instantiation
+    my_dsp = system.Series(
+        OrderedDict({
+            'Recursion': feedback_loop
+        })
+    )
+
+    # New filters to add an the beginning
+    input_layer = dsp.FFT(nfft=args.nfft)
+    input_gains = dsp.parallelGain(
+        size=(channel_n,),
+        nfft=args.nfft,
+        requires_grad=False,
+        device=args.device
+    )
+    # New filter to add in the middle
+    output_gains = dsp.Gain(
+        size=(channel_n, channel_n),
+        nfft=args.nfft,
+        requires_grad=False,
+        device=args.device
+    )
+    # New filters to add at the end
+    equalization = dsp.GEQ(
+        size=(channel_n, channel_n),
+        nfft=args.nfft,
+        requires_grad=False,
+        device=args.device
+    )
+    output_layer = dsp.iFFT(nfft=args.nfft)
+
+    # DSP so far
+    print(my_dsp)
+
+    # Prepend
+    my_dsp.prepend(
+        system.Series(input_layer, input_gains)
+    )
+    print(my_dsp)
+
+    # Append
+    my_dsp.append(
+        OrderedDict({
+            'Eqs': equalization,
+            'output_layer': output_layer
+        })
+    )
+    print(my_dsp)
+
+    # Insert
+    my_dsp.insert(
+        index = 3,
+        new_module=output_gains,
+    )
+    print(my_dsp)
+
+    return None
+
 ###########################################################################################
 
 if __name__ == '__main__':
@@ -363,8 +450,9 @@ if __name__ == '__main__':
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     # Run examples
-    example_series(args)
+    # example_series(args)
     # example_series_with_error(args)
-    example_series_OrderedDict(args)
-    example_series_nesting(args)
-    example_series_training(args)
+    # example_series_OrderedDict(args)
+    # example_series_nesting(args)
+    # example_series_training(args)
+    example_series_utils(args)

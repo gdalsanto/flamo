@@ -71,6 +71,7 @@ class Series(nn.Sequential):
         return self
 
     def insert(self, index: int, new_module: nn.Module | nn.Sequential | OrderedDict) -> "Series":
+        # TODO: add support for inserting 'after' or 'before' a certain key
         r"""
         Inserts a given item at the given index in the Series instance.
 
@@ -156,7 +157,7 @@ class Series(nn.Sequential):
                         (module._modules,), [*current_keys, *unpacked_modules.keys()]
                     )
                 )
-            elif isinstance(module, OrderedDict):
+            elif isinstance(module, OrderedDict) or isinstance(module, dict):
                 for k, v in module.items():
                     if isinstance(v, nn.Sequential):
                         # nested nn.Sequential
