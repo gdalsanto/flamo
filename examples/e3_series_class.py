@@ -333,21 +333,23 @@ def example_series_utils(args):
     """
     # ------------------- DSP Definition --------------------
     channel_n = 2
-
+    alias_decay_db = 60
     # Initial filters
-    feedforward = dsp.Delay(
-        size=(channel_n, channel_n),
+    feedforward = dsp.parallelDelay(
+        size=(channel_n, ),
         max_len=1000,
         isint=True,
         nfft=args.nfft,
         fs=args.samplerate,
-        device=args.device
+        device=args.device,
+        alias_decay_db=alias_decay_db
     )
     feedback = dsp.Matrix(
         size=(channel_n, channel_n),
         nfft=args.nfft,
         matrix_type="orthogonal",
-        device=args.device
+        device=args.device, 
+        alias_decay_db=alias_decay_db
     )
     feedback_loop = system.Recursion(fF=feedforward, fB=feedback)
 
@@ -364,23 +366,26 @@ def example_series_utils(args):
         size=(channel_n,),
         nfft=args.nfft,
         requires_grad=False,
-        device=args.device
+        device=args.device, 
+        alias_decay_db=alias_decay_db
     )
     # New filter to add in the middle
     output_gains = dsp.Gain(
         size=(channel_n, channel_n),
         nfft=args.nfft,
         requires_grad=False,
-        device=args.device
+        device=args.device,
+        alias_decay_db=alias_decay_db
     )
     # New filters to add at the end
     equalization = dsp.GEQ(
         size=(channel_n, channel_n),
         nfft=args.nfft,
         requires_grad=False,
-        device=args.device
+        device=args.device,
+        alias_decay_db=alias_decay_db
     )
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    output_layer = dsp.iFFTAntiAlias(nfft=args.nfft, alias_decay_db=alias_decay_db)
 
     # DSP so far
     print(my_dsp)
@@ -394,7 +399,7 @@ def example_series_utils(args):
     # Append
     my_dsp.append(
         OrderedDict({
-            'Eqs': equalization,
+ #           'Eqs': equalization,
             'output_layer': output_layer
         })
     )
@@ -407,6 +412,21 @@ def example_series_utils(args):
     )
     print(my_dsp)
 
+    # input signal 
+    input_signal = signal_gallery(signal_type='impulse', batch_size=args.batch_size, n_samples=args.nfft, n=channel_n, fs=args.samplerate, device=args.device)
+    y = my_dsp(input_signal)
+
+    # plot output signal
+    plt.figure()
+    for i in range(channel_n):
+        plt.subplot(channel_n, 1, i+1)
+        plt.plot(y.squeeze()[:,i].cpu().numpy())
+        plt.xlabel('Samples')
+        plt.ylabel('Amplitude')
+        plt.grid()
+        plt.title(f'Output channel {i+1}')
+        plt.show()
+        
     return None
 
 ###########################################################################################
