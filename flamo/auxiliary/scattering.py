@@ -1,12 +1,16 @@
 import torch
 import numpy as np
+from typing import Optional
+from flamo.utils import to_complex
 torch.random.manual_seed(0)
 np.random.seed(0)
 
 def cascaded_paraunit_matrix(U: torch.tensor, 
                              n_stages: int = 3, 
                              gain_per_sample: float = 0.9999, 
-                             sparsity: int = 3):
+                             sparsity: int = 3, 
+                             m_L: Optional[torch.tensor] = None,
+                             m_R: Optional[torch.tensor] = None):
     r"""
     Creates paraunitary matrix from input othogonal matrix 
         **Args**:
@@ -14,6 +18,8 @@ def cascaded_paraunit_matrix(U: torch.tensor,
             n_stages (int): The number of stages in the paraunitary matrix.
             gain_per_sample (float): The gain per sample for homogenous attenuation.
             sparsity (int): The sparsity of the paraunitary matrix.
+            m_L (Tensor): The left shift of the paraunitary matrix.
+            m_R (Tensor): The right shift of the paraunitary matrix.
         **Returns**:
             Tensor: The paraunitary scattering matrix.   
     
@@ -35,20 +41,24 @@ def cascaded_paraunit_matrix(U: torch.tensor,
     U = U.permute(2, 0, 1)
     V = U[:,:,0]
     N = V.shape[0]
-
+    if m_L is None:
+        m_L = torch.zeros(N, device=U.device)
+    if m_R is None:
+        m_R = torch.zeros(N, device=U.device)
+        
+    shift_L = get_random_shifts(N, sparsity_vect, pulse_size)
     for k in range(1,K):
 
-        # np.random.seed(130798)
-        shift_L = shift_mat_distribute(V, sparsity_vect[k-1], pulse_size)
-
-        G = torch.diag(gain_per_sample**shift_L).to(torch.float32)
+        G = torch.diag(gain_per_sample**shift_L[k-1, :]).to(torch.float32)
         R = torch.matmul(U[:,:,k],G)
 
-        V = shift_matrix(V, shift_L, direction='left')
+        V = shift_matrix(V, shift_L[k-1, :], direction='left')
         V = poly_matrix_conv(R, V)
-
-        pulse_size = pulse_size * N*sparsity_vect[k-1]
     
+    V = shift_matrix(V, m_L, direction='left')
+    V = shift_matrix(V, m_R, direction='right')
+    V = to_complex(V)
+        
     return V.permute(2, 0, 1)
 
 def poly_matrix_conv(A: torch.tensor, B: torch.tensor):
@@ -97,13 +107,13 @@ def shift_matrix(X: torch.tensor, shift: torch.tensor, direction: str ='left'):
         additional_space = int((required_space.max() - X.shape[-1]) + 1)
         X = torch.cat((X, torch.zeros((N,N,additional_space))), dim=-1)
         for i in range(N):
-            X[i, :, :] = torch.roll(X[i, :, :], shift[i].item(), dims=-1)
+            X[i, :, :] = torch.roll(X[i, :, :], int(shift[i].item()), dims=-1)
     elif direction.lower() == 'right':
         required_space = order + shift.reshape(1,-1)
         additional_space = int((required_space.max() - X.shape[-1]) + 1)
         X = torch.cat((X, torch.zeros((N,N,additional_space))), dim=-1)
         for i in range(N):
-            X[:, i, :] = torch.roll(X[:, i, :], shift[i].item(), dims=-1)
+            X[:, i, :] = torch.roll(X[:, i, :], int(shift[i].item()), dims=-1)
 
     return X 
 
@@ -111,5 +121,43 @@ def shift_mat_distribute(X: torch.tensor, sparsity: int, pulse_size: int):
     '''shift in polynomial matrix in time-domain such that they don't overlap'''
     N = X.shape[0]
     rand_shift = torch.floor(sparsity * (torch.arange(0,N) + torch.rand((N))*0.99))
+    
     return (rand_shift * pulse_size).int()
 
+def get_random_shifts(N, sparsity_vect, pulse_size):
+    rand_shift = torch.zeros(sparsity_vect.shape[0], N)
+    for k in range(sparsity_vect.shape[0]):
+        temp = torch.floor(sparsity_vect[k] * (torch.arange(0,N) + torch.rand((N))*0.99))
+        rand_shift[k, :] = (temp * pulse_size).int()
+        pulse_size = pulse_size * N*sparsity_vect[k]
+    return rand_shift
+
+def hadamard_matrix(N):
+    '''Generate a hadamard matrix of size N'''
+    X = np.array([[1]])
+    # Create a Hadamard matrix of the specified order
+    # TODO remove for loop becuase all matrices look the same
+    while X.shape[0] < N:
+        # Kronecker product to generate a larger Hadamard matrix
+        X = np.kron(X, np.array([[1, 1], [1, -1]]))/np.sqrt(2)
+
+    return X
+
+if __name__ == '__main__':
+    matrix = torch.tensor(hadamard_matrix(4), dtype=torch.float32).unsqueeze(0).expand(4,4,4)
+    V = cascaded_paraunit_matrix(matrix)
+    # plot the matrix 
+    import matplotlib.pyplot as plt
+
+    fig, axs = plt.subplots(4, 4, figsize=(10, 10))
+    V = V.reshape(16, -1)
+    for i in range(16):
+        ax = axs[i // 4, i % 4]
+        ax.plot(V[i, :].squeeze().numpy())
+        ax.set_title(f'Subplot {i+1}')
+    plt.show()
+
+    plt.figure()
+    for i in range(16):
+        plt.plot(V[i, :].squeeze().numpy(), alpha=0.5)
+    plt.show()
