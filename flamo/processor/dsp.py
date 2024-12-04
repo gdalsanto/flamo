@@ -594,6 +594,53 @@ class Matrix(Gain):
         self.get_freq_convolve()
 
 
+class HouseholderMatrix(Gain):
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        nfft: int = 2**11,
+        requires_grad=False,
+        alias_decay_db: float = 0.0,
+        device=None
+    ):
+        assert size[0] == size[1], "Matrix must be square"
+        size = (size[0], 1)
+        map = lambda x: to_complex(x) / torch.norm(x, dim=0, keepdim=True)
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device
+        )
+
+    def forward(self, x, ext_param=None):
+        self.check_input_shape(x)
+        if ext_param is None:
+            u = self.map(self.param)
+        else: 
+            # log the parameters that are being passed 
+            with torch.no_grad():
+                self.assign_value(ext_param)
+            # generate householder matrix from unitary vector
+            u = self.map(ext_param)
+        uTx = torch.einsum("mn,bfn...->bfm...", u.transpose(1, 0), x)
+        uuTx = torch.einsum("nm,bfm...->bfn...", u, uTx)
+        return x - 2 * uuTx
+
+    def check_input_shape(self, x):
+        if (self.size[0]) != (x.shape[2]):
+            raise ValueError(
+                f"parameter shape = {self.size} not compatible with input signal of shape = ({x.shape})."
+            )
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[0]
+        self.output_channels = self.size[0]
 # ============================= FILTERS ================================
 
 
