@@ -1,14 +1,66 @@
 import torch
+from torch import nn
 import numpy as np
 from typing import Optional
 from flamo.utils import to_complex
 torch.random.manual_seed(0)
 np.random.seed(0)
 
+class ScatteringMapping(nn.Module):
+    def __init__(self, 
+                 N: int,
+                 n_stages: int = 3, 
+                 sparsity: int = 3, 
+                 gain_per_sample: float = 0.9999, 
+                 pulse_size: int = 1, 
+                 m_L: Optional[torch.tensor] = None, 
+                 m_R: Optional[torch.tensor] = None, 
+                 device: str = 'cpu'):
+        
+        super(ScatteringMapping, self).__init__()
+        self.n_stages = n_stages
+        self.sparsity = sparsity
+        self.gain_per_sample = gain_per_sample
+        if m_L is None:
+            self.m_L = torch.zeros(N, device=device)
+        else:
+            self.m_L = m_L
+        if m_R is None:
+            self.m_R = torch.zeros(N, device=device)
+        else:
+            self.m_R = m_R
+        self.sparsity_vect = torch.ones((n_stages), device=device)
+        self.sparsity_vect[0] = sparsity
+        self.shifts = get_random_shifts(N, self.sparsity_vect, pulse_size)
+
+    def forward(self, U):
+
+        K = self.n_stages+1
+        # check that the input matrix is of correct shape
+        assert U.shape[0] == K, 'The input matrix must have n_stages+1 stages'
+        assert U.shape[1] == U.shape[2], 'The input matrix must be square'
+
+        U = U.permute(1, 2, 0)
+        V = U[:,:,0]
+
+        for k in range(1,K):
+
+            G = torch.diag(self.gain_per_sample**self.shifts[k-1, :]).to(torch.float32)
+            R = torch.matmul(U[:,:,k],G)
+
+            V = shift_matrix(V, self.shifts[k-1, :], direction='left')
+            V = poly_matrix_conv(R, V)
+        
+        V = shift_matrix(V, self.m_L, direction='left')
+        V = shift_matrix(V, self.m_R, direction='right')
+            
+        return V.permute(2, 0, 1)
+
 def cascaded_paraunit_matrix(U: torch.tensor, 
                              n_stages: int = 3, 
                              gain_per_sample: float = 0.9999, 
                              sparsity: int = 3, 
+                             pulse_size: int = 1,
                              m_L: Optional[torch.tensor] = None,
                              m_R: Optional[torch.tensor] = None):
     r"""
@@ -33,7 +85,6 @@ def cascaded_paraunit_matrix(U: torch.tensor,
     K = n_stages+1
     sparsity_vect = torch.ones((n_stages), device=U.device)
     sparsity_vect[0] = sparsity
-    pulse_size = 1
     # check that the input matrix is of correct shape
     assert U.shape[0] == K, 'The input matrix must have n_stages+1 stages'
     assert U.shape[1] == U.shape[2], 'The input matrix must be square'
@@ -41,11 +92,12 @@ def cascaded_paraunit_matrix(U: torch.tensor,
     U = U.permute(2, 0, 1)
     V = U[:,:,0]
     N = V.shape[0]
+
     if m_L is None:
         m_L = torch.zeros(N, device=U.device)
     if m_R is None:
         m_R = torch.zeros(N, device=U.device)
-        
+
     shift_L = get_random_shifts(N, sparsity_vect, pulse_size)
     for k in range(1,K):
 
