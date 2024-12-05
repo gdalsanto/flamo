@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn 
 import numpy as np
 from flamo.auxiliary.filterbank import FilterBank
+from flamo.optimize.utils import generate_partitions
 
 # wrapper for the sparsity loss
 class sparsity_loss(nn.Module):
@@ -38,6 +39,27 @@ class mse_loss(nn.Module):
             return torch.mean(torch.pow(torch.abs(y_pred_sum[:,self.mask_indices[self.i]])-torch.abs(y_true.squeeze(-1)[:,self.mask_indices[self.i]]), 2*torch.ones(y_pred[:,self.mask_indices[self.i]].size(1), device=self.device))) 
         else:
             return torch.mean(torch.pow(torch.abs(y_pred_sum)-torch.abs(y_true.squeeze(-1)), 2*torch.ones(y_pred.size(1), device=self.device))) 
+
+class masked_mse_loss(nn.Module):
+    '''Means squared error between abs(x1) and x2'''
+    def __init__(self, nfft, n_samples, n_sets=1, device='cpu'):
+        super().__init__()
+        self.device = device
+        self.n_samples = n_samples
+        self.n_sets = n_sets
+        self.nfft = nfft
+        self.mask_indices = generate_partitions(torch.arange(self.nfft//2+1), n_samples, n_sets)
+        self.i = -1
+
+        # create 
+    def forward(self, y_pred, y_true):
+        self.i += 1
+        # generate random mask for sparse sampling 
+        if self.i >= self.mask_indices.shape[0]:
+            # generate a new set of mask inddices 
+            self.mask_indices = generate_partitions(torch.arange(self.nfft//2+1), self.n_samples, self.n_sets)
+            self.i = -1
+        return torch.mean((torch.abs(y_pred[:,self.mask_indices[self.i], :])-torch.abs(y_true[:,self.mask_indices[self.i], :]))**2)
 
 class amse_loss(nn.Module):
     '''Asymmetric Means squared error between abs(x1) and x2'''
