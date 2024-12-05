@@ -10,8 +10,9 @@ from flamo.functional import (
     rad2hertz )
 from flamo.auxiliary.eq import (
     eq_freqs,
-    geq )
-
+    geq)
+from flamo.auxiliary.scattering import (
+    ScatteringMapping)
 # ============================= TRANSFORMS ================================
 
 
@@ -589,12 +590,21 @@ class Matrix(Gain):
         """
         self.check_param_shape()
         self.get_io()
-        self.matrix_type = self.matrix_type
         self.matrix_gallery()
         self.get_freq_convolve()
 
 
 class HouseholderMatrix(Gain):
+    r"""
+    HouseholderMatrix is a class that generates a Householder matrix for signal processing.
+
+        **Args**:
+            size (tuple, optional): Size of the matrix. Must be a square matrix. Defaults to (1, 1).
+            nfft (int, optional): Number of FFT points. Defaults to 2**11.
+            requires_grad (bool, optional): If True, gradients will be computed for the parameters. Defaults to False.
+            alias_decay_db (float, optional): Alias decay in decibels. Defaults to 0.0.
+            device (optional): Device on which to perform computations. Defaults to None.
+    """
     def __init__(
         self,
         size: tuple = (1, 1),
@@ -641,6 +651,8 @@ class HouseholderMatrix(Gain):
         """
         self.input_channels = self.size[0]
         self.output_channels = self.size[0]
+
+
 # ============================= FILTERS ================================
 
 
@@ -801,6 +813,90 @@ class Filter(DSP):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+class ScatteringMatrix(Filter):
+
+    def __init__(
+        self,
+        size: tuple = (1, 1, 1),
+        nfft: int = 2**11,
+        sparsity: int = 3, 
+        gain_per_sample: float = 0.9999, 
+        pulse_size: int = 1, 
+        m_L: torch.tensor = None, 
+        m_R: torch.tensor = None, 
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device=None
+    ):  
+        self.sparsity = sparsity
+        self.gain_per_sample = gain_per_sample
+        self.pulse_size = pulse_size
+        self.m_L = m_L
+        self.m_R = m_R
+        map = lambda x: torch.matrix_exp(skew_matrix(x))
+        assert size[1] == size[2], "Matrix must be square"
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device
+        )
+
+    def get_freq_convolve(self):
+        r"""
+        Computes the frequency convolution function.
+
+        The frequency convolution is computed using the einsum function.
+
+            **Args**:
+                x (torch.Tensor): Input tensor.
+
+            **Returns**:
+                torch.Tensor: Output tensor after frequency convolution.
+        """
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fmn,bfn...->bfm...", self.freq_response(param), x
+        )
+
+
+    def get_freq_response(self):
+        r"""
+        Computes the frequency response of the filter.
+
+        The mapping function is applied to the filter parameters to obtain the filter impulse responses.
+        Then, the time anti-aliasing envelope is computed and applied to the impulse responses. Finally,
+        the frequency response is obtained by computing the FFT of the filter impulse responses.
+        """
+        L = (sum(self.map_filter.shifts).max()+1).item() + self.m_L.max().item() + self.m_R.max().item()   
+        self.freq_response = lambda param: self.fft(
+            self.map_filter(self.map(param)) * (self.gamma ** torch.arange(0, L, device=self.device)).view(
+            -1, *tuple([1 for i in self.size[1:]])
+            )
+        )
+
+    def initialize_class(self):
+        r"""
+        Initializes the Gain module.
+
+        This method checks the shape of the gain parameters, computes the frequency response of the filter, 
+        and computes the frequency convolution function.
+        """
+        self.map_filter = ScatteringMapping(
+            self.size[-1],
+            n_stages=self.size[0]-1,
+            sparsity=self.sparsity,
+            gain_per_sample=self.gain_per_sample,
+            pulse_size=self.pulse_size,
+            m_L=self.m_L,
+            m_R=self.m_R,
+            device=self.device
+        )
+        self.check_param_shape()
+        self.get_io()
+        self.get_freq_response()
+        self.get_freq_convolve()
 
 class parallelFilter(Filter):
     """
