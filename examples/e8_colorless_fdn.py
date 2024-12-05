@@ -57,6 +57,22 @@ def example_fdn(args):
         alias_decay_db=alias_decay_db,
         device=args.device,
     )
+    
+    # # Feedback path with scattering matrix
+    # m_L =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N]) 
+    # m_R =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N]) 
+    # feedback = dsp.ScatteringMatrix(
+    #     size=(4, N, N),
+    #     nfft=args.nfft,
+    #     gain_per_sample=1,
+    #     sparsity=3,
+    #     m_L=m_L,
+    #     m_R=m_R,
+    #     alias_decay_db=alias_decay_db,
+    #     requires_grad=True,
+    #     device=args.device,
+    # )
+    
     # Recursion
     feedback_loop = system.Recursion(fF=delays, fB=feedback)
 
