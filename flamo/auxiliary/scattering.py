@@ -45,7 +45,7 @@ class ScatteringMapping(nn.Module):
 
         for k in range(1,K):
 
-            G = torch.diag(self.gain_per_sample**self.shifts[k-1, :]).to(torch.float32)
+            G = torch.diag(self.gain_per_sample**self.shifts[k-1, :]).to(torch.float32, device=U.device)
             R = torch.matmul(U[:,:,k],G)
 
             V = shift_matrix(V, self.shifts[k-1, :], direction='left')
