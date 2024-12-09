@@ -179,7 +179,7 @@ def shift_mat_distribute(X: torch.tensor, sparsity: int, pulse_size: int):
 def get_random_shifts(N, sparsity_vect, pulse_size):
     rand_shift = torch.zeros(sparsity_vect.shape[0], N)
     for k in range(sparsity_vect.shape[0]):
-        temp = torch.floor(sparsity_vect[k] * (torch.arange(0,N) + torch.rand((N))*0.99))
+        temp = torch.floor(sparsity_vect[k] * (torch.arange(0,N,device=sparsity_vect.device) + torch.rand((N),device=sparsity_vect.device)*0.99))
         rand_shift[k, :] = (temp * pulse_size).int()
         pulse_size = pulse_size * N*sparsity_vect[k]
     return rand_shift
