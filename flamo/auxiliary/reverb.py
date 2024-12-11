@@ -96,7 +96,7 @@ class HomogeneousFDN:
             device=self.config_dict.device
         )
         attenuation.map = map_gamma(delay_lines)
-        attenuation.assign_value(4*torch.ones((self.N, ),))
+        attenuation.assign_value(6*torch.ones((self.N, ),))
         
         feedforward = system.Series(OrderedDict({
             'delays': delays,
