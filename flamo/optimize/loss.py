@@ -81,11 +81,12 @@ class amse_loss(nn.Module):
 
 class edc_loss(nn.Module):
     '''compute the loss on energy decay curves of two RIRs'''
-    def __init__(self, sample_rate=48000, nfft=None, is_broadband=False, normalize=False, convergence=False):
+    def __init__(self, sample_rate=48000, nfft=None, is_broadband=False, normalize=False, clip=False, convergence=False):
         super().__init__()   
         self.sample_rate = sample_rate 
         self.is_broadband = is_broadband
         self.normalize = normalize
+        self.clip = clip
         self.convergence = convergence
         self.FilterBank = FilterBank(fraction=1,
                                      order = 5,
@@ -155,6 +156,15 @@ class edc_loss(nn.Module):
         else: 
             norm_vals = None
         
+        if self.clip:
+            try:
+                if y_pred_edc.shape[-1] > 1: 
+                    print("Warning: edc_loss is clipping the EDCs of all channels to the same length")
+                clip_indx = torch.nonzero(y_pred_edc < (torch.max(y_pred_edc, dim=1, keepdim=True)[0]-60), as_tuple=False)[0][1]
+                y_pred_edc[:,clip_indx:,:] = 0
+                y_true_edc[:,clip_indx:,:] = 0
+            except:
+                pass
         
         # compute normalized mean squared error on the EDCs 
         num = self.mse(y_pred_edc, y_true_edc)
