@@ -172,5 +172,3 @@ if __name__ == "__main__":
         f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
 
     example_fdn(args)
-
-    
