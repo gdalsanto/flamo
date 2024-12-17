@@ -128,7 +128,7 @@ def poly_matrix_conv(A: torch.tensor, B: torch.tensor):
     if szA[1] != szB[0]:
         raise ValueError('Invalid matrix dimension.')
 
-    C = torch.zeros((szA[0], szB[1], szA[2] + szB[2] - 1))
+    C = torch.zeros((szA[0], szB[1], szA[2] + szB[2] - 1), device=A.device)
 
     A = A.permute(2, 0, 1)
     B = B.permute(2, 0, 1)
@@ -157,13 +157,13 @@ def shift_matrix(X: torch.tensor, shift: torch.tensor, direction: str ='left'):
     if direction.lower() == 'left':
         required_space = order + shift.reshape(-1,1)
         additional_space = int((required_space.max() - X.shape[-1]) + 1)
-        X = torch.cat((X, torch.zeros((N,N,additional_space))), dim=-1)
+        X = torch.cat((X, torch.zeros((N,N,additional_space), device=X.device)), dim=-1)
         for i in range(N):
             X[i, :, :] = torch.roll(X[i, :, :], int(shift[i].item()), dims=-1)
     elif direction.lower() == 'right':
         required_space = order + shift.reshape(1,-1)
         additional_space = int((required_space.max() - X.shape[-1]) + 1)
-        X = torch.cat((X, torch.zeros((N,N,additional_space))), dim=-1)
+        X = torch.cat((X, torch.zeros((N,N,additional_space), device=X.device)), dim=-1)
         for i in range(N):
             X[:, i, :] = torch.roll(X[:, i, :], int(shift[i].item()), dims=-1)
 
