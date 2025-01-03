@@ -9,3 +9,4 @@ test.py
 .flamo-env-win
 docs/
 /notebooks/output
+examples/e8_fdn_nonlinear.py
