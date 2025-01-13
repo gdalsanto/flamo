@@ -83,7 +83,7 @@ def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor,
 
     return  sos[:3] ,  sos[3:] 
 
-def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_crossover: torch.Tensor, fs=48000):
+def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_crossover: torch.Tensor, fs=48000, device: str = 'cpu'):
     r"""
     Design a Graphic Equalizer (GEQ) filter.
 
@@ -92,6 +92,7 @@ def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_cr
             - center_freq (torch.Tensor): Center frequencies of each band.
             - shelving_crossover (torch.Tensor): Crossover frequencies for shelving filters.
             - fs (int, optional): Sampling frequency. Default: 48000 Hz.
+            - device (str, optional): Device to use for constructing tensors. Default: 'cpu'.
 
         **Returns**:
             - tuple: A tuple containing the numerator and denominator coefficients of the GEQ filter.
@@ -103,12 +104,12 @@ def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_cr
 
     nfft = 2**16
     num_freq = len(center_freq) + len(shelving_crossover) 
-    R = torch.tensor(2.7)
+    R = torch.tensor(2.7, device=device)
     # Control frequencies are spaced logarithmically
     num_control = 100
-    control_freq = torch.round(torch.logspace(np.log10(1), np.log10(fs/2.1), num_control+1))
+    control_freq = torch.round(torch.logspace(np.log10(1), np.log10(fs/2.1), num_control+1, device=device))
     # interpolate the target gain values at control frequencies
-    target_freq = torch.cat((torch.tensor([1]), center_freq, torch.tensor([fs/2.1])))
+    target_freq = torch.cat((torch.tensor([1], device=device), center_freq, torch.tensor([fs/2.1], device=device)))
     # targetInterp = torch.tensor(np.interp(control_freq, target_freq, target_gain.squeeze()))
     interp = RegularGridInterpolator([target_freq], target_gain)
     targetInterp = interp([control_freq])
@@ -116,20 +117,20 @@ def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_cr
     # Design prototype of the biquad sections
     prototype_gain = 10  # dB
     prototype_gain_array = torch.full((num_freq + 1 ,1), prototype_gain)
-    prototype_b, prototype_a = geq(center_freq, shelving_crossover, R, prototype_gain_array, fs)
+    prototype_b, prototype_a = geq(center_freq, shelving_crossover, R, prototype_gain_array, fs, device=device)
     prototype_sos = torch.vstack((prototype_b, prototype_a))
     G, _, _ = probe_sos(prototype_sos, control_freq, nfft, fs)
     G = G / prototype_gain  # dB vs control frequencies
 
     # Define the optimization bounds
-    upperBound = torch.tensor([torch.inf] + [2 * prototype_gain] * num_freq)
-    lowerBound = torch.tensor([-val for val in upperBound])
+    upperBound = torch.tensor([torch.inf] + [2 * prototype_gain] * num_freq, device=device)
+    lowerBound = torch.tensor([-val for val in upperBound], device=device)
 
     # Optimization
     opt_gains = minimize_LBFGS(G, targetInterp, lowerBound, upperBound, num_freq)
 
     # Generate the SOS coefficients
-    b, a = geq(center_freq, shelving_crossover, R, opt_gains, fs)
+    b, a = geq(center_freq, shelving_crossover, R, opt_gains, fs, device=device)
 
     return b, a
 
