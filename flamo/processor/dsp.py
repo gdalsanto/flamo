@@ -10,7 +10,8 @@ from flamo.functional import (
     rad2hertz )
 from flamo.auxiliary.eq import (
     eq_freqs,
-    geq)
+    geq, 
+    design_geq)
 from flamo.auxiliary.scattering import (
     ScatteringMapping)
 # ============================= TRANSFORMS ================================
@@ -1839,6 +1840,210 @@ class parallelGEQ(GEQ):
                     shelving_freq=self.shelving_crossover,
                     R=R,
                     gain_db=param[:, n_i],
+                    fs=self.fs,
+                    device=self.device
+                )
+         
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        return H, B, A
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
+        )
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
+
+class AccurateGEQ(Filter):
+    r"""
+    Graphic Equilizer filter. Inherits from the :class:`Filter` class.
+    It supports 1 and 1/3 octave filter bands. 
+    The raw parameters are the linear gain values for each filter band.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(K, N_{out}, N_{in})`
+        - freq_response: :math:`(M,  N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins, 
+    :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
+    The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).   
+
+        **Args**:
+            - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
+            - octave_interval (int, optional): The octave interval for the center frequencies. Default: 1.
+            - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - fs (int, optional): The sampling frequency. Default: 48000.
+            - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: 20*torch.log10(x).
+            - requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.
+            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - device (str, optional): The device of the constructed tensors. Default: None.
+            
+        **Attributes**:
+            - fs (int): The sampling frequency.
+            - center_freq (torch.Tensor): The center frequencies of the filter bands.
+            - shelving_crossover (torch.Tensor): The shelving crossover frequencies.
+            - freq_response (torch.Tensor): The frequency response of the filter.
+            - param (nn.Parameter): The parameters of the GEQ filter.
+
+        **Methods**:
+            - check_param_shape(): Check the shape of the filter parameters.
+            - get_freq_response(): Compute the frequency response of the filter.
+            - get_freq_convolve(): Compute the frequency convolution function.
+
+    References:
+        - Schlecht, S., Habets, E. (2017). Accurate reverberation time control in
+        feedback delay networks Proc. Int. Conf. Digital Audio Effects (DAFx)
+        adapted to python by: Dal Santo G. 
+        - Välimäki V., Reiss J. All About Audio Equal-
+        ization: Solutions and Frontiers, Applied Sciences, vol. 6,
+        no. 5, pp. 129, May 2016
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        octave_interval: int = 1,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map=lambda x: 20*torch.log10(x),
+        alias_decay_db: float = 0.0,
+        device=None
+    ):
+        self.octave_interval = octave_interval
+        self.fs = fs
+        self.center_freq, self.shelving_crossover = eq_freqs(
+            interval=self.octave_interval)
+        self.n_gains = len(self.center_freq) + 2
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=device))
+        super().__init__(
+            size=(self.n_gains, *size),
+            nfft=nfft,
+            map=map,
+            requires_grad=False,
+            alias_decay_db=alias_decay_db,
+            device=device
+        )
+
+    def init_param(self):
+        torch.nn.init.uniform_(self.param, a=10**(-6/20), b=10**(6/20))  
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 3
+        ), "Filter must be 3D, for 2D (parallel) filters use ParallelGEQ module."
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        """
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
+        """
+        a = torch.zeros((3, *self.size), device=self.device)
+        b = torch.zeros((3, *self.size), device=self.device)
+        for m_i in range(self.size[-2]):
+            for n_i in range(self.size[-1]):
+                a[:, :, m_i, n_i], b[:, :, m_i, n_i] = design_geq(
+                    target_gain=param[:, m_i, n_i],
+                    center_freq=self.center_freq,
+                    shelving_crossover=self.shelving_crossover,                    
+                    fs=self.fs,
+                    device=self.device
+                )
+         
+        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        return H, B, A 
+
+    def initialize_class(self):
+        self.check_param_shape()
+        self.get_io()
+        self.freq_response = to_complex(
+            torch.empty((self.nfft // 2 + 1, *self.size[1:]))
+        )
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+    def get_io(self): # NOTE: This method does not need to be reimplemented here, it is inherited from Filter.
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
+
+class parallelAccurateGEQ(AccurateGEQ):
+    r"""
+    Parallel counterpart of the :class:`GEQ` class
+    For information about **attributes** and **methods** see :class:`flamo.processor.dsp.GEQ`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(P, N)`
+        - freq_response: :math:`(M, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins, and :math:`N` is the number of input/output channels.
+    The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
+    Ellipsis :math:`(...)` represents additional dimensions (not tested).   
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, ),
+        octave_interval: int = 1,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map=lambda x: 20*torch.log10(x),
+        alias_decay_db: float = 0.0,
+        device=None
+    ):
+        super().__init__(
+            size=size,
+            octave_interval=octave_interval,
+            nfft=nfft,
+            fs=fs,
+            map=map,
+            alias_decay_db=alias_decay_db,
+            device=device
+        )
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 2
+        ), "Filter must be 2D, for 3D filters use GEQ module."
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
+        """
+        a = torch.zeros((3, self.size[0]+1, self.size[1]), device=self.device)
+        b = torch.zeros((3, self.size[0]+1, self.size[1]), device=self.device)
+        for n_i in range(self.size[-1]):
+                a[:, :, n_i], b[:, :, n_i] = design_geq(
+                    target_gain=param[:, n_i],
+                    center_freq=self.center_freq,
+                    shelving_crossover=self.shelving_crossover,                    
                     fs=self.fs,
                     device=self.device
                 )
