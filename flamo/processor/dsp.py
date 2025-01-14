@@ -831,8 +831,8 @@ class ScatteringMatrix(Filter):
         self.sparsity = sparsity
         self.gain_per_sample = gain_per_sample
         self.pulse_size = pulse_size
-        self.m_L = m_L.to(device)
-        self.m_R = m_R.to(device)
+        self.m_L = m_L
+        self.m_R = m_R
         map = lambda x: torch.matrix_exp(skew_matrix(x))
         assert size[1] == size[2], "Matrix must be square"
         super().__init__(
