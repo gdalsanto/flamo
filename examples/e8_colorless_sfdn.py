@@ -52,8 +52,8 @@ def example_fdn(args):
     delays.assign_value(delays.sample2s(delay_lengths))
 
     # Feedback path with scattering matrix
-    m_L =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N]) 
-    m_R =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N]) 
+    m_L =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N], device=args.device) 
+    m_R =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N], device=args.device) 
     feedback = dsp.ScatteringMatrix(
         size=(4, N, N),
         nfft=args.nfft,
