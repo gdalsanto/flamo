@@ -3,13 +3,14 @@
 <html lang="en" data-content_root="../">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Processor &#8212; FLAMO 0.0.3 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=61cd365c" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <script src="../_static/documentation_options.js?v=47de8214"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -37,21 +38,16 @@
 <dt class="sig sig-object py" id="flamo.processor.dsp.Transform">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transform:</span> <span class="pre">callable</span> <span class="pre">=</span> <span class="pre">&lt;function</span> <span class="pre">Transform.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device=None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Transform" title="Link to this definition">¶</a></dt>
 <dd><p>Base class for all transformations.</p>
-<p>The transformation is a callable, e.g., <code class="xref py py-class docutils literal notranslate"><span class="pre">lambda</span></code> expression, function, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>.</p>
+<p>The transformation is a callable (e.g. <code class="xref py py-class docutils literal notranslate"><span class="pre">lambda</span></code> expression, function, or <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>).</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>transform (callable): The transformation function to be applied to the input. Default: lambda x: x</p></li>
-<li><p>device (str): The device of the constructed tensor, if any. Default: None.</p></li>
-</ul>
-</dd>
-<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
-<li><p>transform (callable): The transformation function to be applied to the input.</p></li>
-<li><p>device (str): The device of constructed tensors.</p></li>
+<dt><strong>Args / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>transform</strong> (callable): The transformation function to be applied to the input. Default: <code class="docutils literal notranslate"><span class="pre">lambda</span> <span class="pre">x:</span> <span class="pre">x</span></code></p></li>
+<li><p><strong>device</strong> (str): The device of the constructed tensor, if any. Default: None.</p></li>
 </ul>
 </dd>
 <dt><strong>Methods</strong>:</dt><dd><ul class="simple">
-<li><p>forward(x): Applies the transformation function to the input.</p></li>
+<li><p>forward(x): Applies the transformation to the input.</p></li>
 </ul>
 </dd>
 </dl>
@@ -66,12 +62,12 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Transform.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Transform.forward" title="Link to this definition">¶</a></dt>
-<dd><p>Applies the transformation to the input tensor.</p>
+<dd><p>Calls transformation function on the input tensor.</p>
 <blockquote>
 <div><dl class="simple">
 <dt><strong>Args</strong>:</dt><dd><p>x (Tensor): The input tensor.</p>
 </dd>
-<dt><strong>Returns</strong>:</dt><dd><p>Tensor: The transformed tensor.</p>
+<dt><strong>Returns</strong>:</dt><dd><p>The transformed tensor.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -82,23 +78,69 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.FFT">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">FFT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'backward'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.FFT" title="Link to this definition">¶</a></dt>
-<dd><p>Real Fast Fourier Transform (FFT) class.</p>
-<p>The <a class="reference internal" href="#flamo.processor.dsp.FFT" title="flamo.processor.dsp.FFT"><code class="xref py py-class docutils literal notranslate"><span class="pre">FFT</span></code></a> class is an instance of the <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a> class. The transformation function is the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.rfft()</span></code> function.
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a></p>
+<p>Real Fast Fourier Transform (FFT) class.</p>
+<p>The <a class="reference internal" href="#flamo.processor.dsp.FFT" title="flamo.processor.dsp.FFT"><code class="xref py py-class docutils literal notranslate"><span class="pre">FFT</span></code></a> class is an instance of the <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a> class in which transformation is the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.rfft()</span></code> function.
 Computes the one dimensional Fourier transform of real-valued input. The input is interpreted as a real-valued signal in time domain. The output contains only the positive frequencies below the Nyquist frequency.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>nfft (int): The number of points to compute the FFT.</p></li>
-<li><p>norm (str): The normalization mode for the FFT.</p></li>
-</ul>
-</dd>
-<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
-<li><p>nfft (int): The number of points to compute the FFT.</p></li>
-<li><p>norm (str): The normalization mode for the FFT.</p></li>
+<dt><strong>Args / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>nfft</strong> (int): The number of points to compute the FFT.</p></li>
+<li><p><strong>norm</strong> (str): The normalization mode for the FFT.</p></li>
 </ul>
 </dd>
 <dt><strong>Methods</strong>:</dt><dd><ul class="simple">
-<li><p>foward(x): Apply the FFT to the input tensor x and return the one sided FFT.</p></li>
+<li><p>forward(x): Apply the FFT to the input tensor x and return the one sided FFT.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p>For details on the real FFT function, see <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.fft.rfft.html">torch.fft.rfft documentation</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.iFFT">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">iFFT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'backward'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.iFFT" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a></p>
+<p>Inverse Fast Fourier Transform (iFFT) class.</p>
+<p>The <a class="reference internal" href="#flamo.processor.dsp.iFFT" title="flamo.processor.dsp.iFFT"><code class="xref py py-class docutils literal notranslate"><span class="pre">iFFT</span></code></a> class is an instance of the <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a> class in which transformation is the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.irfft()</span></code> function.
+Computes the inverse of the Fourier transform of a real-valued tensor. The input is interpreted as a one-sided Hermitian signal in the Fourier domain. The output is a real-valued signal in the time domain.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>nfft</strong> (int): The size of the FFT. Default: 2**11.</p></li>
+<li><p><strong>norm</strong> (str): The normalization mode. Default: “backward”.</p></li>
+</ul>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>forward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p>For details on the inverse real FFT function, see <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.fft.irfft.html">torch.fft.irfft documentation</a>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.FFTAntiAlias">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">FFTAntiAlias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'backward'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.FFTAntiAlias" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a></p>
+<p>Real Fast Fourier Transform (FFT) class with time-aliasing mitigation enabled.</p>
+<p>Computes the one dimensional Fourier transform of real-valued tensor <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.rfft()</span></code> after multiplying it by an 
+by an exponentially decaying envelope to mitigate time aliasing.
+The input is interpreted as a real-valued signal in time domain. 
+The output contains only the positive frequencies below the Nyquist frequency.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arg / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>nfft</strong> (int): The number of points to compute the FFT.</p></li>
+<li><p><strong>norm</strong> (str): The normalization mode for the FFT.</p></li>
+<li><p><strong>alias_decay_db</strong> (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.</p></li>
+<li><p><strong>device</strong> (str): The device of the constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>forward(x): Apply the FFT to the input tensor x and return the one sided FFT.</p></li>
 </ul>
 </dd>
 </dl>
@@ -107,25 +149,24 @@ Computes the one dimensional Fourier transform of real-valued input. The input i
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="flamo.processor.dsp.iFFT">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">iFFT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'backward'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.iFFT" title="Link to this definition">¶</a></dt>
-<dd><p>Inverse Fast Fourier Transform (iFFT) class.</p>
-<p>The <a class="reference internal" href="#flamo.processor.dsp.iFFT" title="flamo.processor.dsp.iFFT"><code class="xref py py-class docutils literal notranslate"><span class="pre">iFFT</span></code></a> class is an instance of the <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a> class. The transformation function is the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.irfft()</span></code> function.
-Computes the inverse of the Fourier transform of a real-valued tensor. The input is interpreted as a one-sided Hermitian signal in the Fourier domain. The output is a real-valued signal in the time domain.</p>
+<dt class="sig sig-object py" id="flamo.processor.dsp.iFFTAntiAlias">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">iFFTAntiAlias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'backward'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.iFFTAntiAlias" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.Transform" title="flamo.processor.dsp.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a></p>
+<p>Inverse Fast Fourier Transform (iFFT) class with time-aliasing mitigation enabled.</p>
+<p>Computes the inverse of the Fourier transform of a real-valued tensor <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.irfft()</span></code> to which anti time aliasing has been applied. 
+The input is interpreted as a one-sided Hermitian signal in the Fourier domain evaluated outside of the unit circle to reduce time aliasing. 
+The output of the inverse FFT is a real-valued signal in the time domain multiplied by the anti-aliasing exponentially rising envelope.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>nfft (int): The size of the FFT. Default: 2**11.</p></li>
-<li><p>norm (str): The normalization mode. Default: “backward”.</p></li>
-</ul>
-</dd>
-<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
-<li><p>nfft (int): The size of the FFT.</p></li>
-<li><p>norm (str): The normalization mode.</p></li>
+<dt><strong>Args / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>nfft</strong> (int): The size of the FFT. Default: 2**11.</p></li>
+<li><p><strong>norm</strong> (str): The normalization mode. Default: “backward”.</p></li>
+<li><p><strong>alias_decay_db</strong> (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.</p></li>
+<li><p><strong>device</strong> (str): The device of the constructed tensors. Default: None.</p></li>
 </ul>
 </dd>
 <dt><strong>Methods</strong>:</dt><dd><ul class="simple">
-<li><p>foward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor.</p></li>
+<li><p>forward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor multiplied by an exponentially decaying envelope.</p></li>
 </ul>
 </dd>
 </dl>
@@ -146,27 +187,21 @@ by the exponentially decaying envelope <span class="math notranslate nohighlight
 The envelope <span class="math notranslate nohighlight">\(\gamma(n)\)</span> is then applied to the time domain signal before computing the FFT</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>size (tuple): The shape of the parameters before mapping.</p></li>
-<li><p>nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.</p></li>
-<li><p>map (function, optional): The mapping function applied to the raw parameters. Default: lambda x: x.</p></li>
-<li><p>requires_grad (bool, optional): Whether the parameters require gradients. Default: False.</p></li>
-<li><p>alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
-<li><p>device (str): The device of the constructed tensor, if any. Default: None.</p></li>
+<dt><strong>Args / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>size</strong> (tuple): The shape of the parameters before mapping.</p></li>
+<li><p><strong>nfft</strong> (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.</p></li>
+<li><p><strong>map</strong> (function, optional): The mapping function applied to the raw parameters. Default: <code class="docutils literal notranslate"><span class="pre">lambda</span> <span class="pre">x:</span> <span class="pre">x</span></code>.</p></li>
+<li><p><strong>requires_grad</strong> (bool, optional): Whether the parameters require gradients. Default: False.</p></li>
+<li><p><strong>alias_decay_db</strong> (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
+<li><p><strong>device</strong> (str): The device of the constructed tensor, if any. Default: None.</p></li>
 </ul>
 </dd>
 <dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
-<li><p>size (tuple): The shape of the parameters.</p></li>
-<li><p>nfft (int): The number of FFT points required to compute the frequency response.</p></li>
-<li><p>map (function): The mapping function applied to the raw parameters.</p></li>
-<li><p>requires_grad (bool): Whether the parameters require gradients.</p></li>
-<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.</p></li>
-<li><p>param (nn.Parameter): The parameters of the DSP module.</p></li>
-<li><p>fft (function): The FFT function. Calls the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.rfft()</span></code> function.</p></li>
-<li><p>ifft (function): The Inverse FFT function. Calls the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.irfft()</span></code>.</p></li>
-<li><p>gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p></li>
-<li><p>new_value (int): Flag indicating if new values have been assigned.</p></li>
-<li><p>device (str): The device of the constructed tensors.</p></li>
+<li><p><strong>param</strong> (nn.Parameter): The parameters of the DSP module.</p></li>
+<li><p><strong>fft</strong> (function): The FFT function. Calls the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.rfft()</span></code> function.</p></li>
+<li><p><strong>ifft</strong> (function): The Inverse FFT function. Calls the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.fft.irfft()</span></code>.</p></li>
+<li><p><strong>gamma</strong> (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p></li>
+<li><p><strong>new_value</strong> (int): Flag indicating if new values have been assigned.</p></li>
 </ul>
 </dd>
 <dt><strong>Methods</strong>:</dt><dd><ul class="simple">
@@ -185,42 +220,38 @@ The envelope <span class="math notranslate nohighlight">\(\gamma(n)\)</span> is 
 <dl class="simple">
 <dt><strong>Args</strong>:</dt><dd><ul class="simple">
 <li><p>new_value (torch.Tensor): New values to be assigned.</p></li>
-<li><p>indx (tuple, optional): Index to specify the subset of values to be assigned. Default: tuple([slice(None)]).</p></li>
+<li><p>indx (tuple, optional): Specifies the index of the values to be assigned. Default: tuple([slice(None)]).</p></li>
 </ul>
 </dd>
 </dl>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>the gradient calulcation is disable when assigning new values to <code class="xref py py-attr docutils literal notranslate"><span class="pre">param</span></code>.</p>
+<p>the gradient calculation is disable when assigning new values to <code class="xref py py-attr docutils literal notranslate"><span class="pre">param</span></code>.</p>
 </div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.DSP.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.forward" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.forward" title="Link to this definition">¶</a></dt>
 <dd><p>Forward method.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Forward method not implemented. Input is returned.</p>
-</div>
+<p>Input is returned. Forward method is to be implemented by the child class.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.DSP.get_gamma">
 <span class="sig-name descname"><span class="pre">get_gamma</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.get_gamma" title="Link to this definition">¶</a></dt>
-<dd><p>Calculate the gamma value based on the alias decay in dB and the number of FFT points.
-The gamma value is computed as follows and saved in the attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">gamma</span></code>:</p>
+<dd><p>Calculate the value of <span class="math notranslate nohighlight">\(\gamma\)</span> based on the alias decay in dB and the number of FFT points.
+The value of <span class="math notranslate nohighlight">\(\gamma\)</span> is computed as follows and saved in the attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">gamma</span></code>:</p>
 <div class="math notranslate nohighlight">
 \[\gamma = 10^{\frac{-|\alpha_{\text{dB}}|}{20 \cdot \texttt{nfft}}}\; \text{and}\; \gamma(n) = \gamma^{n}\]</div>
 <p>where <span class="math notranslate nohighlight">\(\alpha_{\textrm{dB}}\)</span> is the alias decay in dB, <span class="math notranslate nohighlight">\(\texttt{nfft}\)</span> is the number of FFT points, 
-and <span class="math notranslate nohighlight">\(n\)</span> is the descrete time index <span class="math notranslate nohighlight">\(0\\leq n &lt; N\)</span>, where N is the length of the signal.</p>
+and <span class="math notranslate nohighlight">\(n\)</span> is the discrete time index <span class="math notranslate nohighlight">\(0\\leq n &lt; N\)</span>, where N is the length of the signal.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.DSP.init_param">
 <span class="sig-name descname"><span class="pre">init_param</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.DSP.init_param" title="Link to this definition">¶</a></dt>
-<dd><p>Initializes the parameters of the model using a normal distribution <span class="math notranslate nohighlight">\(\mathcal{N}(0, 1)\)</span>.
-It uses the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.nn.init.normal_()</span></code> function to set the values of <code class="xref py py-attr docutils literal notranslate"><span class="pre">param</span></code>.</p>
+<dd><p>It uses the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.nn.init.normal_()</span></code> function to set the values of <code class="xref py py-attr docutils literal notranslate"><span class="pre">param</span></code> by drawing from the normal distribution <span class="math notranslate nohighlight">\(\mathcal{N}(0, 1)\)</span>.</p>
 </dd></dl>
 
 </dd></dl>
@@ -228,10 +259,11 @@ It uses the <code class="xref py py-func docutils literal notranslate"><span cla
 <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Gain">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Gain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size:</span> <span class="pre">tuple</span> <span class="pre">=</span> <span class="pre">(1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map=&lt;function</span> <span class="pre">Gain.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device=None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain" title="Link to this definition">¶</a></dt>
-<dd><p>A class representing a set of gains. Inherits from <a class="reference internal" href="#flamo.processor.dsp.DSP" title="flamo.processor.dsp.DSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">DSP</span></code></a>.
-The input tensor is expected to be a complex-valued tensor representing the 
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.DSP" title="flamo.processor.dsp.DSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">DSP</span></code></a></p>
+<p>A class representing a set of gains.</p>
+<p>The input tensor is expected to be a complex-valued tensor representing the 
 frequency response of the input signal. The input tensor is then multiplied
-with the gain parameters to produce the output tensor.</p>
+with the gain to produce the output tensor.</p>
 <dl class="simple">
 <dt>Shape:</dt><dd><ul class="simple">
 <li><p>input: <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span></p></li>
@@ -245,27 +277,21 @@ with the gain parameters to produce the output tensor.</p>
 Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>size (tuple): The size of the gain parameters. Default: (1, 1).</p></li>
-<li><p>nfft (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.</p></li>
-<li><p>map (function): A mapping function applied to the raw parameters. Default: lambda x: x.</p></li>
-<li><p>requires_grad (bool): Whether the parameters requires gradients. Default: False.</p></li>
-<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
-<li><p>device (str): The device of the constructed tensors. Default: None.</p></li>
+<dt><strong>Args / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>size</strong> (tuple): The size of the gain parameters. Default: (1, 1).</p></li>
+<li><p><strong>nfft</strong> (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.</p></li>
+<li><p><strong>map</strong> (function): A mapping function applied to the raw parameters. Default: <code class="docutils literal notranslate"><span class="pre">lambda</span> <span class="pre">x:</span> <span class="pre">x</span></code>.</p></li>
+<li><p><strong>requires_grad</strong> (bool): Whether the parameters requires gradients. Default: False.</p></li>
+<li><p><strong>alias_decay_db</strong> (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
+<li><p><strong>device</strong> (str): The device of the constructed tensors. Default: None.</p></li>
 </ul>
 </dd>
 <dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
-<li><p>size (tuple): The size of the gain parameters.</p></li>
-<li><p>nfft (int): The number of FFT points required to compute the frequency response.</p></li>
-<li><p>map (function): A mapping function applied to the raw parameters.</p></li>
-<li><p>requires_grad (bool): Whether the parameters requires gradients.</p></li>
-<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.</p></li>
-<li><p>param (nn.Parameter): The parameters of the Gain module.</p></li>
-<li><p>fft (function): The FFT function. Calls the torch.fft.rfft function.</p></li>
-<li><p>ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.</p></li>
-<li><p>gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p></li>
-<li><p>new_value (int): Flag indicating if new values have been assigned.</p></li>
-<li><p>device (str): The device of the constructed tensors.</p></li>
+<li><p><strong>param</strong> (nn.Parameter): The parameters of the Gain module.</p></li>
+<li><p><strong>fft</strong> (function): The FFT function. Calls the torch.fft.rfft function.</p></li>
+<li><p><strong>ifft</strong> (function): The Inverse FFT function. Calls the torch.fft.irfft.</p></li>
+<li><p><strong>gamma</strong> (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p></li>
+<li><p><strong>new_value</strong> (int): Flag indicating if new values have been assigned.</p></li>
 </ul>
 </dd>
 <dt><strong>Methods</strong>:</dt><dd><ul class="simple">
@@ -284,7 +310,7 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dd><p>Checks if the dimensions of the input tensor x are compatible with the module.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
+<dt><strong>Args</strong>:</dt><dd><p><strong>x</strong> (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -298,11 +324,12 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Gain.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain.forward" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext_param</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain.forward" title="Link to this definition">¶</a></dt>
 <dd><p>Applies the Gain module to the input tensor x.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
+<dt><strong>Args</strong>:</dt><dd><p><strong>x</strong> (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.
+<strong>ext_param</strong> (torch.Tensor, optional): Parameter values from outer modules. Default: None.</p>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{out}, ...)\)</span>.</p>
 </dd>
@@ -314,10 +341,10 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dt class="sig sig-object py" id="flamo.processor.dsp.Gain.get_freq_convolve">
 <span class="sig-name descname"><span class="pre">get_freq_convolve</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Gain.get_freq_convolve" title="Link to this definition">¶</a></dt>
 <dd><p>Computes the frequency convolution function.</p>
-<p>The frequency convolution is computed using the einsum function.</p>
+<p>The frequency convolution is computed using the <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.einsum()</span></code> function.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor.</p>
+<dt><strong>Args</strong>:</dt><dd><p><strong>x</strong> (torch.Tensor): Input tensor.</p>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor after frequency convolution.</p>
 </dd>
@@ -343,31 +370,28 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Matrix">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size:</span> <span class="pre">tuple</span> <span class="pre">=</span> <span class="pre">(1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map=&lt;function</span> <span class="pre">Matrix.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'random'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device=None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Matrix" title="Link to this definition">¶</a></dt>
-<dd><p>A class representing a matrix. inherits from <a class="reference internal" href="#flamo.processor.dsp.Gain" title="flamo.processor.dsp.Gain"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gain</span></code></a>.</p>
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.Gain" title="flamo.processor.dsp.Gain"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gain</span></code></a></p>
+<p>A class representing a matrix.</p>
+<p>The input tensor is expected to be a complex-valued tensor representing the 
+frequency response of the input signal. The input tensor is multiplied
+with the matrix to produce the output tensor.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>size (tuple, optional): The size of the matrix. Default: (1, 1).</p></li>
-<li><p>nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.</p></li>
-<li><p>map (function, optional): The mapping function to apply to the raw matrix elements. Default: lambda x: x.</p></li>
-<li><p>matrix_type (str, optional): The type of matrix to generate. Default: “random”.</p></li>
-<li><p>requires_grad (bool, optional): Whether the matrix requires gradient computation. Default: False.</p></li>
-<li><p>alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
-<li><p>device (str, optional): The device of the constructed tensors. Default: None.</p></li>
+<dt><strong>Args / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>size</strong> (tuple, optional): The size of the matrix. Default: (1, 1).</p></li>
+<li><p><strong>nfft</strong> (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.</p></li>
+<li><p><strong>map</strong> (function, optional): The mapping function to apply to the raw matrix elements. Default: <code class="docutils literal notranslate"><span class="pre">lambda</span> <span class="pre">x:</span> <span class="pre">x</span></code>.</p></li>
+<li><p><strong>matrix_type</strong> (str, optional): The type of matrix to generate. Default: “random”.</p></li>
+<li><p><strong>requires_grad</strong> (bool, optional): Whether the matrix requires gradient computation. Default: False.</p></li>
+<li><p><strong>alias_decay_db</strong> (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
+<li><p><strong>device</strong> (str, optional): The device of the constructed tensors. Default: None.</p></li>
 </ul>
 </dd>
 <dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
-<li><p>size (tuple): The size of the matrix.</p></li>
-<li><p>nfft (int): The number of FFT points required to compute the frequency response.</p></li>
-<li><p>map (function): The mapping function to apply to the raw matrix elements.</p></li>
-<li><p>matrix_type (str): The type of matrix to generate.</p></li>
-<li><p>requires_grad (bool): Whether the matrix requires gradient computation.</p></li>
-<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.</p></li>
-<li><p>param (nn.Parameter): The parameters of the Matrix module.</p></li>
-<li><p>fft (function): The FFT function. Calls the torch.fft.rfft function.</p></li>
-<li><p>ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.</p></li>
-<li><p>gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p></li>
-<li><p>device (str): The device of the constructed tensors.</p></li>
+<li><p><strong>param</strong> (nn.Parameter): The parameters of the Matrix module.</p></li>
+<li><p><strong>fft</strong> (function): The FFT function. Calls the torch.fft.rfft function.</p></li>
+<li><p><strong>ifft</strong> (function): The Inverse FFT function. Calls the torch.fft.irfft.</p></li>
+<li><p><strong>gamma</strong> (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p></li>
 </ul>
 </dd>
 <dt><strong>Methods</strong>:</dt><dd><ul class="simple">
@@ -398,10 +422,84 @@ The <code class="xref py py-attr docutils literal notranslate"><span class="pre"
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="flamo.processor.dsp.HouseholderMatrix">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">HouseholderMatrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.HouseholderMatrix" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.Gain" title="flamo.processor.dsp.Gain"><code class="xref py py-class docutils literal notranslate"><span class="pre">Gain</span></code></a></p>
+<p>A class representing an Householder matrix.</p>
+<p>An Householder matrix <span class="math notranslate nohighlight">\(\mathbf{U}\)</span> can be computed as follows</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{U} = \mathbf{I} - 2uu^T\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbf{I}\)</span> is the identity matrix and <span class="math notranslate nohighlight">\(u\)</span> is a unitary vector.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p><strong>size</strong> (tuple, optional): Size of the matrix. Must be a square matrix. Defaults to (1, 1).</p></li>
+<li><p><strong>nfft</strong> (int, optional): Number of FFT points. Defaults to 2**11.</p></li>
+<li><p><strong>requires_grad</strong> (bool, optional): If True, gradients will be computed for the parameters. Defaults to False.</p></li>
+<li><p><strong>alias_decay_db</strong> (float, optional): Alias decay in decibels. Defaults to 0.0.</p></li>
+<li><p><strong>device</strong> (optional): Device on which to perform computations. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>param</strong> (nn.Parameter): The parameters <cite>u`</cite> used to construct the Householder matrix.</p></li>
+<li><p><strong>fft</strong> (function): The FFT function. Calls the torch.fft.rfft function.</p></li>
+<li><p><strong>ifft</strong> (function): The Inverse FFT function. Calls the torch.fft.irfft.</p></li>
+<li><p><strong>gamma</strong> (torch.Tensor): The gamma value used for time anti-aliasing envelope.</p></li>
+<li><p><strong>map</strong> (function): A mapping function applied to the raw parameter vector <span class="math notranslate nohighlight">\(u\)</span> to make it unitary.</p></li>
+</ul>
+</dd>
+<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
+<li><p>forward(x): Applies the Householder matrix to the input tensor x using vector multiplications.</p></li>
+<li><p>check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.</p></li>
+<li><p>check_param_shape(): Checks if the shape of the matrix parameters is valid.</p></li>
+<li><p>get_freq_convolve(): Computes the frequency convolution function.</p></li>
+<li><p>initialize_class(): Initializes the module.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.HouseholderMatrix.check_input_shape">
+<span class="sig-name descname"><span class="pre">check_input_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.HouseholderMatrix.check_input_shape" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if the dimensions of the input tensor x are compatible with the module.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p><strong>x</strong> (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.HouseholderMatrix.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext_param</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.HouseholderMatrix.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Applies the Householder to the input tensor x.</p>
+<p>The multiplication is done more efficiently by using vector multiplications with <span class="math notranslate nohighlight">\(u\)</span> instead of matrix multiplications.</p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}u^T x = \sum_{m=1}^{M} u_m x_m\\\mathbf{U}x = uu^T x = \sum_{n=1}^{N} u_n (u^T x)_n        \end{aligned}\end{align} \]</div>
+<dl class="simple">
+<dt><strong>Args</strong>:</dt><dd><p><strong>x</strong> (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N, ...)\)</span>.
+<strong>ext_param</strong> (torch.Tensor, optional): Parameter values from outer modules. Default: None.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor of shape <span class="math notranslate nohighlight">\((B, M, N, ...)\)</span>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.HouseholderMatrix.get_io">
+<span class="sig-name descname"><span class="pre">get_io</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.HouseholderMatrix.get_io" title="Link to this definition">¶</a></dt>
+<dd><p>Computes the number of input and output channels based on the size parameter.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Delay">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Delay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_len</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Delay" title="Link to this definition">¶</a></dt>
-<dd><p>Delay module that applies in frequency domain a time delay to the input signal. Inherits from <a class="reference internal" href="#flamo.processor.dsp.DSP" title="flamo.processor.dsp.DSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">DSP</span></code></a>.
-To improve update effectiveness, the unit of time can be adjusted via the <code class="xref py py-attr docutils literal notranslate"><span class="pre">unit</span></code> attribute to use subdivisions or multiples of time.
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.DSP" title="flamo.processor.dsp.DSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">DSP</span></code></a></p>
+<p>Delay module that applies in frequency domain a time delay to the input signal.</p>
+<p>To improve update effectiveness, the unit of time can be adjusted via the <code class="xref py py-attr docutils literal notranslate"><span class="pre">unit</span></code> attribute to use subdivisions or multiples of time.
 For integer Delays, the <code class="xref py py-attr docutils literal notranslate"><span class="pre">isint</span></code> attribute can be set to True to round the delay to the nearest integer before computing the frequency response.</p>
 <dl class="simple">
 <dt>Shape:</dt><dd><ul class="simple">
@@ -478,11 +576,12 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Delay.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Delay.forward" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext_param</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Delay.forward" title="Link to this definition">¶</a></dt>
 <dd><p>Applies the Delay module to the input tensor x.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor of shape (B, M, N_in, …).</p>
+<dt><strong>Args</strong>:</dt><dd><p>x (torch.Tensor): Input tensor of shape (B, M, N_in, …).
+ext_paran (torch.Tensor, optional): Parameter values from outer modules. Default: None.</p>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor of shape (B, M, N_out, …).</p>
 </dd>
@@ -556,7 +655,8 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.parallelDelay">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">parallelDelay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_len</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelDelay" title="Link to this definition">¶</a></dt>
-<dd><p>Parallel counterpart of the <a class="reference internal" href="#flamo.processor.dsp.Delay" title="flamo.processor.dsp.Delay"><code class="xref py py-class docutils literal notranslate"><span class="pre">Delay</span></code></a> class.
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.Delay" title="flamo.processor.dsp.Delay"><code class="xref py py-class docutils literal notranslate"><span class="pre">Delay</span></code></a></p>
+<p>Parallel counterpart of the <a class="reference internal" href="#flamo.processor.dsp.Delay" title="flamo.processor.dsp.Delay"><code class="xref py py-class docutils literal notranslate"><span class="pre">Delay</span></code></a> class.
 For information about <strong>attributes</strong> and <strong>methods</strong> see <a class="reference internal" href="#flamo.processor.dsp.Delay" title="flamo.processor.dsp.Delay"><code class="xref py py-class docutils literal notranslate"><span class="pre">Delay</span></code></a>.</p>
 <dl class="simple">
 <dt>Shape:</dt><dd><ul class="simple">
@@ -598,8 +698,9 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Biquad">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">Biquad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'lowpass'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad" title="Link to this definition">¶</a></dt>
-<dd><p>Biquad filter class. Inherits from the <code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code> class.
-It supports class lowpass, highpass, and bandpass filters using <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook 
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code></p>
+<p>Biquad filter class.</p>
+<p>It supports class lowpass, highpass, and bandpass filters using <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook 
 formulas</a>, 
 which map the cut-off frequency <span class="math notranslate nohighlight">\(f_{c}\)</span> and gain  <span class="math notranslate nohighlight">\(g\)</span> parameters 
 to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> coefficients. 
@@ -660,8 +761,7 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.Biquad.get_freq_response">
 <span class="sig-name descname"><span class="pre">get_freq_response</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.get_freq_response" title="Link to this definition">¶</a></dt>
-<dd><p>Compute the frequency response of the filter.
-It calls the <a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter" title="flamo.functional.lowpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.lowpass_filter()</span></code></a>, <a class="reference internal" href="../functional.html#flamo.functional.highpass_filter" title="flamo.functional.highpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.highpass_filter()</span></code></a>, or <a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter" title="flamo.functional.bandpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.bandpass_filter()</span></code></a> functions based on the filter type.</p>
+<dd><p>Compute the frequency response of the filter.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -675,6 +775,36 @@ It calls the <a class="reference internal" href="../functional.html#flamo.functi
 <span class="sig-name descname"><span class="pre">get_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.get_map" title="Link to this definition">¶</a></dt>
 <dd><p>Get the mapping function <code class="xref py py-attr docutils literal notranslate"><span class="pre">map</span></code> to parameter values that ensure stability.
 The type of mapping is based on the filter type.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.Biquad.get_poly_coeff">
+<span class="sig-name descname"><span class="pre">get_poly_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.Biquad.get_poly_coeff" title="Link to this definition">¶</a></dt>
+<dd><p>Computes the polynomial coefficients for the specified filter type.
+It calls the <a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter" title="flamo.functional.lowpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.lowpass_filter()</span></code></a>, <a class="reference internal" href="../functional.html#flamo.functional.highpass_filter" title="flamo.functional.highpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.highpass_filter()</span></code></a>, or <a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter" title="flamo.functional.bandpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.bandpass_filter()</span></code></a> functions based on the filter type.</p>
+<dl>
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>param (torch.Tensor): A tensor containing the filter parameters.</p></li>
+</ul>
+<p>The shape of the tensor should be (batch_size, num_params, height, width). 
+The parameters are interpreted differently based on the filter type:
+- For “lowpass” and “highpass” filters, param[:, 0, :, :] represents 
+the cutoff frequency and param[:, 1, :, :] represents the gain.
+- For “bandpass” filters, param[:, 0, :, :] represents the lower 
+cutoff frequency, param[:, 1, :, :] represents the upper cutoff 
+frequency, and param[:, 2, :, :] represents the gain.</p>
+</dd>
+<dt><strong>Returns</strong>:       </dt><dd><ul class="simple">
+<li><p>H (torch.Tensor): The frequency response of the filter.</p></li>
+<li><p>B (torch.Tensor): The Fourier transformed numerator polynomial coefficients.</p></li>
+<li><p>A (torch.Tensor): The Fourier transformed denominator polynomial coefficients.</p></li>
+</ul>
+</dd>
+</dl>
+<p>The method uses the filter type specified in <cite>self.filter_type</cite> to determine 
+which filter to apply. It applies an aliasing envelope decay to the filter coefficients.
+Zero values in the denominator polynomial coefficients are replaced with 
+a small constant to avoid division by zero.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -713,7 +843,8 @@ These coincide with</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.parallelBiquad">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">parallelBiquad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'lowpass'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelBiquad" title="Link to this definition">¶</a></dt>
-<dd><p>Parallel counterpart of the <a class="reference internal" href="#flamo.processor.dsp.Biquad" title="flamo.processor.dsp.Biquad"><code class="xref py py-class docutils literal notranslate"><span class="pre">Biquad</span></code></a> class.
+<dd><p>Bases: <a class="reference internal" href="#flamo.processor.dsp.Biquad" title="flamo.processor.dsp.Biquad"><code class="xref py py-class docutils literal notranslate"><span class="pre">Biquad</span></code></a></p>
+<p>Parallel counterpart of the <a class="reference internal" href="#flamo.processor.dsp.Biquad" title="flamo.processor.dsp.Biquad"><code class="xref py py-class docutils literal notranslate"><span class="pre">Biquad</span></code></a> class.
 For information about <strong>attributes</strong> and <strong>methods</strong> see <a class="reference internal" href="#flamo.processor.dsp.Biquad" title="flamo.processor.dsp.Biquad"><code class="xref py py-class docutils literal notranslate"><span class="pre">flamo.processor.dsp.Biquad</span></code></a>.</p>
 <dl class="simple">
 <dt>Shape:</dt><dd><ul class="simple">
@@ -752,8 +883,7 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.dsp.parallelBiquad.get_freq_response">
 <span class="sig-name descname"><span class="pre">get_freq_response</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelBiquad.get_freq_response" title="Link to this definition">¶</a></dt>
-<dd><p>Compute the frequency response of the filter.
-It calls the <a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter" title="flamo.functional.lowpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.lowpass_filter()</span></code></a>, <a class="reference internal" href="../functional.html#flamo.functional.highpass_filter" title="flamo.functional.highpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.highpass_filter()</span></code></a>, or <a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter" title="flamo.functional.bandpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.bandpass_filter()</span></code></a> functions based on the filter type.</p>
+<dd><p>Compute the frequency response of the filter.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -769,14 +899,44 @@ It calls the <a class="reference internal" href="../functional.html#flamo.functi
 The type of mapping is based on the filter type.</p>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.parallelBiquad.get_poly_coeff">
+<span class="sig-name descname"><span class="pre">get_poly_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.parallelBiquad.get_poly_coeff" title="Link to this definition">¶</a></dt>
+<dd><p>Computes the polynomial coefficients for the specified filter type.
+It calls the <a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter" title="flamo.functional.lowpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.lowpass_filter()</span></code></a>, <a class="reference internal" href="../functional.html#flamo.functional.highpass_filter" title="flamo.functional.highpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.highpass_filter()</span></code></a>, or <a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter" title="flamo.functional.bandpass_filter"><code class="xref py py-func docutils literal notranslate"><span class="pre">flamo.functional.bandpass_filter()</span></code></a> functions based on the filter type.</p>
+<dl>
+<dt><strong>Args</strong>:</dt><dd><ul class="simple">
+<li><p>param (torch.Tensor): A tensor containing the filter parameters.</p></li>
+</ul>
+<p>The shape of the tensor should be (batch_size, num_params, height). 
+The parameters are interpreted differently based on the filter type:
+- For “lowpass” and “highpass” filters, param[:, 0, :] represents 
+the cutoff frequency and param[:, 1, :] represents the gain.
+- For “bandpass” filters, param[:, 0, :] represents the lower 
+cutoff frequency, param[:, 1, :] represents the upper cutoff 
+frequency, and param[:, 2, :] represents the gain.</p>
+</dd>
+<dt><strong>Returns</strong>:       </dt><dd><ul class="simple">
+<li><p>H (torch.Tensor): The frequency response of the filter.</p></li>
+<li><p>B (torch.Tensor): The Fourier transformed numerator polynomial coefficients.</p></li>
+<li><p>A (torch.Tensor): The Fourier transformed denominator polynomial coefficients.</p></li>
+</ul>
+</dd>
+</dl>
+<p>The method uses the filter type specified in <cite>self.filter_type</cite> to determine 
+which filter to apply. It applies an aliasing envelope decay to the filter coefficients.
+Zero values in the denominator polynomial coefficients are replaced with 
+a small constant to avoid division by zero.</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="flamo.processor.dsp.SVF">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">SVF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF" title="Link to this definition">¶</a></dt>
-<dd><p>IIR filter as a serially cascaded state variable filters (SVFs). 
-Inherits from the <code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code> class.
-Can be used to design a variety of filters such as lowpass, highpass, bandpass, lowshelf, highshelf, peaking, and notch filters.
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.dsp.</span></span><span class="sig-name descname"><span class="pre">SVF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_decay_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code></p>
+<p>IIR filter as a serially cascaded state variable filters (SVFs).</p>
+<p>Can be used to design a variety of filters such as lowpass, highpass, bandpass, lowshelf, highshelf, peaking, and notch filters.
 The filter coefficients are parameterized by the cut-off frequency (<span class="math notranslate nohighlight">\(f\)</span>) and resonance (<span class="math notranslate nohighlight">\(R\)</span>) parameters.
 The mixing coefficients (<span class="math notranslate nohighlight">\(m_{LP}\)</span>, <span class="math notranslate nohighlight">\(m_{BP}\)</span>, <span class="math notranslate nohighlight">\(m_{HP}\)</span>  for lowpass, bandpass, and highpass filters) determine the contribution of each filter type in the cascaded structure.</p>
 <dl class="simple">
@@ -811,7 +971,7 @@ a_2 = f^2 - 2 R f + 1 \\\end{split}\end{aligned}\end{align} \]</div>
 <li><p>n_sections (int, optional): The number of cascaded filters. Default: 1.</p></li>
 <li><p>filter_type (str, optional): The type of filter to use. Options are {“lowpass”,”highpass”,”bandpass”,”lowshelf”,”highshelf”,”peaking”,”notch”,} Default: None.</p></li>
 <li><p>nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.</p></li>
-<li><p>map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: x.</p></li>
+<li><p>map (function, optional): The mapping function to apply to the raw parameters. Default: <code class="docutils literal notranslate"><span class="pre">lambda</span> <span class="pre">x:</span> <span class="pre">x</span></code>.</p></li>
 <li><p>requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.</p></li>
 <li><p>alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.</p></li>
 <li><p>device (str, optional): The device of the constructed tensors. Default: None.</p></li>
@@ -865,6 +1025,12 @@ a_2 = f^2 - 2 R f + 1 \\\end{split}\end{aligned}\end{align} \]</div>
 <dt class="sig sig-object py" id="flamo.processor.dsp.SVF.get_io">
 <span class="sig-name descname"><span class="pre">get_io</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.get_io" title="Link to this definition">¶</a></dt>
 <dd><p>Computes the number of input and output channels based on the size parameter.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.dsp.SVF.get_poly_coeff">
+<span class="sig-name descname"><span class="pre">get_poly_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.dsp.SVF.get_poly_coeff" title="Link to this definition">¶</a></dt>
+<dd><p>Computes the polynomial coefficients for the SVF filter</p>
 </dd></dl>
 
 <dl class="py method">
@@ -924,7 +1090,7 @@ where <span class="math notranslate nohighlight">\(f_s\)</span> is the sampling 
           
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
 <h1 class="logo"><a href="../index.html">FLAMO</a></h1>
 
@@ -935,86 +1101,32 @@ where <span class="math notranslate nohighlight">\(f_s\)</span> is the sampling 
 
 
 
-<h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Differentiable Digitial Signal Processor:</span></p>
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Processor:</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Transform.forward"><code class="docutils literal notranslate"><span class="pre">Transform.forward()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.assign_value"><code class="docutils literal notranslate"><span class="pre">DSP.assign_value()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.forward"><code class="docutils literal notranslate"><span class="pre">DSP.forward()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.get_gamma"><code class="docutils literal notranslate"><span class="pre">DSP.get_gamma()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.DSP.init_param"><code class="docutils literal notranslate"><span class="pre">DSP.init_param()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.check_input_shape"><code class="docutils literal notranslate"><span class="pre">Gain.check_input_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.check_param_shape"><code class="docutils literal notranslate"><span class="pre">Gain.check_param_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.forward"><code class="docutils literal notranslate"><span class="pre">Gain.forward()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">Gain.get_freq_convolve()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.get_io"><code class="docutils literal notranslate"><span class="pre">Gain.get_io()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Gain.initialize_class"><code class="docutils literal notranslate"><span class="pre">Gain.initialize_class()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Matrix.initialize_class"><code class="docutils literal notranslate"><span class="pre">Matrix.initialize_class()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Matrix.matrix_gallery"><code class="docutils literal notranslate"><span class="pre">Matrix.matrix_gallery()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.check_input_shape"><code class="docutils literal notranslate"><span class="pre">Delay.check_input_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.check_param_shape"><code class="docutils literal notranslate"><span class="pre">Delay.check_param_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.forward"><code class="docutils literal notranslate"><span class="pre">Delay.forward()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.get_delays"><code class="docutils literal notranslate"><span class="pre">Delay.get_delays()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">Delay.get_freq_convolve()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.get_freq_response"><code class="docutils literal notranslate"><span class="pre">Delay.get_freq_response()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.get_io"><code class="docutils literal notranslate"><span class="pre">Delay.get_io()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.init_param"><code class="docutils literal notranslate"><span class="pre">Delay.init_param()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.initialize_class"><code class="docutils literal notranslate"><span class="pre">Delay.initialize_class()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.s2sample"><code class="docutils literal notranslate"><span class="pre">Delay.s2sample()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Delay.sample2s"><code class="docutils literal notranslate"><span class="pre">Delay.sample2s()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelDelay.check_param_shape"><code class="docutils literal notranslate"><span class="pre">parallelDelay.check_param_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelDelay.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">parallelDelay.get_freq_convolve()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelDelay.get_freq_response"><code class="docutils literal notranslate"><span class="pre">parallelDelay.get_freq_response()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelDelay.get_io"><code class="docutils literal notranslate"><span class="pre">parallelDelay.get_io()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.check_param_shape"><code class="docutils literal notranslate"><span class="pre">Biquad.check_param_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.get_freq_response"><code class="docutils literal notranslate"><span class="pre">Biquad.get_freq_response()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.get_io"><code class="docutils literal notranslate"><span class="pre">Biquad.get_io()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.get_map"><code class="docutils literal notranslate"><span class="pre">Biquad.get_map()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.get_size"><code class="docutils literal notranslate"><span class="pre">Biquad.get_size()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.init_param"><code class="docutils literal notranslate"><span class="pre">Biquad.init_param()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.Biquad.initialize_class"><code class="docutils literal notranslate"><span class="pre">Biquad.initialize_class()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.check_param_shape"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.check_param_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.get_freq_convolve"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_freq_convolve()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.get_freq_response"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_freq_response()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.get_io"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_io()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad.get_map"><code class="docutils literal notranslate"><span class="pre">parallelBiquad.get_map()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.check_input_shape"><code class="docutils literal notranslate"><span class="pre">SVF.check_input_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.check_param_shape"><code class="docutils literal notranslate"><span class="pre">SVF.check_param_shape()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.get_freq_response"><code class="docutils literal notranslate"><span class="pre">SVF.get_freq_response()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.get_io"><code class="docutils literal notranslate"><span class="pre">SVF.get_io()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.map_param2svf"><code class="docutils literal notranslate"><span class="pre">SVF.map_param2svf()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.param2R"><code class="docutils literal notranslate"><span class="pre">SVF.param2R()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.param2freq"><code class="docutils literal notranslate"><span class="pre">SVF.param2freq()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#flamo.processor.dsp.SVF.param2mix"><code class="docutils literal notranslate"><span class="pre">SVF.param2mix()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.FFTAntiAlias"><code class="docutils literal notranslate"><span class="pre">FFTAntiAlias</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.iFFTAntiAlias"><code class="docutils literal notranslate"><span class="pre">iFFTAntiAlias</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.HouseholderMatrix"><code class="docutils literal notranslate"><span class="pre">HouseholderMatrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
@@ -1040,16 +1152,6 @@ where <span class="math notranslate nohighlight">\(f_s\)</span> is the sampling 
   </ul></li>
 </ul>
 </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -1066,8 +1168,8 @@ where <span class="math notranslate nohighlight">\(f_s\)</span> is the sampling 
       &#169;2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.3.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
       |
       <a href="../_sources/processor/dsp.rst.txt"
