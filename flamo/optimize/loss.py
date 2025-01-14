@@ -14,6 +14,8 @@ class sparsity_loss(nn.Module):
         except:
             A = core.feedback_loop.feedback.mixing_matrix.map(core.feedback_loop.feedback.mixing_matrix.param)
         N = A.shape[-1]
+        if len(A.shape) == 3:
+            return torch.mean((torch.sum(torch.abs(A), dim=(-2, -1)) - N*np.sqrt(N))/(N*(1 - np.sqrt(N))))
         # A = torch.matrix_exp(skew_matrix(A))
         return -(torch.sum(torch.abs(A)) - N*np.sqrt(N))/(N*(np.sqrt(N)-1))
     
