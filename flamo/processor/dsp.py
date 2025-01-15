@@ -22,11 +22,10 @@ class Transform(nn.Module):
 
     The transformation is a callable (e.g. :class:`lambda` expression, function, or :class:`nn.Module`). 
 
-        **Args / Attributes**:
+        **Arguments / Attributes**:
             - **transform** (callable): The transformation function to be applied to the input. Default: ``lambda x: x``  
             - **device** (str): The device of the constructed tensor, if any. Default: None.
-        **Methods**:
-            - forward(x): Applies the transformation to the input.  
+ 
 
         Examples::
 
@@ -44,7 +43,7 @@ class Transform(nn.Module):
         r"""
         Calls transformation function on the input tensor.
 
-            **Args**:
+            **Arguments**:
                 x (Tensor): The input tensor.
 
             **Returns**:
@@ -60,11 +59,10 @@ class FFT(Transform):
     The :class:`FFT` class is an instance of the :class:`Transform` class in which transformation is the :func:`torch.fft.rfft` function.
     Computes the one dimensional Fourier transform of real-valued input. The input is interpreted as a real-valued signal in time domain. The output contains only the positive frequencies below the Nyquist frequency. 
     
-        **Args / Attributes**:
+        **Arguments / Attributes**:
             - **nfft** (int): The number of points to compute the FFT.
             - **norm** (str): The normalization mode for the FFT.  
-        **Methods**:
-            - forward(x): Apply the FFT to the input tensor x and return the one sided FFT.
+ 
 
     For details on the real FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
     """
@@ -83,11 +81,9 @@ class iFFT(Transform):
     The :class:`iFFT` class is an instance of the :class:`Transform` class in which transformation is the :func:`torch.fft.irfft` function.
     Computes the inverse of the Fourier transform of a real-valued tensor. The input is interpreted as a one-sided Hermitian signal in the Fourier domain. The output is a real-valued signal in the time domain.
     
-        **Args / Attributes**:
+        **Arguments / Attributes**:
             - **nfft** (int): The size of the FFT. Default: 2**11.
             - **norm** (str): The normalization mode. Default: "backward".
-        **Methods**:
-            - forward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor.
 
     For details on the inverse real FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
     """
@@ -112,8 +108,7 @@ class FFTAntiAlias(Transform):
             - **norm** (str): The normalization mode for the FFT.  
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.
             - **device** (str): The device of the constructed tensors. Default: None.
-        **Methods**:
-            - forward(x): Apply the FFT to the input tensor x and return the one sided FFT.
+
 
     For details on the FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
     """
@@ -137,13 +132,11 @@ class iFFTAntiAlias(Transform):
     The input is interpreted as a one-sided Hermitian signal in the Fourier domain evaluated outside of the unit circle to reduce time aliasing. 
     The output of the inverse FFT is a real-valued signal in the time domain multiplied by the anti-aliasing exponentially rising envelope.
 
-        **Args / Attributes**:
+        **Arguments / Attributes**:
             - **nfft** (int): The size of the FFT. Default: 2**11.
             - **norm** (str): The normalization mode. Default: "backward".
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.
             - **device** (str): The device of the constructed tensors. Default: None.
-        **Methods**:
-            - forward(x): Apply the inverse FFT to the input tensor x and returns its corresponding real valued tensor multiplied by an exponentially decaying envelope.
 
     For details on the inverse FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
     """
@@ -177,7 +170,7 @@ class DSP(nn.Module):
     by the exponentially decaying envelope :math:`\gamma(n)` after :attr:`nfft` samples. 
     The envelope :math:`\gamma(n)` is then applied to the time domain signal before computing the FFT
 
-        **Args / Attributes**:
+        **Arguments / Attributes**:
             - **size** (tuple): The shape of the parameters before mapping.
             - **nfft** (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
             - **map** (function, optional): The mapping function applied to the raw parameters. Default: ``lambda x: x``.
@@ -190,13 +183,8 @@ class DSP(nn.Module):
             - **fft** (function): The FFT function. Calls the :func:`torch.fft.rfft` function.
             - **ifft** (function): The Inverse FFT function. Calls the :func:`torch.fft.irfft`.
             - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
-            - **new_value** (int): Flag indicating if new values have been assigned.
-            
-        **Methods**:
-            - forward(x): Applies the processor core module to the input tensor x by multiplication.
-            - init_param(): Initializes the parameters of the DSP module.
-            - get_gamma(): Computes the gamma value used for time anti-aliasing envelope.
-            - assign_value(new_value, indx): Assigns new values to the parameters.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
+
     """
 
     def __init__(
@@ -224,7 +212,7 @@ class DSP(nn.Module):
         self.init_param()
         self.get_gamma()
 
-    def forward(self, x, **kwargs):
+    def forward(self, x, **kwArguments):
         r"""
         Forward method.
 
@@ -259,7 +247,7 @@ class DSP(nn.Module):
         r"""
         Assigns new values to the parameters.
 
-        **Args**:
+        **Arguments**:
             - new_value (torch.Tensor): New values to be assigned.
             - indx (tuple, optional): Specifies the index of the values to be assigned. Default: tuple([slice(None)]).
 
@@ -297,7 +285,7 @@ class Gain(DSP):
     :math:`N_{in}` is the number of input channels, and :math:`N_{out}` is the number of output channels.
     Ellipsis :math:`(...)` represents additional dimensions.
 
-        **Args / Attributes**:
+        **Arguments / Attributes**:
             - **size** (tuple): The size of the gain parameters. Default: (1, 1).
             - **nfft** (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
             - **map** (function): A mapping function applied to the raw parameters. Default: ``lambda x: x``.
@@ -311,13 +299,9 @@ class Gain(DSP):
             - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
             - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
             - **new_value** (int): Flag indicating if new values have been assigned.
-            
-        **Methods**:
-            - forward(x): Applies the Gain module to the input tensor x by multiplication.
-            - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
-            - check_param_shape(): Checks if the shape of the gain parameters is valid.
-            - get_freq_convolve(): Computes the frequency convolution function.
-            - initialize_class(): Initializes the Gain module.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.
+
     """
 
     def __init__(
@@ -343,9 +327,9 @@ class Gain(DSP):
         r"""
         Applies the Gain module to the input tensor x.
 
-            **Args**:
+            **Arguments**:
                 **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
-                **ext_param** (torch.Tensor, optional): Parameter values from outer modules. Default: None.
+                **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
             **Returns**:
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
@@ -362,7 +346,7 @@ class Gain(DSP):
         r"""
         Checks if the dimensions of the input tensor x are compatible with the module.
 
-            **Args**:
+            **Arguments**:
                 **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
         """
         if (self.input_channels) != (x.shape[2]):
@@ -382,7 +366,7 @@ class Gain(DSP):
 
         The frequency convolution is computed using the :func:`torch.einsum` function.
 
-            **Args**:
+            **Arguments**:
                 **x** (torch.Tensor): Input tensor.
 
             **Returns**:
@@ -453,9 +437,9 @@ class parallelGain(Gain):
         r"""
         Computes the frequency convolution function.
 
-        The frequency convolution is computed using the einsum function.
+        The frequency convolution is computed using the :func:`torch.einsum` function.
 
-            **Args**:
+            **Arguments**:
                 **x** (torch.Tensor): Input tensor.
 
             **Returns**:
@@ -483,7 +467,7 @@ class Matrix(Gain):
     frequency response of the input signal. The input tensor is multiplied
     with the matrix to produce the output tensor. 
 
-        **Args / Attributes**:
+        **Arguments / Attributes**:
             - **size** (tuple, optional): The size of the matrix. Default: (1, 1).
             - **nfft** (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
             - **map** (function, optional): The mapping function to apply to the raw matrix elements. Default: ``lambda x: x``.
@@ -496,15 +480,12 @@ class Matrix(Gain):
             - **param** (nn.Parameter): The parameters of the Matrix module.
             - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
             - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
             - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
-            
-        **Methods**:
-            - forward(x): Applies the Matrix module to the input tensor x by multiplication.
-            - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
-            - check_param_shape(): Checks if the shape of the matrix parameters is valid.
-            - get_freq_convolve(): Computes the frequency convolution function.
-            - initialize_class(): Initializes the Matrix module.
-            - matrix_gallery(): Generates the matrix based on the specified matrix type.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.
+
+
     """
 
     def __init__(
@@ -568,7 +549,7 @@ class HouseholderMatrix(Gain):
 
     where :math:`\mathbf{I}` is the identity matrix and :math:`u` is a unitary vector.
 
-        **Args**:
+        **Arguments**:
             - **size** (tuple, optional): Size of the matrix. Must be a square matrix. Defaults to (1, 1).
             - **nfft** (int, optional): Number of FFT points. Defaults to 2**11.
             - **requires_grad** (bool, optional): If True, gradients will be computed for the parameters. Defaults to False.
@@ -580,14 +561,12 @@ class HouseholderMatrix(Gain):
             - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
             - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
             - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
             - **map** (function): A mapping function applied to the raw parameter vector :math:`u` to make it unitary.
-            
-        **Methods**:
-            - forward(x): Applies the Householder matrix to the input tensor x using vector multiplications.
-            - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
-            - check_param_shape(): Checks if the shape of the matrix parameters is valid.
-            - get_freq_convolve(): Computes the frequency convolution function.
-            - initialize_class(): Initializes the module.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.    
+
+
     """
     def __init__(
         self,
@@ -621,9 +600,9 @@ class HouseholderMatrix(Gain):
 
             \mathbf{U}x = uu^T x = \sum_{n=1}^{N} u_n (u^T x)_n        
 
-        **Args**:
+        **Arguments**:
             **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N, ...)`.
-            **ext_param** (torch.Tensor, optional): Parameter values from outer modules. Default: None.
+            **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
         **Returns**:
             torch.Tensor: Output tensor of shape :math:`(B, M, N, ...)`.
         """
@@ -644,7 +623,7 @@ class HouseholderMatrix(Gain):
         r"""
         Checks if the dimensions of the input tensor x are compatible with the module.
 
-            **Args**:
+            **Arguments**:
                 **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
         """
         if (self.size[0]) != (x.shape[2]):
@@ -670,8 +649,8 @@ class Filter(DSP):
     The input tensor is expected to be a complex-valued tensor representing the
     frequency response of the input signal. The input tensor is then convolved in
     frequency domain with the filter frequency responses to produce the output tensor.
-    The filter parameters correspond to the filter impulse responses in case the mapping
-    function is ``map=lambda x: x``.
+    In case the mapping function is ``map=lambda x: x`` (default), the filter parameters 
+    correspond to the filter impulse responses.
 
     Shape:
         - input: :math:`(B, M, N_{in}, ...)`
@@ -680,38 +659,30 @@ class Filter(DSP):
 
     where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
     :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
-    and :math:`N_{taps}` is the number of filter parameters per input-output channel pair.
+    and :math:`N_{taps}` is the number of filter parameters per input-output channel pair. By default, :math:`N_{taps}` 
+    correspond to the length of the FIR filters.
     Ellipsis :math:`(...)` represents additional dimensions.
 
-        **Args**:
-            - size (tuple): The size of the filter parameters. Default: (1, 1, 1).
-            - nfft (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
-            - map (function): A mapping function applied to the raw parameters. Default: ``lambda x: x``.
-            - requires_grad (bool): Whether the filter parameters require gradients. Default: False.
-            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-            - device (str): The device of the constructed tensors. Default: None.
+        **Arguments / Attributes**:
+            - **size** (tuple): The size of the filter parameters. Default: (1, 1, 1).
+            - **nfft** (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - **map** (function): A mapping function applied to the raw parameters. Default: ``lambda x: x``.
+            - **requires_grad** (bool): Whether the filter parameters require gradients. Default: False.
+            - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - **device** (str): The device of the constructed tensors. Default: None.
             
         **Attributes**:
-            - size (tuple): The size of the filter parameters.
-            - nfft (int): The number of FFT points required to compute the frequency response.
-            - map (function): A mapping function applied to the raw parameters.
-            - requires_grad (bool): Whether the filter parameters require gradients.
-            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
-            - param (nn.Parameter): The parameters of the Filter module.
-            - fft (function): The FFT function. Calls the torch.fft.rfft function.
-            - ifft (function): The Inverse FFT function. Calls the torch.fft.irfft.
-            - gamma (torch.Tensor): The gamma value used for time anti-aliasing envelope.
-            - freq_response (torch.Tensor): The frequency response of the filter.
-            - freq_convolve (function): The frequency convolution function.
-            - device (str): The device of the constructed tensors.
+            - **param** (nn.Parameter): The parameters of the Filter module.
+            - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
+            - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
+            - **freq_response** (torch.Tensor): The frequency response of the filter.
+            - **freq_convolve** (function): The frequency convolution function.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.
 
-        **Methods**:
-            - forward(x): Applies the Filter module to the input tensor x by convolution in frequency domain.
-            - check_input_shape(x): Checks if the dimensions of the input tensor x are compatible with the module.
-            - check_param_shape(): Checks if the shape of the filter parameters is valid.
-            - get_freq_response(): Computes the frequency response of the filter.
-            - get_freq_convolve(): Computes the frequency convolution function.
-            - initialize_class(): Initializes the Filter module.
+
     """
 
     def __init__(
@@ -737,9 +708,9 @@ class Filter(DSP):
         r"""
         Applies the Filter module to the input tensor x.
 
-            **Args**:
-                x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
-                ext_paran (torch.Tensor, optional): Parameter values from outer modules. Default: None.
+            **Arguments**:
+                **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+                **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
 
             **Returns**:
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
@@ -757,8 +728,8 @@ class Filter(DSP):
         r"""
         Checks if the dimensions of the input tensor x are compatible with the module.
 
-            **Args**:
-                x (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+            **Arguments**:
+                **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
         """
         if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
             raise ValueError(
@@ -790,10 +761,10 @@ class Filter(DSP):
         r"""
         Computes the frequency convolution function.
 
-        The frequency convolution is computed using the einsum function.
+        The frequency convolution is computed using the :func:`torch.einsum` function.
 
-            **Args**:
-                x (torch.Tensor): Input tensor.
+            **Arguments**:
+                **x** (torch.Tensor): Input tensor.
 
             **Returns**:
                 torch.Tensor: Output tensor after frequency convolution.
@@ -804,7 +775,7 @@ class Filter(DSP):
 
     def initialize_class(self):
         r"""
-        Initializes the Gain module.
+        Initializes the Filter module.
 
         This method checks the shape of the gain parameters, computes the frequency response of the filter, 
         and computes the frequency convolution function.
@@ -820,91 +791,6 @@ class Filter(DSP):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
-
-class ScatteringMatrix(Filter):
-
-    def __init__(
-        self,
-        size: tuple = (1, 1, 1),
-        nfft: int = 2**11,
-        sparsity: int = 3, 
-        gain_per_sample: float = 0.9999, 
-        pulse_size: int = 1, 
-        m_L: torch.tensor = None, 
-        m_R: torch.tensor = None, 
-        requires_grad: bool = False,
-        alias_decay_db: float = 0.0,
-        device=None
-    ):  
-        self.sparsity = sparsity
-        self.gain_per_sample = gain_per_sample
-        self.pulse_size = pulse_size
-        self.m_L = m_L
-        self.m_R = m_R
-        map = lambda x: torch.matrix_exp(skew_matrix(x))
-        assert size[1] == size[2], "Matrix must be square"
-        super().__init__(
-            size=size,
-            nfft=nfft,
-            map=map,
-            requires_grad=requires_grad,
-            alias_decay_db=alias_decay_db,
-            device=device
-        )
-
-    def get_freq_convolve(self):
-        r"""
-        Computes the frequency convolution function.
-
-        The frequency convolution is computed using the einsum function.
-
-            **Args**:
-                x (torch.Tensor): Input tensor.
-
-            **Returns**:
-                torch.Tensor: Output tensor after frequency convolution.
-        """
-        self.freq_convolve = lambda x, param: torch.einsum(
-            "fmn,bfn...->bfm...", self.freq_response(param), x
-        )
-
-
-    def get_freq_response(self):
-        r"""
-        Computes the frequency response of the filter.
-
-        The mapping function is applied to the filter parameters to obtain the filter impulse responses.
-        Then, the time anti-aliasing envelope is computed and applied to the impulse responses. Finally,
-        the frequency response is obtained by computing the FFT of the filter impulse responses.
-        """
-        L = (sum(self.map_filter.shifts).max()+1).item() + self.m_L.max().item() + self.m_R.max().item()   
-        self.freq_response = lambda param: self.fft(
-            self.map_filter(self.map(param)) * (self.gamma ** torch.arange(0, L, device=self.device)).view(
-            -1, *tuple([1 for i in self.size[1:]])
-            )
-        )
-
-    def initialize_class(self):
-        r"""
-        Initializes the Gain module.
-
-        This method checks the shape of the gain parameters, computes the frequency response of the filter, 
-        and computes the frequency convolution function.
-        """
-        self.map_filter = ScatteringMapping(
-            self.size[-1],
-            n_stages=self.size[0]-1,
-            sparsity=self.sparsity,
-            gain_per_sample=self.gain_per_sample,
-            pulse_size=self.pulse_size,
-            m_L=self.m_L,
-            m_R=self.m_R,
-            device=self.device
-        )
-        self.check_param_shape()
-        self.get_io()
-        self.get_freq_response()
-        self.get_freq_convolve()
 
 class parallelFilter(Filter):
     """
@@ -946,15 +832,14 @@ class parallelFilter(Filter):
         """
         assert len(self.size) == 2, "Filter must be 1D, for 2D filters use Filter module."
 
-    def get_freq_convolve(self):#NOTE: is it correct to say that there is an input argument in this case?
-                                #      Same, is it correct to say that it returns something?
+    def get_freq_convolve(self):
         r"""
         Computes the frequency convolution function.
 
-        The frequency convolution is computed using the einsum function.
+        The frequency convolution is computed using the :func:`torch.einsum` function.
 
-            **Args**:
-                x (torch.Tensor): Input tensor.
+            **Arguments**:
+                **x** (torch.Tensor): Input tensor.
 
             **Returns**:
                 torch.Tensor: Output tensor after frequency convolution.
@@ -970,9 +855,151 @@ class parallelFilter(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
+class ScatteringMatrix(Filter):
+    r"""
+    A class representing a set of Scattering Filter matrix.
+
+    The :class:`ScatteringMatrix` was designed as filter feedback matrix of the 
+     Feedback Delay Network (FDN) reverberator structure. 
+
+    It is parameterized as a set of :math:`K` orthogonal mixing matrices :math:`\mathbf{U}_k` each followed by a set of parallel delays. 
+
+    .. math::
+
+        \mathbf{U}(z) = \mathbf{D}_{\mathbf{m}_K}(z)\mathbf{U}_K\cdots\mathbf{U}_2\mathbf{D}_{\mathbf{m}_1}(z)\mathbf{U}_1\mathbf{D}_{\mathbf{m}_0}(z),
+
+    where :math:`\mathbf{U}_1, \dots, \mathbf{U}_K` are :math:`N \times N` orthogonal matrices and :math:`\mathbf{m}_0, \dots, \mathbf{m}_K` are vectors of :math:`N` integer delays.
+    This parameterization ensures that the scattering matrix is paraunitary and lossless.
+    For more details, refer to the paper `Scattering in Feedback Delay Networks <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9113451>`_ by Schlecht, S. J. et al.
+    
+    The input tensor is expected to be a complex-valued tensor representing the
+    frequency response of the input signal. The input tensor is then convolved in
+    frequency domain with the filter frequency responses to produce the output tensor.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(N_{taps}, N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
+    and :math:`N_{taps}` is the number of filter parameters per input-output channel pair. By default, :math:`N_{taps}` 
+    correspond to the length of the FIR filters.
+    Ellipsis :math:`(...)` represents additional dimensions.
+
+        **Arguments / Attributes**:
+            - **size** (tuple): The size of the filter parameters. Default: (1, 1, 1).
+            - **nfft** (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - **sparsity** (int): The sparsity of the scattering matrix. Default: 3.
+            - **gain_per_sample** (float): The gain per sample. This is useful when ensuring homogeneous decay in FDNs Default: 0.9999.
+            - **pulse_size** (int): The size of the filter's taps. Default: 1.
+            - **m_L** (torch.tensor): The leftmost delay vector. Default: None.
+            - **m_R** (torch.tensor): The rightmost delay vector. Default: None.
+            - **requires_grad** (bool): Whether the filter parameters require gradients. Default: False.
+            - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - **device** (str): The device of the constructed tensors. Default: None.
+            
+        **Attributes**:
+            - **param** (nn.Parameter): The parameters of the Filter module.
+            - **map** (function): Mapping function to ensure orthogonality of :math:`\mathbf{U}_k`.
+            - **map_filter** (ScatteringMapping): Mapping function to generate the filter matrix. 
+            - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
+            - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
+            - **freq_response** (torch.Tensor): The frequency response of the filter.
+            - **freq_convolve** (function): The frequency convolution function.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.
+
+
+    """
+    def __init__(
+        self,
+        size: tuple = (1, 1, 1),
+        nfft: int = 2**11,
+        sparsity: int = 3, 
+        gain_per_sample: float = 0.9999, 
+        pulse_size: int = 1, 
+        m_L: torch.tensor = None, 
+        m_R: torch.tensor = None, 
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device=None
+    ):  
+        self.sparsity = sparsity
+        self.gain_per_sample = gain_per_sample
+        self.pulse_size = pulse_size
+        self.m_L = m_L
+        self.m_R = m_R
+        map = lambda x: torch.matrix_exp(skew_matrix(x))
+        assert size[1] == size[2], "Matrix must be square"
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device
+        )
+
+    def get_freq_convolve(self):
+        r"""
+        Computes the frequency convolution function.
+
+        The frequency convolution is computed using the :func:`torch.einsum` function.
+
+            **Arguments**:
+                **x** (torch.Tensor): Input tensor.
+
+            **Returns**:
+                torch.Tensor: Output tensor after frequency convolution.
+        """
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fmn,bfn...->bfm...", self.freq_response(param), x
+        )
+
+
+    def get_freq_response(self):
+        r"""
+        Computes the frequency response of the filter.
+
+        The mapping function is applied to the filter parameters to obtain the filter impulse responses.
+        Then, the time anti-aliasing envelope is computed and applied to the impulse responses. Finally,
+        the frequency response is obtained by computing the FFT of the filter impulse responses.
+        """
+        L = (sum(self.map_filter.shifts).max()+1).item() + self.m_L.max().item() + self.m_R.max().item()   
+        self.freq_response = lambda param: self.fft(
+            self.map_filter(self.map(param)) * (self.gamma ** torch.arange(0, L, device=self.device)).view(
+            -1, *tuple([1 for i in self.size[1:]])
+            )
+        )
+
+    def initialize_class(self):
+        r"""
+        Initializes the ScatteringMatrix module.
+
+        This method creates the mapping to generate the filter matrix, checks the shape of the gain parameters, computes the frequency response of the filter, 
+        and computes the frequency convolution function.
+        """
+        self.map_filter = ScatteringMapping(
+            self.size[-1],
+            n_stages=self.size[0]-1,
+            sparsity=self.sparsity,
+            gain_per_sample=self.gain_per_sample,
+            pulse_size=self.pulse_size,
+            m_L=self.m_L,
+            m_R=self.m_R,
+            device=self.device
+        )
+        self.check_param_shape()
+        self.get_io()
+        self.get_freq_response()
+        self.get_freq_convolve()
+
 class Biquad(Filter):
     r"""
-    Biquad filter class. 
+    A class representing a set of Biquad filters.
 
     It supports class lowpass, highpass, and bandpass filters using `RBJ cookbook 
     formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_, 
@@ -981,13 +1008,14 @@ class Biquad(Filter):
     The transfer function of the filter is given by
     
     .. math::
+
         H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
 
     The mapping from learnable parameters :math:`\mathbf{f_c}` and :math:`\mathbf{g}` are defined by :meth:`flamo.functional.lowpass_filter`, :meth:`flamo.functional.highpass_filter`, :meth:`flamo.functional.bandpass_filter`.
 
     Shape:
         - input: :math:`(B, M, N_{\text{in}}, ...)`
-        - param: :math:`(K, P, N_{\text{out}}, N_{\text{in}})`  # TODO change so (P, K, ..)
+        - param: :math:`(K, P, N_{\text{out}}, N_{\text{in}})`
         - freq_response: :math:`(M, N_{\text{out}}, N_{\text{in}})`
         - output: :math:`(B, M, N_{\text{out}}, ...)`
 
@@ -996,29 +1024,29 @@ class Biquad(Filter):
     The :attr:'param' attribute represent the biquad filter coefficents. The first dimension of the :attr:'param' tensor corresponds to the number of filters :math:`K`, the second dimension corresponds to the number of filter parameters :math:`P`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).
 
-        **Args**:
-            - size (tuple, optional): Size of the filter. Default: (1, 1).
-            - n_sections (int, optional): Number of filters. Default: 1.
-            - filter_type (str, optional): Type of the filter. Must be one of "lowpass", "highpass", or "bandpass". Default: "lowpass".
-            - nfft (int, optional): Number of points for FFT. Default: 2048.
-            - fs (int, optional): Sampling frequency. Default: 48000.
-            - requires_grad (bool, optional): Whether the filter parameters require gradient computation. Default: True.
-            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-            - device (str, optional): The device of the constructed tensors. Default: None.
+        **Arguments / Attributes**:
+            - **size** (tuple, optional): Size of the filter. Default: (1, 1).
+            - **n_sections** (int, optional): Number of filters. Default: 1.
+            - **filter_type** (str, optional): Type of the filter. Must be one of "lowpass", "highpass", or "bandpass". Default: "lowpass".
+            - **nfft** (int, optional): Number of points for FFT. Default: 2048.
+            - **fs** (int, optional): Sampling frequency. Default: 48000.
+            - **requires_grad** (bool, optional): Whether the filter parameters require gradient computation. Default: True.
+            - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - **device** (str, optional): The device of the constructed tensors. Default: None.
             
         **Attributes**:
-            - filter_type (str): Type of the filter.
-            - fs (int): Sampling frequency.
-            - freq_response (torch.Tensor): Frequency response of the filter.
-            - param (nn.Parameter): Parameters of the Biquad filter.
+            - **param** (nn.Parameter): The parameters of the Filter module.
+            - **map** (function): Mapping function generated by get_map according to :attr:`filter_type`.
+            - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
+            - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
+            - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
+            - **freq_response** (torch.Tensor): The frequency response of the filter.
+            - **freq_convolve** (function): The frequency convolution function.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.    
 
-        **Methods**:
-            - get_size(): Get the size of the filter based on the filter type.
-            - get_freq_response(): Compute the frequency response of the filter.
-            - get_map(): Get the mapping function for parameter values based on the filter type.
-            - init_param(): Initialize the filter parameters.
-            - check_param_shape(): Check the shape of the filter parameters.
-            - initialize_class(): Initialize the Biquad class.
     """
     def __init__(
         self,
@@ -1032,6 +1060,7 @@ class Biquad(Filter):
         device=None
     ):
         assert filter_type in ["lowpass", "highpass", "bandpass"], "Invalid filter type"
+        self.n_sections = n_sections
         self.filter_type = filter_type
         self.fs = fs
         self.device = device
@@ -1077,25 +1106,22 @@ class Biquad(Filter):
         Computes the polynomial coefficients for the specified filter type.
         It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
 
-        **Args**:
-            - param (torch.Tensor): A tensor containing the filter parameters. 
+        **Arguments**:
+            **param** (torch.Tensor): A tensor containing the filter parameters. 
             The shape of the tensor should be (batch_size, num_params, height, width). 
             The parameters are interpreted differently based on the filter type:
-            - For "lowpass" and "highpass" filters, param[:, 0, :, :] represents 
-            the cutoff frequency and param[:, 1, :, :] represents the gain.
-            - For "bandpass" filters, param[:, 0, :, :] represents the lower 
-            cutoff frequency, param[:, 1, :, :] represents the upper cutoff 
-            frequency, and param[:, 2, :, :] represents the gain.
+                - For "lowpass" and "highpass" filters, param[:, 0, :, :] represents the cutoff frequency and param[:, 1, :, :] represents the gain.
+                - For "bandpass" filters, param[:, 0, :, :] represents the lower cutoff frequency, param[:, 1, :, :] represents the upper cutoff frequency, and param[:, 2, :, :] represents the gain.
+
         **Returns**:       
-            - H (torch.Tensor): The frequency response of the filter.
-            - B (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
-            - A (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
+            **H** (torch.Tensor): The frequency response of the filter.
+            **B** (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
+            **A** (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
 
 
-        The method uses the filter type specified in `self.filter_type` to determine 
-        which filter to apply. It applies an aliasing envelope decay to the filter coefficients.
-        Zero values in the denominator polynomial coefficients are replaced with 
-        a small constant to avoid division by zero.
+        The method uses the filter type specified in :attr:`filter_type` to determine 
+        which filter to apply. It applies a anti time-aliasing envelope decay to the filter coefficients.
+        Zero values in the denominator polynomial coefficients are replaced with a small constant to avoid division by zero.
         """
         match self.filter_type:
             case "lowpass":
@@ -1119,7 +1145,7 @@ class Biquad(Filter):
     def get_map(self):
         r"""
         Get the mapping function :attr:`map` to parameter values that ensure stability.
-        The type of mapping is based on the filter type.
+        The type of mapping is based on :attr:`filter_type`.
         """
         match self.filter_type:
             case "lowpass" | "highpass":
@@ -1245,22 +1271,20 @@ class parallelBiquad(Biquad):
         Computes the polynomial coefficients for the specified filter type.
         It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
 
-        **Args**:
-            - param (torch.Tensor): A tensor containing the filter parameters. 
+        **Arguments**:
+            **param** (torch.Tensor): A tensor containing the filter parameters. 
             The shape of the tensor should be (batch_size, num_params, height). 
             The parameters are interpreted differently based on the filter type:
-            - For "lowpass" and "highpass" filters, param[:, 0, :] represents 
-            the cutoff frequency and param[:, 1, :] represents the gain.
-            - For "bandpass" filters, param[:, 0, :] represents the lower 
-            cutoff frequency, param[:, 1, :] represents the upper cutoff 
-            frequency, and param[:, 2, :] represents the gain.
+                - For "lowpass" and "highpass" filters, param[:, 0, :] represents the cutoff frequency and param[:, 1, :] represents the gain.
+                - For "bandpass" filters, param[:, 0, :] represents the lower cutoff frequency, param[:, 1, :] represents the upper cutoff frequency, and param[:, 2, :] represents the gain.
+        
         **Returns**:       
-            - H (torch.Tensor): The frequency response of the filter.
-            - B (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
-            - A (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
+            **H** (torch.Tensor): The frequency response of the filter.
+            **B** (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
+            **A** (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
 
 
-        The method uses the filter type specified in `self.filter_type` to determine 
+        The method uses the filter type specified in attr:`filter_type` to determine 
         which filter to apply. It applies an aliasing envelope decay to the filter coefficients.
         Zero values in the denominator polynomial coefficients are replaced with 
         a small constant to avoid division by zero.
@@ -1299,7 +1323,7 @@ class parallelBiquad(Biquad):
 
 class SVF(Filter):
     r"""
-    IIR filter as a serially cascaded state variable filters (SVFs). 
+    A class for IIR filters as a serially cascaded state variable filters (SVFs). 
 
     Can be used to design a variety of filters such as lowpass, highpass, bandpass, lowshelf, highshelf, peaking, and notch filters.
     The filter coefficients are parameterized by the cut-off frequency (:math:`f`) and resonance (:math:`R`) parameters.
@@ -1319,6 +1343,7 @@ class SVF(Filter):
     SVF parameters are used to express biquad filters as follows:
 
     .. math::
+
         H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
 
         b_0 = f^2 m_{LP} + f m_{BP} + m_{HP} \\
@@ -1335,30 +1360,31 @@ class SVF(Filter):
 
     where :math:`K` is the number of cascaded filters :attr:`n_sections`.
 
-        **Args**:
-            - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
-            - n_sections (int, optional): The number of cascaded filters. Default: 1.
-            - filter_type (str, optional): The type of filter to use. Options are {"lowpass","highpass","bandpass","lowshelf","highshelf","peaking","notch",} Default: None.
-            - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
-            - map (function, optional): The mapping function to apply to the raw parameters. Default: ``lambda x: x``.
-            - requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.
-            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-            - device (str, optional): The device of the constructed tensors. Default: None.
+        **Arguments / Attributes**:
+            - **size** (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
+            - **n_sections** (int, optional): The number of cascaded filters. Default: 1.
+            - **filter_type** (str, optional): The type of filter to use. Options are {"lowpass","highpass","bandpass","lowshelf","highshelf","peaking","notch",} Default: None.
+            - **nfft** (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - **fs** (int): The sampling frequency. Default: 48000.
+            - **map** (function, optional): The mapping function to apply to the raw parameters. Default: ``lambda x: x``.
+            - **requires_grad** (bool, optional): Whether the filter parameters require gradients. Default: False.
+            - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - **device** (str, optional): The device of the constructed tensors. Default: None.
             
         **Attributes**:
-            - fs (int): The sampling frequency.
-            - n_sections (int): The number of cascaded filters.
-            - filter_type (str): The type of filter.
-            - freq_response (torch.Tensor): The frequency response of the filter.
-            - param (nn.Parameter): The parameters of the SVF filter.
+            - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
+            - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
+            - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
+            - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
+            - **freq_response** (torch.Tensor): The frequency response of the filter.
+            - **freq_convolve** (function): The frequency convolution function.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.
 
-        **Methods**:
-            - check_param_shape(): Check the shape of the filter parameters.
-            - check_input_shape(x): Check if the dimensions of the input tensor x are compatible with the module.
-            - get_freq_response(): Compute the frequency response of the filter.
-            - get_freq_convolve(): Compute the frequency convolution function.
 
-    For more details, refer to the paper `Differentiable artificial reverberation <https://arxiv.org/abs/2105.13940>` by Lee, S. et al.
+    For more details, refer to the paper `Differentiable artificial reverberation <https://arxiv.org/abs/2105.13940>`_ by Lee, S. et al.
     """
 
     def __init__(
@@ -1405,8 +1431,8 @@ class SVF(Filter):
         r"""
         Checks if the input dimensions are compatible with the filter parameters.
 
-            **Args**:
-                - x (torch.Tensor): The input signal.
+            **Arguments**:
+                **x** (torch.Tensor): The input signal.
         """
         if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
             raise ValueError(
@@ -1450,7 +1476,9 @@ class SVF(Filter):
         where :math:`f_s` is the sampling frequency according to the formula:
 
         .. math::
+
             f = \text{tan}\left(\pi \cdot \text{sigmoid}(x) \cdot 0.5\right).
+
         """
         sigmoid = torch.div(1, 1 + torch.exp(-param))
         return torch.tan(torch.pi * sigmoid * 0.5)
@@ -1461,7 +1489,9 @@ class SVF(Filter):
         according to the formula:
 
         .. math::
+
             R = \text{softplus}(x) / log(2).
+
 
         """
         return torch.div(torch.log(torch.ones(1, device=self.device) + torch.exp(param)), torch.log(torch.tensor(2, device=self.device)))
@@ -1470,19 +1500,19 @@ class SVF(Filter):
         r"""
         Mapping function for the mixing coefficients relative to the filter type.
         
-        - lowpass: :math:`m_{LP} = G, m_{BP} = 0, m_{HP} = 0`.
-        - highpass: :math:`m_{LP} = 0, m_{BP} = 0, m_{HP} = G.`
-        - bandpass: :math:`m_{LP} = 0, m_{BP} = G, m_{HP} = 0.`
-        - lowshelf: :math:`m_{LP} = 1, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = G.`
-        - highshelf: :math:`m_{LP} = G, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = 1.`
-        - peaking | notch: :math:`m_{LP} = 1, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = 1.`
+        - **lowpass**: :math:`m_{LP} = G, m_{BP} = 0, m_{HP} = 0`.
+        - **highpass**: :math:`m_{LP} = 0, m_{BP} = 0, m_{HP} = G.`
+        - **bandpass**: :math:`m_{LP} = 0, m_{BP} = G, m_{HP} = 0.`
+        - **lowshelf**: :math:`m_{LP} = 1, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = G.`
+        - **highshelf**: :math:`m_{LP} = G, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = 1.`
+        - **peaking** | **notch**: :math:`m_{LP} = 1, m_{BP} = 2 \cdot R \cdot \sqrt{G}, m_{HP} = 1.`
 
         where :math:`G` is the gain parameter mapped from the raw parameters as 
         :math:`G = 10^{-\text{softplus}(x)}`.  
 
-            **Args**:
-                - param (torch.Tensor): The raw parameters.
-                - R (torch.Tensor, optional): The resonance parameter. Default: None.
+            **Arguments**:
+                **param** (torch.Tensor): The raw parameters.
+                **R** (torch.Tensor, optional): The resonance parameter. Default: None.
 
         """
         # activation = lambda x: 10**(-torch.log(1+torch.exp(x)) / torch.log(torch.tensor(2,  device=get_device())))
@@ -1662,7 +1692,7 @@ class parallelSVF(SVF):
 
 class GEQ(Filter):
     r"""
-    Graphic Equilizer filter. 
+    A class for Graphic Equilizer filters. 
 
     It supports 1 and 1/3 octave filter bands. 
     The raw parameters are the linear gain values for each filter band.
@@ -1675,38 +1705,40 @@ class GEQ(Filter):
 
     where :math:`B` is the batch size, :math:`M` is the number of frequency bins, 
     :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
-    The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
+    The :attr:'param' attribute represent the command gains of each band and of the two shelving filters at DC and Nyquist. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).   
 
-        **Args**:
-            - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
-            - octave_interval (int, optional): The octave interval for the center frequencies. Default: 1.
-            - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
-            - fs (int, optional): The sampling frequency. Default: 48000.
-            - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: 20*torch.log10(x).
-            - requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.
-            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
-            - device (str, optional): The device of the constructed tensors. Default: None.
+        **Arguments / Attributes**:
+            - **size** (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
+            - **octave_interval** (int, optional): The octave interval for the center frequencies. Default: 1.
+            - **nfft** (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - **fs** (int, optional): The sampling frequency. Default: 48000.
+            - **map** (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: 20*torch.log10(x).
+            - **requires_grad** (bool, optional): Whether the filter parameters require gradients. Default: False.
+            - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - **device** (str, optional): The device of the constructed tensors. Default: None.
             
         **Attributes**:
-            - fs (int): The sampling frequency.
-            - center_freq (torch.Tensor): The center frequencies of the filter bands.
-            - shelving_crossover (torch.Tensor): The shelving crossover frequencies.
-            - freq_response (torch.Tensor): The frequency response of the filter.
-            - param (nn.Parameter): The parameters of the GEQ filter.
-
-        **Methods**:
-            - check_param_shape(): Check the shape of the filter parameters.
-            - get_freq_response(): Compute the frequency response of the filter.
-            - get_freq_convolve(): Compute the frequency convolution function.
+            - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
+            - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
+            - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
+            - **center_freq** (torch.Tensor): The center frequencies of the filter bands.
+            - **shelving_crossover** (torch.Tensor): The shelving crossover frequencies.
+            - **n_gains** (int): The number of command gains.
+            - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
+            - **param** (nn.Parameter): The parameters of the GEQ filter.
+            - **freq_response** (torch.Tensor): The frequency response of the filter.
+            - **freq_convolve** (function): The frequency convolution function.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.
 
     References:
-        - Schlecht, S., Habets, E. (2017). Accurate reverberation time control in
-        feedback delay networks Proc. Int. Conf. Digital Audio Effects (DAFx)
-        adapted to python by: Dal Santo G. 
-        - Välimäki V., Reiss J. All About Audio Equal-
-        ization: Solutions and Frontiers, Applied Sciences, vol. 6,
-        no. 5, pp. 129, May 2016
+        - Schlecht, S., Habets, E. (2017). Accurate reverberation time control in feedback delay networks Proc. Int. Conf. Digital Audio Effects (DAFx) adapted to python by: Dal Santo G. 
+
+        - Välimäki V., Reiss J. All About Audio Equalization: Solutions and Frontiers, Applied Sciences, vol. 6, no. 5, pp. 129, May 2016
+    
     """
 
     def __init__(
@@ -1878,7 +1910,7 @@ class parallelGEQ(GEQ):
 
 class Delay(DSP):
     r"""
-    Delay module that applies in frequency domain a time delay to the input signal.
+    A class repsenting time Delay in frequency domain.
 
     To improve update effectiveness, the unit of time can be adjusted via the :attr:`unit` attribute to use subdivisions or multiples of time.
     For integer Delays, the :attr:`isint` attribute can be set to True to round the delay to the nearest integer before computing the frequency response. 
@@ -1901,38 +1933,30 @@ class Delay(DSP):
 
     where :math:`\texttt{nfft}` is the number of FFT points, and :math:`m` is the frequency index :math:`m=0, 1, \dots, \lfloor\texttt{nfft}/2 +1\rfloor` .
 
-        **Args**:
-            - size (tuple, optional): Size of the delay module. Default: (1, 1).
-            - max_len (int, optional): Maximum length of the delay in samples. Default: 2000.
-            - isint (bool, optional): Flag indicating whether the delay length should be rounded to the nearest integer. Default: False.
-            - unit (int, optional): Unit value used for second-to-sample conversion. Default: 100.
-            - nfft (int, optional): Number of FFT points. Default: 2 ** 11.
-            - fs (int, optional): Sampling frequency. Default: 48000.
-            - requires_grad (bool, optional): Flag indicating whether the module parameters require gradients. Default: False.
-            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to 0.
-            - device (str, optional): The device of the constructed tensors. Default: None.
+        **Arguments / Attributes**:
+            - **size** (tuple, optional): Size of the delay module. Default: (1, 1).
+            - **max_len** (int, optional): Maximum length of the delay in samples. Default: 2000.
+            - **isint** (bool, optional): Flag indicating whether the delay length should be rounded to the nearest integer. Default: False.
+            - **unit** (int, optional): Unit value used for second-to-sample conversion. Default: 100.
+            - **nfft** (int, optional): Number of FFT points. Default: 2 ** 11.
+            - **fs** (int, optional): Sampling frequency. Default: 48000.
+            - **requires_grad** (bool, optional): Flag indicating whether the module parameters require gradients. Default: False.
+            - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to 0.
+            - **device** (str, optional): The device of the constructed tensors. Default: None.
             
         **Attributes**:
-            - fs (int): Sampling frequency.
-            - max_len (int): Maximum length of the delay in samples.
-            - unit (int): Unit value used for second-to-sample conversion.
-            - isint (bool): Flag indicating whether the delay length should be rounded to the nearest integer.
-            - omega (torch.Tensor): The frequency values used for the FFT.
-            - freq_response (torch.Tensor): The frequency response of the delay module.
-            - order (int): The order of the delay.
-            - freq_convolve (function): The frequency convolution function.
-            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope.
-        
-        **Methods**:
-            - forward(x): Applies the Delay module to the input tensor x.
-            - init_param(): Initializes the delay parameters.
-            - s2sample(delay): Converts a delay value from seconds to samples.
-            - sample2s(delay): Converts a delay value from samples to seconds.
-            - get_freq_response(): Computes the frequency response of the delay module.
-            - check_input_shape(x): Checks if the input dimensions are compatible with the delay parameters.
-            - check_param_shape(): Checks if the shape of the delay parameters is valid.
-            - get_freq_convolve(): Computes the frequency convolution function.
-            - initialize_class(): Initializes the Delay module.
+            - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
+            - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
+            - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - **new_value** (int): Flag indicating if new values have been assigned. 
+            - **omega** (torch.Tensor): The frequency values used for the FFT.
+            - **order** (int): Maximum leght of the delay.
+            - **freq_response** (torch.Tensor): The frequency response of the delay module.
+            - **freq_convolve** (function): The frequency convolution function.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.
+
     """
 
     def __init__(
@@ -1964,9 +1988,9 @@ class Delay(DSP):
         r"""
         Applies the Delay module to the input tensor x.
 
-            **Args**:
-                x (torch.Tensor): Input tensor of shape (B, M, N_in, ...).
-                ext_paran (torch.Tensor, optional): Parameter values from outer modules. Default: None.
+            **Arguments**:
+                **x** (torch.Tensor): Input tensor of shape (B, M, N_in, ...).
+                **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
 
             **Returns**:
                 torch.Tensor: Output tensor of shape (B, M, N_out, ...).
@@ -1982,7 +2006,7 @@ class Delay(DSP):
 
     def init_param(self):
         r"""
-        Initializes the delay parameters.
+        Initializes the Delay parameters.
         """
         if self.isint:
             delay_len = torch.randint(1, self.max_len, self.size, device=self.device)
@@ -1995,8 +2019,8 @@ class Delay(DSP):
         r"""
         Converts a delay value from seconds to samples.
 
-            **Args**:
-                delay (float): The delay value in seconds.
+            **Arguments**:
+                **delay** (float): The delay value in seconds.
         """
         return delay * self.fs / self.unit
 
@@ -2004,8 +2028,8 @@ class Delay(DSP):
         r"""
         Converts a delay value from samples to seconds.
 
-            **Args**:
-                delay (torch.Tensor): The delay value in samples.
+            **Arguments**:
+                **delay** (torch.Tensor): The delay value in samples.
         """
         return delay / self.fs * self.unit
 
@@ -2033,8 +2057,8 @@ class Delay(DSP):
         r"""
         Checks if the input dimensions are compatible with the delay parameters.
 
-            **Args**:
-                x (torch.Tensor): The input signal.
+            **Arguments**:
+                **x** (torch.Tensor): The input signal.
         """
         if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
             raise ValueError(

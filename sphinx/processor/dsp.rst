@@ -34,11 +34,15 @@
    :members:
    :show-inheritance:
 
-.. autoclass:: flamo.processor.dsp.Delay
+.. autoclass:: flamo.processor.dsp.Filter
    :members:
    :show-inheritance:
 
-.. autoclass:: flamo.processor.dsp.parallelDelay
+.. autoclass:: flamo.processor.dsp.parallelFilter
+   :members:
+   :show-inheritance:
+
+.. autoclass:: flamo.processor.dsp.ScatteringMatrix
    :members:
    :show-inheritance:
 
@@ -51,5 +55,25 @@
    :show-inheritance:
 
 .. autoclass:: flamo.processor.dsp.SVF
+   :members:
+   :show-inheritance:
+
+.. autoclass:: flamo.processor.dsp.parallelSVF
+   :members:
+   :show-inheritance:
+
+.. autoclass:: flamo.processor.dsp.GEQ
+   :members:
+   :show-inheritance:
+
+.. autoclass:: flamo.processor.dsp.parallelGEQ
+   :members:
+   :show-inheritance:
+
+.. autoclass:: flamo.processor.dsp.Delay
+   :members:
+   :show-inheritance:
+
+.. autoclass:: flamo.processor.dsp.parallelDelay
    :members:
    :show-inheritance:
