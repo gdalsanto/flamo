@@ -11,13 +11,13 @@ from flamo.functional import signal_gallery
 class Series(nn.Sequential):
     r"""
     Module for cascading multiple DSP modules in series. Inherits from :class:`nn.Sequential`.
-    This class serves as a container for a series of DSP modules, allowing them 
+    This class serves as a container for a series of DSP modules (preferably constructed from :class:`flamo.processor.dsp.DSP`), allowing them 
     to be cascaded in a single module. It ensures that all included modules 
-    share the same values for the `nfft` and `alias_decay_db` attributes, hence all parsed 
+    share the same values of :attr:`nfft` and :attr:`alias_decay_db` attributes, hence all parsed 
     modules are expected to have these attributes.
 
-        **Args**:
-            - \*args: A variable number of DSP modules of the type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
+        **Arguments**:
+            - **\*args**: An arbitrary number of DSP modules of the type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
     """
     def __init__(self, *args):
         super().__init__(self.__unpack_modules(modules=args, current_keys=[]))
@@ -31,10 +31,10 @@ class Series(nn.Sequential):
 
     def prepend(self, new_module: nn.Module | nn.Sequential | OrderedDict) -> "Series":
         r"""
-        Prepends a given item to the beginning of the Series instance.
+        Prepends a given item to the beginning of the :class:`Series` instance.
 
-            **Args**:
-                new_module (nn.Module | nn.Sequential | OrderedDict): item to append.
+            **Arguments**:
+                **new_module** (nn.Module | nn.Sequential | OrderedDict): item to append.
 
             **Returns**:
                 Series: self.
@@ -43,10 +43,10 @@ class Series(nn.Sequential):
 
     def append(self, new_module: nn.Module | nn.Sequential | OrderedDict) -> "Series":
         r"""
-        Appends a given item to the end of the Series instance.
+        Appends a given item to the end of the :class:`Series` instance.
 
-            **Args**:
-                new_module (nn.Module | nn.Sequential | OrderedDict): item to append.
+            **Arguments**:
+                **new_module** (nn.Module | nn.Sequential | OrderedDict): item to append.
 
             **Returns**:
                 Series: self.
@@ -71,13 +71,12 @@ class Series(nn.Sequential):
         return self
 
     def insert(self, index: int, new_module: nn.Module | nn.Sequential | OrderedDict) -> "Series":
-        # TODO: add support for inserting 'after' or 'before' a certain key
         r"""
         Inserts a given item at the given index in the Series instance.
 
-            **Args**:
-                index (int): index at which to insert the new module.
-                new_module (nn.Module | nn.Sequential | OrderedDict): item to append.
+            **Arguments**:
+                **index** (int): index at which to insert the new module.
+                **new_module** (nn.Module | nn.Sequential | OrderedDict): item to append.
 
             **Returns**:
                 Series: self.
@@ -132,19 +131,18 @@ class Series(nn.Sequential):
             2. if the module has a unique custom key (e.g. 'my_module'), it is used as is
             3. if the module has a custom key, but such key was previously used for another module (hence it is not unique). An error is raised
             4. if the module has no key, a key is generated for it, equal to its position in the series. A warning is raised
-            5. if a custom key is found and can be converted to an integer (e.g. '3'), such key is considered missing
-                * rule 4 is applied
+            5. if a custom key is found and can be converted to an integer (e.g. '3'), such key is considered missing and rule 4 is applied
 
-        **Args**:
-            - modules (tuple): The input modules.
-            - current_keys (list): The current keys of the already unpacked modules.
+        **Arguments**:
+            **modules** (tuple): The input modules.
+            **current_keys** (list): The current keys of the already unpacked modules.
 
         **Returns**:
-            - The unpacked modules (:class:`OrderedDict`).
+            The unpacked modules (:class:`OrderedDict`).
 
         **Raises**:
-            - ValueError: If modules are not of type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
-            - ValueError: If a custom key is not unique.
+            ValueError: If modules are not of type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
+            ValueError: If a custom key is not unique.
         """
         # initialize the unpacked modules as empty OrderedDict
         unpacked_modules = OrderedDict()
@@ -201,8 +199,8 @@ class Series(nn.Sequential):
         r"""
         Checks if all modules have the same value of the requested attribute.
 
-            **Args**:
-                attr (str): The attribute to check.
+            **Arguments**:
+                **attr** (str): The attribute to check.
 
             **Returns**:
                 int | float | None: The attribute value.
@@ -262,6 +260,17 @@ class Series(nn.Sequential):
         return input_channels, prev_out_channels
 
     def forward(self, input, ext_param = None):
+        r"""
+        Forward pass through the Series.
+            
+                **Arguments**:
+                    **input** (Tensor): The input tensor.
+                    **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
+    
+                **Returns**:
+                    Tensor: The output tensor.
+        """
+        
         if ext_param is not None:
             for key, module in self._modules.items():
                 # check if the key is in param_dict
@@ -291,21 +300,16 @@ class Recursion(nn.Module):
     :math:`N_{in}` is the number of input channels, and :math:`N_{out}` is the number of output channels.
     Ellipsis :math:`(...)` represents additional dimensions.
 
-        **Args**:
-            - fF: The feedforward path with size (M, N_{out}, N_{in}).
-            - fB: The feedback path with size (M, N_{in}, N_{out}).
-            - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to None.
+        **Arguments**:
+            - **fF**: The feedforward path with size (M, N_{out}, N_{in}).
+            - **fB**: The feedback path with size (M, N_{in}, N_{out}).
+            - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to None.
 
         **Attributes**:
-            - feedforward (nn.Module | Series): The feedforward path.
-            - feedback (nn.Module | Series): The feedback path.
-            - nfft (int): The number of frequency points.
-            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.
-
-        **Methods**:
-            - forward(x): Applies the closed-loop transfer function to the input tensor x by convolution in frequency domain.
-            - __check_attribute(attr): Checks if feedforward and feedback paths have the same value of the requested attribute.
-            - __check_io(): Check if the feedforward and feedback paths have compatible input/output shapes.
+            - **feedforward** (nn.Module | Series): The feedforward path.
+            - **feedback** (nn.Module | Series): The feedback path.
+            - **nfft** (int): The number of frequency points.
+            - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.
 
     For details on the closed-loop transfer function see `Wikipedia page <https://en.wikipedia.org/wiki/Closed-loop_transfer_function>`_.
     """
@@ -343,8 +347,8 @@ class Recursion(nn.Module):
         r"""
         Applies the closed-loop transfer function to the input tensor X.
 
-            **Args**:
-                X (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+            **Arguments**:
+                **X** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
 
             **Returns**:
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
@@ -377,8 +381,8 @@ class Recursion(nn.Module):
         r"""
         Checks if feedforward and feedback paths have the same value of the requested attribute.
 
-            **Args**:
-                attr (str): The attribute to check.
+            **Arguments**:
+                **attr** (str): The attribute to check.
 
             **Returns**:
                 int | float: The attribute value.
@@ -450,28 +454,15 @@ class Shell(nn.Module):
     and :math:`N_{out}` is the number of output channels (defined by the `core` and the `output_layer`).
     Ellipsis :math:`(...)` represents additional dimensions.
 
-        **Args**:
-            - core (nn.Module | nn.Sequential): DSP.
-            - input_layer (nn.Module, optional): layer preceeding the DSP and correctly preparing the Dataset input before the DSP processing. Default: Transform(lambda x: x).
-            - output_layer (nn.Module, optional): layer following the DSP and preparing its output for the comparison with the Dataset target. Default: Transform(lambda x: x).
+        **Arguments / Attributes**:
+            - **core** (nn.Module | nn.Sequential): DSP.
+            - **input_layer** (nn.Module, optional): layer preceeding the DSP and correctly preparing the Dataset input before the DSP processing. Default: Transform(lambda x: x).
+            - **output_layer** (nn.Module, optional): layer following the DSP and preparing its output for the comparison with the Dataset target. Default: Transform(lambda x: x).
 
         **Attributes**:
-            - core (nn.Module | Series): DSP.
-            - input_layer (nn.Module | Series): layer preceeding the DSP.
-            - output_layer (nn.Module | Series): layer following the DSP.
-            - nfft (int): Number of frequency points.
-            - alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.
+            - **nfft** (int): Number of frequency points.
+            - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.
 
-        **Methods**:
-            - forward(x): Forward pass through the input layer, the core, and the output layer.
-            - get_inputLayer(): Returns the current input layer.
-            - set_inputLayer(input_layer): Substitutes the current input layer with a given new one.
-            - get_outputLayer(): Returns the output layer.
-            - set_outputLayer(output_layer): Substitutes the current output layer with a given new one.
-            - get_core(): Returns the core.
-            - set_core(core): Substitutes the current core with a given new one.
-            - get_time_response(fs, identity): Generates the impulse response of the DSP.
-            - get_freq_response(fs, identity): Generates the frequency response of the DSP.
     """
     def __init__(self,
                  core: nn.Module | Recursion | nn.Sequential,
@@ -525,21 +516,45 @@ class Shell(nn.Module):
     
     # ---------------------- Get and set methods ----------------------
     def get_inputLayer(self) -> nn.Module | nn.Sequential:
+        r"""
+        Returns the current input layer.    
+        """
         return self.__input_layer
     
     def set_inputLayer(self, input_layer: nn.Module=None) -> None:
+        r"""
+        Substitutes the current input layer with a given new one.   
+            **Argument**:
+                **input_layer** (nn.Module | nn.Sequential, optional): The new input layer. Defaults to None.
+        """
         self.__input_layer = input_layer
 
     def get_outputLayer(self) -> nn.Module | nn.Sequential:
+        r"""
+        Returns the current output layer.    
+        """
         return self.__output_layer
     
     def set_outputLayer(self, output_layer: nn.Module=None) -> None:
+        r"""
+        Substitutes the current output layer with a given new one.   
+            **Argument**:
+                **output_layer** (nn.Module | nn.Sequential, optional): The new input layer. Defaults to None.
+        """
         self.__output_layer = output_layer
 
     def get_core(self) -> nn.Module | nn.Sequential:
+        r"""
+        Returns the current core DSP.    
+        """
         return self.__core
     
     def set_core(self, core: nn.Module) -> None:
+        r"""
+        Substitutes the current core with a given new one.   
+            **Argument**:
+                **output_layer** (nn.Module, optional): The core DSP system. Defaults to None.
+        """
         self.__core = core
 
     # ---------------------- Check methods ----------------------
@@ -547,15 +562,15 @@ class Shell(nn.Module):
         r"""
         Check if all the modules in core, input layer, and output layer have the same value for the requested attribute.
 
-            **Args**:
-                attr (str): The attribute to check.
+            **Argument**:
+                **attr** (str): The attribute to check.
             
             **Returns**:
                 int: The attribute value.
             
             **Raises**:
-                - ValueError: The core component does not possess the requested attribute.
-                - AssertionError: Core, input layer, and output layer do not have the same value of the requested attribute.
+                ValueError: The core component does not possess the requested attribute.
+                AssertionError: Core, input layer, and output layer do not have the same value of the requested attribute.
         """
 
         # Check that core, input layer, and output layer all possess the nfft attribute.
@@ -615,9 +630,9 @@ class Shell(nn.Module):
         r"""
         Generates the impulse response of the DSP.
 
-            **Args**:
-                - fs (int, optional): Sampling frequency. Defaults to 48000.
-                - identity (bool, optional): If False, return the input-to-output impulse responses of the DSP.
+            **Arguments**:
+                **fs** (int, optional): Sampling frequency. Defaults to 48000.
+                **identity** (bool, optional): If False, return the input-to-output impulse responses of the DSP.
                                         If True, return the input-free impulse responses of the DSP.
                                         Defaults to False.
                 
@@ -625,7 +640,8 @@ class Shell(nn.Module):
                 Let :math:`A \in \mathbb{R}^{T \times  N_{out} \times N_{in}}` be a time filter matrix. If :math:`x \in \mathbb{R}^{T \times  N_{in}}` is an :math:`N_{in}`-dimensional time signal having
                 a unit impulse at time :math:`t=0` for each element along :math:`N_{in}`. Let :math:`I \in R^{T \times  N \times N}` be an diagonal matrix across
                 second and third dimension, with unit impulse at time :math:`t=0`for each element along such diagonal.
-                If :math:`*` represent the signal-wise matrix convolution operator, then:
+                If \* represent the signal-wise matrix convolution operator, then:
+
                 - :math:`y = A * x` is the 'input-to-output' impulse response of :math:`A`.
                 - :math:`A * I` is the 'input-free' impulse response of :math:`A`.
 
@@ -671,19 +687,20 @@ class Shell(nn.Module):
         r"""
         Generates the frequency response of the DSP.
 
-            **Args**:
-                - fs (int, optional): Sampling frequency. Defaults to 48000.
-                - identity (bool, optional): If False, return the input-to-output frequency responses of the DSP.
+            **Arguments**:
+                **fs** (int, optional): Sampling frequency. Defaults to 48000.
+                **identity** (bool, optional): If False, return the input-to-output frequency responses of the DSP.
                                         If True, return the input-free frequency responses of the DSP.
                                         Defaults to False.
             
             **NOTE**: Definition of 'input-to-output' and 'input-free'
-                Let :math:`A \in \mathbb{R}^{F \times  N_{out} \times N_{in}}` be a frequency filter matrix. If :math:`x \in \mathbb{R}^{F \times  N_{in}}` is an :math:`N_{in}`-dimensional signal having
+                Let :math:`A \in \mathbb{R}^{F \times  N_{out} \times N_{in}}` be a frequency filter matrix. If :math:`x \in \mathbb{R}^{T \times  N_{in}}` is an :math:`N_{in}`-dimensional signal having
                 a unit impulse at time :math:`t=0` spectrum for each element along :math:`N_{in}`. Let :math:`I \in R^{F \times  N \times N}` be an diagonal matrix across
                 second and third dimension, with unit impulse at time :math:`t=0` spectra for each element along such diagonal.
-                If :math:`*` represent the signal-wise matrix product operator, then:
+                If \* represent the signal-wise matrix product operator, then:
+
                 - :math:`y = A * x` is the 'input-to-output' frequency response of :math:`A`.
-                - :math:`A * I`is the 'input-free' frequency response of :math:`A`.
+                - :math:`A * I` is the 'input-free' frequency response of :math:`A`.
 
             **Returns**:
                 torch.Tensor: Generated DSP frequency response.

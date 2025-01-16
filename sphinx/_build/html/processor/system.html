@@ -38,25 +38,88 @@
 <dt class="sig sig-object py" id="flamo.processor.system.Series">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.system.</span></span><span class="sig-name descname"><span class="pre">Series</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Series" title="Link to this definition">¶</a></dt>
 <dd><p>Module for cascading multiple DSP modules in series. Inherits from <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>.
-This class serves as a container for a series of DSP modules, allowing them 
+This class serves as a container for a series of DSP modules (preferably constructed from <a class="reference internal" href="dsp.html#flamo.processor.dsp.DSP" title="flamo.processor.dsp.DSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">flamo.processor.dsp.DSP</span></code></a>), allowing them 
 to be cascaded in a single module. It ensures that all included modules 
-share the same values for the <cite>nfft</cite> and <cite>alias_decay_db</cite> attributes, hence all parsed 
+share the same values of <code class="xref py py-attr docutils literal notranslate"><span class="pre">nfft</span></code> and <code class="xref py py-attr docutils literal notranslate"><span class="pre">alias_decay_db</span></code> attributes, hence all parsed 
 modules are expected to have these attributes.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>*args: A variable number of DSP modules of the type <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.</p></li>
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>*args</strong>: An arbitrary number of DSP modules of the type <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
 </div></blockquote>
 <dl class="py method">
-<dt class="sig sig-object py" id="flamo.processor.system.Series.append">
-<span class="sig-name descname"><span class="pre">append</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_module</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">OrderedDict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><span class="pre">Series</span></a></span></span><a class="headerlink" href="#flamo.processor.system.Series.append" title="Link to this definition">¶</a></dt>
-<dd><p>Appends a given item to the end of the Series instance.</p>
+<dt class="sig sig-object py" id="flamo.processor.system.Series.__check_attribute">
+<span class="sig-name descname"><span class="pre">__check_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="headerlink" href="#flamo.processor.system.Series.__check_attribute" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if all modules have the same value of the requested attribute.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>new_module (nn.Module | nn.Sequential | OrderedDict): item to append.</p>
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>attr</strong> (str): The attribute to check.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>int | float | None: The attribute value.</p>
+</dd>
+<dt><strong>Raises</strong>:</dt><dd><p>ValueError: If at least one module with incorrect attribute value was found.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Series.__check_io">
+<span class="sig-name descname"><span class="pre">__check_io</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Series.__check_io" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if the modules in the Series have compatible input/output shapes.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Returns</strong>:</dt><dd><p>tuple(int,int): The number of input and output channels.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Series.__unpack_modules">
+<span class="sig-name descname"><span class="pre">__unpack_modules</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">modules</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">current_keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">OrderedDict</span></span></span><a class="headerlink" href="#flamo.processor.system.Series.__unpack_modules" title="Link to this definition">¶</a></dt>
+<dd><p>Generate an <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code> containing the modules given in the input 
+tuple, and give a key to each module.
+If any module in the input tuple is a <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code> (or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>), 
+it is recognized as nested <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code> (or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>),
+it is unpacked, and its modules are added to the output <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.
+For each encountered module, key generation follows these rules:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><dl class="simple">
+<dt>if the analyzed module is <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>, it is unpacked, thus, if it was nested inside</dt><dd><p>another <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>, the key given to itself is neglected. This until the analyzed module is
+a <cite>leaf</cite> module (i.e. <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code> and not <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>), then rules 2-5 are applied</p>
+</dd>
+</dl>
+</li>
+<li><p>if the module has a unique custom key (e.g. ‘my_module’), it is used as is</p></li>
+<li><p>if the module has a custom key, but such key was previously used for another module (hence it is not unique). An error is raised</p></li>
+<li><p>if the module has no key, a key is generated for it, equal to its position in the series. A warning is raised</p></li>
+<li><p>if a custom key is found and can be converted to an integer (e.g. ‘3’), such key is considered missing and rule 4 is applied</p></li>
+</ol>
+</div></blockquote>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>modules</strong> (tuple): The input modules.
+<strong>current_keys</strong> (list): The current keys of the already unpacked modules.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>The unpacked modules (<code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>).</p>
+</dd>
+<dt><strong>Raises</strong>:</dt><dd><p>ValueError: If modules are not of type <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.
+ValueError: If a custom key is not unique.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Series.append">
+<span class="sig-name descname"><span class="pre">append</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_module</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">OrderedDict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><span class="pre">Series</span></a></span></span><a class="headerlink" href="#flamo.processor.system.Series.append" title="Link to this definition">¶</a></dt>
+<dd><p>Appends a given item to the end of the <a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><code class="xref py py-class docutils literal notranslate"><span class="pre">Series</span></code></a> instance.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>new_module</strong> (nn.Module | nn.Sequential | OrderedDict): item to append.</p>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>Series: self.</p>
 </dd>
@@ -67,15 +130,16 @@ modules are expected to have these attributes.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.system.Series.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext_param</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Series.forward" title="Link to this definition">¶</a></dt>
-<dd><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
+<dd><p>Forward pass through the Series.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>input</strong> (Tensor): The input tensor.
+<strong>ext_param</strong> (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>Tensor: The output tensor.</p>
+</dd>
+</dl>
+</div></blockquote>
 </dd></dl>
 
 <dl class="py method">
@@ -84,8 +148,8 @@ registered hooks while the latter silently ignores them.</p>
 <dd><p>Inserts a given item at the given index in the Series instance.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>index (int): index at which to insert the new module.
-new_module (nn.Module | nn.Sequential | OrderedDict): item to append.</p>
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>index</strong> (int): index at which to insert the new module.
+<strong>new_module</strong> (nn.Module | nn.Sequential | OrderedDict): item to append.</p>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>Series: self.</p>
 </dd>
@@ -96,10 +160,10 @@ new_module (nn.Module | nn.Sequential | OrderedDict): item to append.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.system.Series.prepend">
 <span class="sig-name descname"><span class="pre">prepend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_module</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">OrderedDict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><span class="pre">Series</span></a></span></span><a class="headerlink" href="#flamo.processor.system.Series.prepend" title="Link to this definition">¶</a></dt>
-<dd><p>Prepends a given item to the beginning of the Series instance.</p>
+<dd><p>Prepends a given item to the beginning of the <a class="reference internal" href="#flamo.processor.system.Series" title="flamo.processor.system.Series"><code class="xref py py-class docutils literal notranslate"><span class="pre">Series</span></code></a> instance.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>new_module (nn.Module | nn.Sequential | OrderedDict): item to append.</p>
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>new_module</strong> (nn.Module | nn.Sequential | OrderedDict): item to append.</p>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>Series: self.</p>
 </dd>
@@ -127,35 +191,72 @@ they are converted to a <a class="reference internal" href="#flamo.processor.sys
 Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>fF: The feedforward path with size (M, N_{out}, N_{in}).</p></li>
-<li><p>fB: The feedback path with size (M, N_{in}, N_{out}).</p></li>
-<li><p>alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to None.</p></li>
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fF</strong>: The feedforward path with size (M, N_{out}, N_{in}).</p></li>
+<li><p><strong>fB</strong>: The feedback path with size (M, N_{in}, N_{out}).</p></li>
+<li><p><strong>alias_decay_db</strong> (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to None.</p></li>
 </ul>
 </dd>
 <dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
-<li><p>feedforward (nn.Module | Series): The feedforward path.</p></li>
-<li><p>feedback (nn.Module | Series): The feedback path.</p></li>
-<li><p>nfft (int): The number of frequency points.</p></li>
-<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.</p></li>
-</ul>
-</dd>
-<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
-<li><p>forward(x): Applies the closed-loop transfer function to the input tensor x by convolution in frequency domain.</p></li>
-<li><p>__check_attribute(attr): Checks if feedforward and feedback paths have the same value of the requested attribute.</p></li>
-<li><p>__check_io(): Check if the feedforward and feedback paths have compatible input/output shapes.</p></li>
+<li><p><strong>feedforward</strong> (nn.Module | Series): The feedforward path.</p></li>
+<li><p><strong>feedback</strong> (nn.Module | Series): The feedback path.</p></li>
+<li><p><strong>nfft</strong> (int): The number of frequency points.</p></li>
+<li><p><strong>alias_decay_db</strong> (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.</p></li>
 </ul>
 </dd>
 </dl>
 </div></blockquote>
 <p>For details on the closed-loop transfer function see <a class="reference external" href="https://en.wikipedia.org/wiki/Closed-loop_transfer_function">Wikipedia page</a>.</p>
 <dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Recursion.__check_attribute">
+<span class="sig-name descname"><span class="pre">__check_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></span><a class="headerlink" href="#flamo.processor.system.Recursion.__check_attribute" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if feedforward and feedback paths have the same value of the requested attribute.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>attr</strong> (str): The attribute to check.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>int | float: The attribute value.</p>
+</dd>
+<dt><strong>Raises</strong>:</dt><dd><p>ValueError: The two paths have different values of the requested attribute.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Recursion.__check_io">
+<span class="sig-name descname"><span class="pre">__check_io</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.processor.system.Recursion.__check_io" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if the feedforward and feedback paths have compatible input/output shapes.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Returns</strong>:</dt><dd><p>tuple(int,int): The number of input and output channels.</p>
+</dd>
+<dt><strong>Raises</strong>:</dt><dd><p>ValueError: The feedforward or the feedback paths do not possess either the input_channels or the output_channels attributes.
+AssertionError: The feedforward and the feedback paths’ input and output channels are not compatible.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Recursion.__generate_identity">
+<span class="sig-name descname"><span class="pre">__generate_identity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Recursion.__generate_identity" title="Link to this definition">¶</a></dt>
+<dd><p>Generates the identity matrix necessary for the forward computation.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: The identity matrix.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.system.Recursion.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Recursion.forward" title="Link to this definition">¶</a></dt>
 <dd><p>Applies the closed-loop transfer function to the input tensor X.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><p>X (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>X</strong> (torch.Tensor): Input tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{in}, ...)\)</span>.</p>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Output tensor of shape <span class="math notranslate nohighlight">\((B, M, N_{out}, ...)\)</span>.</p>
 </dd>
@@ -182,34 +283,50 @@ and <span class="math notranslate nohighlight">\(N_{out}\)</span> is the number 
 Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents additional dimensions.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>core (nn.Module | nn.Sequential): DSP.</p></li>
-<li><p>input_layer (nn.Module, optional): layer preceeding the DSP and correctly preparing the Dataset input before the DSP processing. Default: Transform(lambda x: x).</p></li>
-<li><p>output_layer (nn.Module, optional): layer following the DSP and preparing its output for the comparison with the Dataset target. Default: Transform(lambda x: x).</p></li>
+<dt><strong>Arguments / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>core</strong> (nn.Module | nn.Sequential): DSP.</p></li>
+<li><p><strong>input_layer</strong> (nn.Module, optional): layer preceeding the DSP and correctly preparing the Dataset input before the DSP processing. Default: Transform(lambda x: x).</p></li>
+<li><p><strong>output_layer</strong> (nn.Module, optional): layer following the DSP and preparing its output for the comparison with the Dataset target. Default: Transform(lambda x: x).</p></li>
 </ul>
 </dd>
 <dt><strong>Attributes</strong>:</dt><dd><ul class="simple">
-<li><p>core (nn.Module | Series): DSP.</p></li>
-<li><p>input_layer (nn.Module | Series): layer preceeding the DSP.</p></li>
-<li><p>output_layer (nn.Module | Series): layer following the DSP.</p></li>
-<li><p>nfft (int): Number of frequency points.</p></li>
-<li><p>alias_decay_db (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.</p></li>
-</ul>
-</dd>
-<dt><strong>Methods</strong>:</dt><dd><ul class="simple">
-<li><p>forward(x): Forward pass through the input layer, the core, and the output layer.</p></li>
-<li><p>get_inputLayer(): Returns the current input layer.</p></li>
-<li><p>set_inputLayer(input_layer): Substitutes the current input layer with a given new one.</p></li>
-<li><p>get_outputLayer(): Returns the output layer.</p></li>
-<li><p>set_outputLayer(output_layer): Substitutes the current output layer with a given new one.</p></li>
-<li><p>get_core(): Returns the core.</p></li>
-<li><p>set_core(core): Substitutes the current core with a given new one.</p></li>
-<li><p>get_time_response(fs, identity): Generates the impulse response of the DSP.</p></li>
-<li><p>get_freq_response(fs, identity): Generates the frequency response of the DSP.</p></li>
+<li><p><strong>nfft</strong> (int): Number of frequency points.</p></li>
+<li><p><strong>alias_decay_db</strong> (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.</p></li>
 </ul>
 </dd>
 </dl>
 </div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.__check_attribute">
+<span class="sig-name descname"><span class="pre">__check_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.__check_attribute" title="Link to this definition">¶</a></dt>
+<dd><p>Check if all the modules in core, input layer, and output layer have the same value for the requested attribute.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Argument</strong>:</dt><dd><p><strong>attr</strong> (str): The attribute to check.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>int: The attribute value.</p>
+</dd>
+<dt><strong>Raises</strong>:</dt><dd><p>ValueError: The core component does not possess the requested attribute.
+AssertionError: Core, input layer, and output layer do not have the same value of the requested attribute.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.__check_io">
+<span class="sig-name descname"><span class="pre">__check_io</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.__check_io" title="Link to this definition">¶</a></dt>
+<dd><p>Checks if the input layer, the core, and the output layer have compatible input/output shapes.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Returns</strong>:</dt><dd><p>tuple(int,int): The number of input and output channels.</p>
+</dd>
+<dt><strong>Raises</strong>:</dt><dd><p>ValueError: The core, the input layer, and the output layer are not I/O compatible.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.system.Shell.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext_param</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.forward" title="Link to this definition">¶</a></dt>
@@ -229,27 +346,32 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.get_core">
+<span class="sig-name descname"><span class="pre">get_core</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_core" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the current core DSP.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.system.Shell.get_freq_response">
 <span class="sig-name descname"><span class="pre">get_freq_response</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_freq_response" title="Link to this definition">¶</a></dt>
 <dd><p>Generates the frequency response of the DSP.</p>
 <blockquote>
-<div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>fs (int, optional): Sampling frequency. Defaults to 48000.</p></li>
-<li><dl class="simple">
-<dt>identity (bool, optional): If False, return the input-to-output frequency responses of the DSP.</dt><dd><p>If True, return the input-free frequency responses of the DSP.
+<div><dl>
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>fs</strong> (int, optional): Sampling frequency. Defaults to 48000.
+<strong>identity</strong> (bool, optional): If False, return the input-to-output frequency responses of the DSP.</p>
+<blockquote>
+<div><p>If True, return the input-free frequency responses of the DSP.
 Defaults to False.</p>
+</div></blockquote>
 </dd>
-</dl>
-</li>
-</ul>
-</dd>
-<dt><strong>NOTE</strong>: Definition of ‘input-to-output’ and ‘input-free’</dt><dd><p>Let <span class="math notranslate nohighlight">\(A \in \mathbb{R}^{F \times  N_{out} \times N_{in}}\)</span> be a frequency filter matrix. If <span class="math notranslate nohighlight">\(x \in \mathbb{R}^{F \times  N_{in}}\)</span> is an <span class="math notranslate nohighlight">\(N_{in}\)</span>-dimensional signal having
+<dt><strong>NOTE</strong>: Definition of ‘input-to-output’ and ‘input-free’</dt><dd><p>Let <span class="math notranslate nohighlight">\(A \in \mathbb{R}^{F \times  N_{out} \times N_{in}}\)</span> be a frequency filter matrix. If <span class="math notranslate nohighlight">\(x \in \mathbb{R}^{T \times  N_{in}}\)</span> is an <span class="math notranslate nohighlight">\(N_{in}\)</span>-dimensional signal having
 a unit impulse at time <span class="math notranslate nohighlight">\(t=0\)</span> spectrum for each element along <span class="math notranslate nohighlight">\(N_{in}\)</span>. Let <span class="math notranslate nohighlight">\(I \in R^{F \times  N \times N}\)</span> be an diagonal matrix across
 second and third dimension, with unit impulse at time <span class="math notranslate nohighlight">\(t=0\)</span> spectra for each element along such diagonal.
-If <span class="math notranslate nohighlight">\(*\)</span> represent the signal-wise matrix product operator, then:
-- <span class="math notranslate nohighlight">\(y = A * x\)</span> is the ‘input-to-output’ frequency response of <span class="math notranslate nohighlight">\(A\)</span>.
-- <span class="math notranslate nohighlight">\(A * I`is the 'input-free' frequency response of :math:`A\)</span>.</p>
+If * represent the signal-wise matrix product operator, then:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(y = A * x\)</span> is the ‘input-to-output’ frequency response of <span class="math notranslate nohighlight">\(A\)</span>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(A * I\)</span> is the ‘input-free’ frequency response of <span class="math notranslate nohighlight">\(A\)</span>.</p></li>
+</ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Generated DSP frequency response.</p>
 </dd>
@@ -258,27 +380,38 @@ If <span class="math notranslate nohighlight">\(*\)</span> represent the signal-
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.get_inputLayer">
+<span class="sig-name descname"><span class="pre">get_inputLayer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_inputLayer" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the current input layer.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.get_outputLayer">
+<span class="sig-name descname"><span class="pre">get_outputLayer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Module</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequential</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_outputLayer" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the current output layer.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.system.Shell.get_time_response">
 <span class="sig-name descname"><span class="pre">get_time_response</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_time_response" title="Link to this definition">¶</a></dt>
 <dd><p>Generates the impulse response of the DSP.</p>
 <blockquote>
-<div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>fs (int, optional): Sampling frequency. Defaults to 48000.</p></li>
-<li><dl class="simple">
-<dt>identity (bool, optional): If False, return the input-to-output impulse responses of the DSP.</dt><dd><p>If True, return the input-free impulse responses of the DSP.
+<div><dl>
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>fs</strong> (int, optional): Sampling frequency. Defaults to 48000.
+<strong>identity</strong> (bool, optional): If False, return the input-to-output impulse responses of the DSP.</p>
+<blockquote>
+<div><p>If True, return the input-free impulse responses of the DSP.
 Defaults to False.</p>
-</dd>
-</dl>
-</li>
-</ul>
+</div></blockquote>
 </dd>
 <dt><strong>NOTE</strong>: Definition of ‘input-to-output’ and ‘input-free’</dt><dd><p>Let <span class="math notranslate nohighlight">\(A \in \mathbb{R}^{T \times  N_{out} \times N_{in}}\)</span> be a time filter matrix. If <span class="math notranslate nohighlight">\(x \in \mathbb{R}^{T \times  N_{in}}\)</span> is an <span class="math notranslate nohighlight">\(N_{in}\)</span>-dimensional time signal having
 a unit impulse at time <span class="math notranslate nohighlight">\(t=0\)</span> for each element along <span class="math notranslate nohighlight">\(N_{in}\)</span>. Let <span class="math notranslate nohighlight">\(I \in R^{T \times  N \times N}\)</span> be an diagonal matrix across
-second and third dimension, with unit impulse at time <span class="math notranslate nohighlight">\(t=0`for each element along such diagonal.
-If :math:`*\)</span> represent the signal-wise matrix convolution operator, then:
-- <span class="math notranslate nohighlight">\(y = A * x\)</span> is the ‘input-to-output’ impulse response of <span class="math notranslate nohighlight">\(A\)</span>.
-- <span class="math notranslate nohighlight">\(A * I\)</span> is the ‘input-free’ impulse response of <span class="math notranslate nohighlight">\(A\)</span>.</p>
+second and third dimension, with unit impulse at time :math:<a href="#id1"><span class="problematic" id="id2">`</span></a>t=0`for each element along such diagonal.
+If * represent the signal-wise matrix convolution operator, then:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(y = A * x\)</span> is the ‘input-to-output’ impulse response of <span class="math notranslate nohighlight">\(A\)</span>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(A * I\)</span> is the ‘input-free’ impulse response of <span class="math notranslate nohighlight">\(A\)</span>.</p></li>
+</ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><ul class="simple">
 <li><p>torch.Tensor: Generated DSP impulse response.</p></li>
@@ -286,6 +419,42 @@ If :math:`*\)</span> represent the signal-wise matrix convolution operator, then
 </dd>
 </dl>
 </div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.set_core">
+<span class="sig-name descname"><span class="pre">set_core</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.set_core" title="Link to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Substitutes the current core with a given new one.   </dt><dd><dl class="simple">
+<dt><strong>Argument</strong>:</dt><dd><p><strong>output_layer</strong> (nn.Module, optional): The core DSP system. Defaults to None.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.set_inputLayer">
+<span class="sig-name descname"><span class="pre">set_inputLayer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.set_inputLayer" title="Link to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Substitutes the current input layer with a given new one.   </dt><dd><dl class="simple">
+<dt><strong>Argument</strong>:</dt><dd><p><strong>input_layer</strong> (nn.Module | nn.Sequential, optional): The new input layer. Defaults to None.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.processor.system.Shell.set_outputLayer">
+<span class="sig-name descname"><span class="pre">set_outputLayer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.set_outputLayer" title="Link to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Substitutes the current output layer with a given new one.   </dt><dd><dl class="simple">
+<dt><strong>Argument</strong>:</dt><dd><p><strong>output_layer</strong> (nn.Module | nn.Sequential, optional): The new input layer. Defaults to None.</p>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
