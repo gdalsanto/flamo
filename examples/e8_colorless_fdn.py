@@ -106,7 +106,7 @@ def example_fdn(args):
 
     # Initialize training process
     trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, train_dir=args.train_dir, device=args.device)
-    trainer.register_criterion(mse_loss(is_masked=args.masked_loss, n_sections=args.num, nfft=args.nfft, device=args.device), 1)
+    trainer.register_criterion(mse_loss(nfft=args.nfft, device=args.device), 1)
     trainer.register_criterion(sparsity_loss(), 0.2, requires_model=True)
 
     ## ---------------- TRAIN ---------------- ##
@@ -158,7 +158,6 @@ if __name__ == "__main__":
     parser.add_argument('--max_epochs', type=int, default=10, help='maximum number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
-    parser.add_argument('--masked_loss', action='store_false', help='use masked loss')
 
     args = parser.parse_args()
 

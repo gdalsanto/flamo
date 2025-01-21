@@ -9,7 +9,7 @@ from collections import OrderedDict
 from flamo.optimize.dataset import DatasetColorless, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
-from flamo.optimize.loss import mse_loss, sparsity_loss, masked_mse_loss
+from flamo.optimize.loss import sparsity_loss, masked_mse_loss
 from flamo.utils import save_audio
 
 torch.manual_seed(130709)
@@ -99,7 +99,7 @@ def example_fdn(args):
 
     # Initialize training process
     trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, train_dir=args.train_dir, device=args.device)
-    trainer.register_criterion(masked_mse_loss(nfft=args.nfft, n_samples=2000, n_sets=1, device=args.device), 1)
+    trainer.register_criterion(masked_mse_loss(nfft=args.nfft, n_samples=2000, n_sets=1, regenerate_mask=True, device=args.device), 1)
     trainer.register_criterion(sparsity_loss(), 0.2, requires_model=True)
 
     ## ---------------- TRAIN ---------------- ##
@@ -143,11 +143,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--nfft", type=int, default=480000*2, help="FFT size")
+    parser.add_argument("--nfft", type=int, default=48000*2, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
     parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
     parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
-    parser.add_argument('--max_epochs', type=int, default=20, help='maximum number of epochs')
+    parser.add_argument('--max_epochs', type=int, default=40, help='maximum number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     parser.add_argument('--train_dir', type=str, help='directory to save training results')
     parser.add_argument('--masked_loss', action='store_true', help='use masked loss')
