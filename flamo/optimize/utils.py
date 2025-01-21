@@ -1,18 +1,19 @@
 import torch
+from typing import Optional
 
-def generate_partitions(tensor, n_samples, n_sets, seed=None):
+def generate_partitions(tensor: torch.Tensor, n_samples: int, n_sets: int, seed: Optional[int] = None):
     r"""
-    Create n_sets sets of (length(tensor) // n_samples) partitions of a tensor,
+    Create :attr:`n_sets` sets of ``length(tensor) // n_samples`` partitions of a tensor,
     and the items are shuffled randomly for each set.
     
-        **Args**:
-            tensor (torch.Tensor): The input tensor to partition.
-            n_samples (int): The number of samples in each partition.
-            n_samples (int): The number of different sets of partitions.
-            seed (int, optional): A seed for reproducibility. Default is None.
+        **Arguments**:
+            - **tensor** (torch.Tensor): The input tensor to partition.
+            - **n_samples** (int): The number of samples in each partition.
+            - **n_sets** (int): The number of different sets of partitions.
+            - **seed** (int, optional): A seed for reproducibility. Default is None.
         
         **Returns**:
-            list of lists of torch.Tensor: A list of M sets, where each set contains N partitions.
+            list of lists of torch.Tensor: list of :attr:`n_sets` sets, where each set contains :attr:`length(tensor) // n_samples` partitions.
     """
     if seed is not None:
         torch.manual_seed(seed)

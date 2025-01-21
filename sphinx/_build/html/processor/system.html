@@ -15,7 +15,7 @@
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Optimize" href="../optimize/trainer.html" />
+    <link rel="next" title="Trainer" href="../optimize/trainer.html" />
     <link rel="prev" title="Processor" href="dsp.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -44,9 +44,7 @@ share the same values of <code class="xref py py-attr docutils literal notransla
 modules are expected to have these attributes.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
-<li><p><strong>*args</strong>: An arbitrary number of DSP modules of the type <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.</p></li>
-</ul>
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>*args</strong>: An arbitrary number of DSP modules of the type <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -102,13 +100,17 @@ a <cite>leaf</cite> module (i.e. <code class="xref py py-class docutils literal 
 </ol>
 </div></blockquote>
 <dl class="simple">
-<dt><strong>Arguments</strong>:</dt><dd><p><strong>modules</strong> (tuple): The input modules.
-<strong>current_keys</strong> (list): The current keys of the already unpacked modules.</p>
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>modules</strong> (tuple): The input modules.</p></li>
+<li><p><strong>current_keys</strong> (list): The current keys of the already unpacked modules.</p></li>
+</ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>The unpacked modules (<code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>).</p>
 </dd>
-<dt><strong>Raises</strong>:</dt><dd><p>ValueError: If modules are not of type <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.
-ValueError: If a custom key is not unique.</p>
+<dt><strong>Raises</strong>:</dt><dd><ul class="simple">
+<li><p>ValueError: If modules are not of type <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>, or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.</p></li>
+<li><p>ValueError: If a custom key is not unique.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
@@ -133,8 +135,10 @@ ValueError: If a custom key is not unique.</p>
 <dd><p>Forward pass through the Series.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Arguments</strong>:</dt><dd><p><strong>input</strong> (Tensor): The input tensor.
-<strong>ext_param</strong> (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.</p>
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>input</strong> (Tensor): The input tensor.</p></li>
+<li><p><strong>ext_param</strong> (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.</p></li>
+</ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>Tensor: The output tensor.</p>
 </dd>
@@ -148,8 +152,10 @@ ValueError: If a custom key is not unique.</p>
 <dd><p>Inserts a given item at the given index in the Series instance.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Arguments</strong>:</dt><dd><p><strong>index</strong> (int): index at which to insert the new module.
-<strong>new_module</strong> (nn.Module | nn.Sequential | OrderedDict): item to append.</p>
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>index</strong> (int): index at which to insert the new module.</p></li>
+<li><p><strong>new_module</strong> (nn.Module | nn.Sequential | OrderedDict): item to append.</p></li>
+</ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>Series: self.</p>
 </dd>
@@ -231,8 +237,10 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <div><dl class="simple">
 <dt><strong>Returns</strong>:</dt><dd><p>tuple(int,int): The number of input and output channels.</p>
 </dd>
-<dt><strong>Raises</strong>:</dt><dd><p>ValueError: The feedforward or the feedback paths do not possess either the input_channels or the output_channels attributes.
-AssertionError: The feedforward and the feedback paths’ input and output channels are not compatible.</p>
+<dt><strong>Raises</strong>:</dt><dd><ul class="simple">
+<li><p>ValueError: The feedforward or the feedback paths do not possess either the input_channels or the output_channels attributes.</p></li>
+<li><p>AssertionError: The feedforward and the feedback paths’ input and output channels are not compatible.</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
@@ -302,12 +310,16 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 <dd><p>Check if all the modules in core, input layer, and output layer have the same value for the requested attribute.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Argument</strong>:</dt><dd><p><strong>attr</strong> (str): The attribute to check.</p>
+<dt><strong>Argument</strong>:</dt><dd><ul class="simple">
+<li><p><strong>attr</strong> (str): The attribute to check.</p></li>
+</ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><p>int: The attribute value.</p>
 </dd>
-<dt><strong>Raises</strong>:</dt><dd><p>ValueError: The core component does not possess the requested attribute.
-AssertionError: Core, input layer, and output layer do not have the same value of the requested attribute.</p>
+<dt><strong>Raises</strong>:</dt><dd><ul class="simple">
+<li><p>ValueError: The core component does not possess the requested attribute.</p></li>
+<li><p>AssertionError: Core, input layer, and output layer do not have the same value of the requested attribute.</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
@@ -356,13 +368,16 @@ AssertionError: Core, input layer, and output layer do not have the same value o
 <span class="sig-name descname"><span class="pre">get_freq_response</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_freq_response" title="Link to this definition">¶</a></dt>
 <dd><p>Generates the frequency response of the DSP.</p>
 <blockquote>
-<div><dl>
-<dt><strong>Arguments</strong>:</dt><dd><p><strong>fs</strong> (int, optional): Sampling frequency. Defaults to 48000.
-<strong>identity</strong> (bool, optional): If False, return the input-to-output frequency responses of the DSP.</p>
-<blockquote>
-<div><p>If True, return the input-free frequency responses of the DSP.
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fs</strong> (int, optional): Sampling frequency. Defaults to 48000.</p></li>
+<li><dl class="simple">
+<dt><strong>identity</strong> (bool, optional): If False, return the input-to-output frequency responses of the DSP.</dt><dd><p>If True, return the input-free frequency responses of the DSP.
 Defaults to False.</p>
-</div></blockquote>
+</dd>
+</dl>
+</li>
+</ul>
 </dd>
 <dt><strong>NOTE</strong>: Definition of ‘input-to-output’ and ‘input-free’</dt><dd><p>Let <span class="math notranslate nohighlight">\(A \in \mathbb{R}^{F \times  N_{out} \times N_{in}}\)</span> be a frequency filter matrix. If <span class="math notranslate nohighlight">\(x \in \mathbb{R}^{T \times  N_{in}}\)</span> is an <span class="math notranslate nohighlight">\(N_{in}\)</span>-dimensional signal having
 a unit impulse at time <span class="math notranslate nohighlight">\(t=0\)</span> spectrum for each element along <span class="math notranslate nohighlight">\(N_{in}\)</span>. Let <span class="math notranslate nohighlight">\(I \in R^{F \times  N \times N}\)</span> be an diagonal matrix across
@@ -396,13 +411,16 @@ If * represent the signal-wise matrix product operator, then:</p>
 <span class="sig-name descname"><span class="pre">get_time_response</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.get_time_response" title="Link to this definition">¶</a></dt>
 <dd><p>Generates the impulse response of the DSP.</p>
 <blockquote>
-<div><dl>
-<dt><strong>Arguments</strong>:</dt><dd><p><strong>fs</strong> (int, optional): Sampling frequency. Defaults to 48000.
-<strong>identity</strong> (bool, optional): If False, return the input-to-output impulse responses of the DSP.</p>
-<blockquote>
-<div><p>If True, return the input-free impulse responses of the DSP.
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fs</strong> (int, optional): Sampling frequency. Defaults to 48000.</p></li>
+<li><dl class="simple">
+<dt><strong>identity</strong> (bool, optional): If False, return the input-to-output impulse responses of the DSP.</dt><dd><p>If True, return the input-free impulse responses of the DSP.
 Defaults to False.</p>
-</div></blockquote>
+</dd>
+</dl>
+</li>
+</ul>
 </dd>
 <dt><strong>NOTE</strong>: Definition of ‘input-to-output’ and ‘input-free’</dt><dd><p>Let <span class="math notranslate nohighlight">\(A \in \mathbb{R}^{T \times  N_{out} \times N_{in}}\)</span> be a time filter matrix. If <span class="math notranslate nohighlight">\(x \in \mathbb{R}^{T \times  N_{in}}\)</span> is an <span class="math notranslate nohighlight">\(N_{in}\)</span>-dimensional time signal having
 a unit impulse at time <span class="math notranslate nohighlight">\(t=0\)</span> for each element along <span class="math notranslate nohighlight">\(N_{in}\)</span>. Let <span class="math notranslate nohighlight">\(I \in R^{T \times  N \times N}\)</span> be an diagonal matrix across
@@ -516,6 +534,10 @@ If * represent the signal-wise matrix convolution operator, then:</p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/utils.html"><code class="docutils literal notranslate"><span class="pre">utils.generate_partitions()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/loss.html"><code class="docutils literal notranslate"><span class="pre">sparsity_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/loss.html#flamo.optimize.loss.mse_loss"><code class="docutils literal notranslate"><span class="pre">mse_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/loss.html#flamo.optimize.loss.masked_mse_loss"><code class="docutils literal notranslate"><span class="pre">masked_mse_loss</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
 <ul>
@@ -529,7 +551,7 @@ If * represent the signal-wise matrix convolution operator, then:</p>
 <ul>
   <li><a href="../index.html">Documentation overview</a><ul>
       <li>Previous: <a href="dsp.html" title="previous chapter">Processor</a></li>
-      <li>Next: <a href="../optimize/trainer.html" title="next chapter">Optimize</a></li>
+      <li>Next: <a href="../optimize/trainer.html" title="next chapter">Trainer</a></li>
   </ul></li>
 </ul>
 </div>

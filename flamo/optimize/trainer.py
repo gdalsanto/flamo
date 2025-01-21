@@ -1,52 +1,38 @@
 import torch
 import os
 import time
+import torch.nn as nn
+from typing import Optional
 from tqdm import trange
 
 class Trainer:   
     r"""
-        Trainer class for training differenitbale system with multiple loss functions.
+        Trainer class for training differentiable system with multiple loss functions.
         It handles the training step, validation steps, results logging, and the early stopping criterion.
         By default, it uses :meth:`torch.optim.Adam` as the optimizer, and :meth:`torch.optim.lr_scheduler.StepLR` as the learning rate scheduler.
         Each loss (criterion) can be registered using the :meth:`register_criterion` method.
         The training process can be started using the :meth:`train` method with the training and validation datasets.
-        To each loss it is possible to assign a weigth :math:`\alpha` and a flag indicating whether the loss function 
+        To each loss it is possible to assign a weight :math:`\alpha` and a flag indicating whether the loss function 
         requires the model as an input, which might be needed when the loss depends on the model's parameters.
         
-            **Args**:
-                - net (nn.Module): The differentiable system to be trained.
-                - max_epochs (int): Maximum number of training epochs. Default: 10.
-                - lr (float): Learning rate for the optimizer. Default: 1e-3.
-                - patience (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.
-                - patience_delta (float): Minimum improvement in validation loss to be considered as an improvement. Default: 0.01.
-                - step_size (int): Period of learning rate decay. Default: 50.
-                - step_factor (float): Multiplicative factor of learning rate decay. Default: 0.1.
-                - train_dir (str): The directory for saving training outputs. Default: None.
-                - device (str): Device to use for training. Default: 'cpu'.
+            **Arguments / Attributes**:
+                - **net** (nn.Module): The differentiable system to be trained.
+                - **max_epochs** (int): Maximum number of training epochs. Default: 10.
+                - **lr** (float): Learning rate for the optimizer. Default: 1e-3.
+                - **patience** (int): Number of epochs to wait for improvement in validation loss before early stopping. Default: 5.
+                - **patience_delta** (float): Minimum improvement in validation loss to be considered as an improvement. Default: 0.01.
+                - **step_size** (int): Period of learning rate decay. Default: 50.
+                - **step_factor** (float): Multiplicative factor of learning rate decay. Default: 0.1.
+                - **train_dir** (str): The directory for saving training outputs. Default: None.
+                - **device** (str): Device to use for training. Default: 'cpu'.
 
             **Attributes**:
-                - device (str): Device to use for training.
-                - net (nn.Module): The ifferentiable system.
-                - max_epochs (int): Maximum number of training epochs.
-                - lr (float): Learning rate for the optimizer.
-                - patience (int): Number of epochs to wait for improvement in validation loss before early stopping.
-                - patience_delta (float): Minimum improvement in validation loss to be considered as an improvement.
-                - min_val_loss (float): Minimum validation loss to be updated by the early stopper.
-                - optimizer (torch.optim.Optimizer): The optimizer.
-                - train_dir (str): The directory for saving training outputs.
-                - criterion (list): List of loss functions.
-                - alpha (list): List of weights for the loss functions.
-                - requires_model (list): List of flags indicating whether the loss functions require the model as an input.
-                - scheduler (torch.optim.lr_scheduler.StepLR): The learning rate scheduler.    
-
-            **Methods**:
-                - register_criterion(criterion, alpha, requires_model=False): Register a loss function and its weight.
-                - train(train_dataset, valid_dataset): Train the neural network model.
-                - train_step(data): Perform a single training step.
-                - valid_step(data): Perform a single validation step.
-                - print_results(epoch, time): Print the training results for an epoch.
-                - get_train_dir(): Get the directory path for saving training outputs.
-                - save_model(epoch): Save the model parameters to a file.
+                - **min_val_loss** (float): Minimum validation loss to be updated by the early stopper.
+                - **optimizer** (torch.optim.Optimizer): The optimizer.
+                - **criterion** (list): List of loss functions.
+                - **alpha** (list): List of weights for the loss functions.
+                - **requires_model** (list): List of flags indicating whether the loss functions require the model as an input.
+                - **scheduler** (torch.optim.lr_scheduler.StepLR): The learning rate scheduler.    
 
             Examples::
 
@@ -57,7 +43,17 @@ class Trainer:
                 >>> trainer.register_criterion(loss_2, alpha_2)  # register the second loss function with weight 0.1
                 >>> trainer.train(train_dataset, valid_dataset)
         """                   
-    def __init__(self, net, max_epochs=10, lr=1e-3, patience=5, patience_delta=0.01, step_size=50, step_factor=0.1, train_dir=None, device='cpu'):
+    def __init__(self, 
+                 net: nn.Module, 
+                 max_epochs: int = 10, 
+                 lr: float = 1e-3, 
+                 patience: int = 5, 
+                 patience_delta: float = 0.01, 
+                 step_size: int = 50, 
+                 step_factor: float = 0.1, 
+                 train_dir: str = None, 
+                 device: str = 'cpu'):
+        
         self.device = device
         self.net = net.to(device)
         self.max_epochs = max_epochs
@@ -72,29 +68,34 @@ class Trainer:
         self.train_dir = train_dir
         
         self.criterion, self.alpha, self.requires_model = [], [], [] # list of loss functions, weights, and parameter flags
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=step_size, gamma=step_factor) # learning rate scheduler)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=step_size, gamma=step_factor) # learning rate scheduler
 
-    def register_criterion(self, criterion, alpha=1, requires_model=False):
+    def register_criterion(self, 
+                           criterion: nn.Module, 
+                           alpha: int = 1, 
+                           requires_model: bool = False):
         r"""
-        Register a loss function and its weight in the loss function.
+        Register in the class a loss function (criterion) and its weight.
 
-            **Args**:
-                - criterion (nn.Module): The loss function.
-                - alpha (float): The weight of the loss function. Default: 1.
-                - requires_model (bool): Whether the loss function requires the model as an input. Default: False.
+            **Arguments**:
+                - **criterion** (nn.Module): The loss function.
+                - **alpha** (float): The weight of the loss function. Default: 1.
+                - **requires_model** (bool): Whether the loss function requires the model as an input. Default: False.
         """
         self.criterion.append(criterion.to(self.device))
         self.alpha.append(alpha)
         self.requires_model.append(requires_model)
         self.n_loss += 1
 
-    def train(self, train_dataset, valid_dataset):
+    def train(self, 
+              train_dataset: torch.utils.data.Dataset, 
+              valid_dataset: torch.utils.data.Dataset):
         r"""
         Train the neural network model.
 
-            **Args**:
-                - train_dataset (torch.utils.data.Dataset): The training dataset.
-                - valid_dataset (torch.utils.data.Dataset): The validation dataset.
+            **Arguments**:
+                - **train_dataset** (torch.utils.data.Dataset): The training dataset.
+                - **valid_dataset** (torch.utils.data.Dataset): The validation dataset.
         """
         
         self.train_loss, self.valid_loss = [], []
@@ -135,12 +136,19 @@ class Trainer:
         et = time.time()    # end time 
         print('Training time: {:.3f}s'.format(et-st))
 
-    def train_step(self, data):
+    def move_to_device(self, data: list | torch.Tensor):
+        if isinstance(data, list):
+            data = [x.to(self.device) for x in data]
+        else:
+            data = data.to(self.device)
+        return data
+    
+    def train_step(self, data: tuple):
         r"""
         Perform a single training step.
 
-            **Args**:
-                - data (tuple): A tuple containing the input data and the target data :code:`(inputs, targets)`.
+            **Arguments**:
+                - **data** (tuple): A tuple containing the input data and the target data :code:`(inputs, targets)`.
 
             **Returns**:
                 - float: The loss value of the training step.
@@ -165,22 +173,15 @@ class Trainer:
         self.optimizer.step()
         return loss.item()
 
-    def move_to_device(self, data):
-        if isinstance(data, list):
-            data = [x.to(self.device) for x in data]
-        else:
-            data = data.to(self.device)
-        return data
-
-    def valid_step(self, data):
+    def valid_step(self, data: tuple):
         r"""
         Perform a single validation step.
 
-        Args:
-            - data (tuple): A tuple containing the input data and the target data.
+            **Arguments**:
+                - **data** (tuple): A tuple containing the input data and the target data :code:`(inputs, targets)`.
 
-        Returns:
-            - float: The loss value for the validation step.
+            **Returns**:
+                - float: The loss value for the validation step.
         """
         # batch processing
         inputs, targets = data
@@ -201,15 +202,15 @@ class Trainer:
                 loss += alpha*temp
         return loss.item()
 
-    def print_results(self, e, e_time):
-        """ Print the training results for an epoch."""
+    def print_results(self, e: int, e_time: float):
+        r""" Print a string with the training results for an epoch."""
         print(get_str_results(epoch=e,
                               train_loss=self.train_loss,
                               valid_loss=self.valid_loss,
                               time=e_time))
 
     def get_train_dir(self):
-        """Get the directory path for saving training outputs."""
+        r"""Get the directory path where to save the training outputs."""
         if self.train_dir is not None:
             if not os.path.isdir(self.train_dir):
                 os.makedirs(self.train_dir)
@@ -217,11 +218,12 @@ class Trainer:
             self.train_dir = os.path.join('output', time.strftime("%Y%m%d-%H%M%S"))
             os.makedirs(self.train_dir)
 
-    def save_model(self, e):
-        """
+    def save_model(self, e: int):
+        r"""
         Save the model parameters to a file.
 
-                  e (int): The epoch number.
+            **Arguments**:
+                **e** (int): The epoch number.
         """
         dir_path = os.path.join(self.train_dir, 'checkpoints')
         # create checkpoint folder 
@@ -247,16 +249,19 @@ class Trainer:
                 return True
         return False
 
-def get_str_results(epoch=None, train_loss=None, valid_loss=None, time=None):
+def get_str_results(epoch: Optional[int] = None, 
+                    train_loss: Optional[list] = None, 
+                    valid_loss: Optional[list] = None, 
+                    time: Optional[int] = None):
     r"""
     Construct the string that has to be printed at the end of the epoch containing 
     information relative to the training performance.
 
-        **Args**:
-            - epoch (int): The epoch number.
-            - train_loss (list): List of training loss values.
-            - valid_loss (list): List of validation loss values.
-            - time (float): The time taken for the epoch.
+        **Arguments**:
+            - **epoch** (int): The epoch number. Default: None.
+            - **train_loss** (list): List of training loss values. Default: None.
+            - **valid_loss** (list): List of validation loss values. Default: None.
+            - **time** (float): The time taken for the epoch. Default: None.
 
         **Returns**:
             - str: The formatted string to be printed.

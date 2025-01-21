@@ -1,4 +1,5 @@
 import torch
+from typing import Optional
 import torch.nn as nn
 import torch.nn.functional as F
 from flamo.utils import to_complex
@@ -34,12 +35,15 @@ class Transform(nn.Module):
             >>> pow2(input)
             tensor([1, 4, 9])
     """
-    def __init__(self, transform: callable = lambda x: x, device=None):
+    def __init__(self, 
+                 transform: callable = lambda x: x, 
+                 device: Optional[str] = None):
+        
         super().__init__()
         self.transform = transform
         self.device = device
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         r"""
         Calls transformation function on the input tensor.
 
@@ -67,7 +71,10 @@ class FFT(Transform):
     For details on the real FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
     """
 
-    def __init__(self, nfft=2**11, norm="backward"):
+    def __init__(self, 
+                 nfft: int = 2**11, 
+                 norm: str = "backward"):
+        
         self.nfft = nfft
         self.norm = norm
         transform = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
@@ -88,7 +95,10 @@ class iFFT(Transform):
     For details on the inverse real FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
     """
 
-    def __init__(self, nfft=2**11, norm="backward"):
+    def __init__(self, 
+                 nfft: int = 2**11, 
+                 norm: str = "backward"):
+        
         self.nfft = nfft
         self.norm = norm
         transform = lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
@@ -112,7 +122,12 @@ class FFTAntiAlias(Transform):
 
     For details on the FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
     """
-    def __init__(self, nfft=2**11, norm="backward", alias_decay_db=0.0, device=None):
+    def __init__(self, 
+                 nfft: int = 2**11, 
+                 norm: str = "backward", 
+                 alias_decay_db: float = 0.0, 
+                 device: Optional[str] = None):
+        
         self.nfft = nfft
         self.norm = norm
         self.device = device
@@ -141,7 +156,12 @@ class iFFTAntiAlias(Transform):
     For details on the inverse FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
     """
 
-    def __init__(self, nfft=2**11, norm="backward", alias_decay_db=0.0, device=None):
+    def __init__(self, 
+                 nfft: int = 2**11, 
+                 norm: str = "backward", 
+                 alias_decay_db: float = 0.0, 
+                 device: Optional[str] = None):
+        
         self.nfft = nfft
         self.norm = norm
         self.device = device
@@ -191,11 +211,11 @@ class DSP(nn.Module):
         self,
         size: tuple,
         nfft: int = 2**11,
-        map=lambda x: x,
+        map: callable = lambda x: x,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
-    ):
+        device: Optional[str] = None):
+
         super().__init__()
         assert isinstance(size, tuple), "Size must be a tuple."
         self.size = size 
@@ -243,13 +263,15 @@ class DSP(nn.Module):
 
         self.gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
 
-    def assign_value(self, new_value, indx: tuple = tuple([slice(None)])):
+    def assign_value(self, 
+                     new_value: torch.Tensor, 
+                     indx: tuple = tuple([slice(None)])):
         r"""
         Assigns new values to the parameters.
 
         **Arguments**:
-            - new_value (torch.Tensor): New values to be assigned.
-            - indx (tuple, optional): Specifies the index of the values to be assigned. Default: tuple([slice(None)]).
+            - **new_value** (torch.Tensor): New values to be assigned.
+            - **indx** (tuple, optional): Specifies the index of the values to be assigned. Default: tuple([slice(None)]).
 
         .. warning::
             the gradient calculation is disable when assigning new values to :attr:`param`.
@@ -308,10 +330,10 @@ class Gain(DSP):
         self,
         size: tuple = (1, 1),
         nfft: int = 2**11,
-        map=lambda x: x,
+        map: callable = lambda x: x,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         super().__init__(
             size=size,
@@ -328,8 +350,8 @@ class Gain(DSP):
         Applies the Gain module to the input tensor x.
 
             **Arguments**:
-                **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
-                **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
+                - **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+                - **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
             **Returns**:
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
@@ -413,10 +435,10 @@ class parallelGain(Gain):
         self,
         size: tuple = (1,),
         nfft: int = 2**11,
-        map=lambda x: x,
-        requires_grad=False,
+        map: callable = lambda x: x,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         super().__init__(
             size=size,
@@ -492,11 +514,11 @@ class Matrix(Gain):
         self,
         size: tuple = (1, 1),
         nfft: int = 2**11,
-        map=lambda x: x,
+        map: callable = lambda x: x,
         matrix_type: str = "random",
-        requires_grad=False,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         self.matrix_type = matrix_type
         super().__init__(
@@ -572,9 +594,9 @@ class HouseholderMatrix(Gain):
         self,
         size: tuple = (1, 1),
         nfft: int = 2**11,
-        requires_grad=False,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         assert size[0] == size[1], "Matrix must be square"
         size = (size[0], 1)
@@ -601,8 +623,8 @@ class HouseholderMatrix(Gain):
             \mathbf{U}x = uu^T x = \sum_{n=1}^{N} u_n (u^T x)_n        
 
         **Arguments**:
-            **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N, ...)`.
-            **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
+            - **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N, ...)`.
+            - **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
         **Returns**:
             torch.Tensor: Output tensor of shape :math:`(B, M, N, ...)`.
         """
@@ -689,10 +711,10 @@ class Filter(DSP):
         self,
         size: tuple = (1, 1, 1),
         nfft: int = 2**11,
-        map=lambda x: x,
+        map: callable = lambda x: x,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         super().__init__(
             size=size,
@@ -709,8 +731,8 @@ class Filter(DSP):
         Applies the Filter module to the input tensor x.
 
             **Arguments**:
-                **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
-                **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
+                - **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+                - **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
 
             **Returns**:
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
@@ -812,10 +834,10 @@ class parallelFilter(Filter):
         self,
         size: tuple = (1, 1),
         nfft: int = 2**11,
-        map=lambda x: x,
+        map: callable = lambda x: x,
         requires_grad: bool=False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         super().__init__(
             size=size,
@@ -925,7 +947,7 @@ class ScatteringMatrix(Filter):
         m_R: torch.tensor = None, 
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):  
         self.sparsity = sparsity
         self.gain_per_sample = gain_per_sample
@@ -1055,9 +1077,9 @@ class Biquad(Filter):
         filter_type: str = "lowpass",
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad: bool=True,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         assert filter_type in ["lowpass", "highpass", "bandpass"], "Invalid filter type"
         self.n_sections = n_sections
@@ -1114,9 +1136,9 @@ class Biquad(Filter):
                 - For "bandpass" filters, param[:, 0, :, :] represents the lower cutoff frequency, param[:, 1, :, :] represents the upper cutoff frequency, and param[:, 2, :, :] represents the gain.
 
         **Returns**:       
-            **H** (torch.Tensor): The frequency response of the filter.
-            **B** (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
-            **A** (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
+            - **H** (torch.Tensor): The frequency response of the filter.
+            - **B** (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
+            - **A** (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
 
 
         The method uses the filter type specified in :attr:`filter_type` to determine 
@@ -1221,9 +1243,9 @@ class parallelBiquad(Biquad):
         filter_type: str = "lowpass",
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad=True,
+        requires_grad: bool = True,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         super().__init__(
             size=size,
@@ -1279,9 +1301,9 @@ class parallelBiquad(Biquad):
                 - For "bandpass" filters, param[:, 0, :] represents the lower cutoff frequency, param[:, 1, :] represents the upper cutoff frequency, and param[:, 2, :] represents the gain.
         
         **Returns**:       
-            **H** (torch.Tensor): The frequency response of the filter.
-            **B** (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
-            **A** (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
+            - **H** (torch.Tensor): The frequency response of the filter.
+            - **B** (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
+            - **A** (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
 
 
         The method uses the filter type specified in attr:`filter_type` to determine 
@@ -1396,7 +1418,7 @@ class SVF(Filter):
         fs: int = 48000,
         requires_grad: bool = True,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         self.fs = fs
         self.n_sections = n_sections
@@ -1511,8 +1533,8 @@ class SVF(Filter):
         :math:`G = 10^{-\text{softplus}(x)}`.  
 
             **Arguments**:
-                **param** (torch.Tensor): The raw parameters.
-                **R** (torch.Tensor, optional): The resonance parameter. Default: None.
+                - **param** (torch.Tensor): The raw parameters.
+                - **R** (torch.Tensor, optional): The resonance parameter. Default: None.
 
         """
         # activation = lambda x: 10**(-torch.log(1+torch.exp(x)) / torch.log(torch.tensor(2,  device=get_device())))
@@ -1629,7 +1651,7 @@ class parallelSVF(SVF):
         fs: int = 48000,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None,
+        device: Optional[str] = None,
     ):
         super().__init__(
             size=size,
@@ -1747,10 +1769,10 @@ class GEQ(Filter):
         octave_interval: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
-        map=lambda x: 20*torch.log10(x),
+        map: callable = lambda x: 20*torch.log10(x),
         requires_grad: bool = True,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         self.octave_interval = octave_interval
         self.fs = fs
@@ -1847,10 +1869,10 @@ class parallelGEQ(GEQ):
         octave_interval: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
-        map=lambda x: 20*torch.log10(x),
+        map: callable = lambda x: 20*torch.log10(x),
         requires_grad: bool = True,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         super().__init__(
             size=size,
@@ -1967,9 +1989,9 @@ class Delay(DSP):
         unit: int = 100,
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad=False,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None,
+        device: Optional[str] = None,
     ):
         self.fs = fs  
         self.max_len = max_len  
@@ -1989,8 +2011,8 @@ class Delay(DSP):
         Applies the Delay module to the input tensor x.
 
             **Arguments**:
-                **x** (torch.Tensor): Input tensor of shape (B, M, N_in, ...).
-                **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
+                - **x** (torch.Tensor): Input tensor of shape (B, M, N_in, ...).
+                - **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
 
             **Returns**:
                 torch.Tensor: Output tensor of shape (B, M, N_out, ...).
@@ -2024,7 +2046,7 @@ class Delay(DSP):
         """
         return delay * self.fs / self.unit
 
-    def sample2s(self, delay):
+    def sample2s(self, delay: torch.Tensor):
         r"""
         Converts a delay value from samples to seconds.
 
@@ -2125,14 +2147,14 @@ class parallelDelay(Delay):
     def __init__(
         self,
         size: tuple = (1,),
-        max_len=2000,
+        max_len: int = 2000,
         unit: int = 100,
         isint: bool = False,
         nfft=2**11,
         fs: int = 48000,
-        requires_grad=False,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
-        device=None
+        device: Optional[str] = None
     ):
         super().__init__(
             size=size,

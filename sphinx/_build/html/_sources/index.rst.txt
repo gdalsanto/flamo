@@ -64,6 +64,10 @@ The **optimize** module contains classes for handling training, validation, resu
    :caption: Optimization:
 
    optimize/trainer
+   optimize/dataset
+   optimize/loss
+   optimize/utils
+
 
 The **functional** module is a collector of signal processing function and transformations that can be used as, e.g., parameters mappings.
 

@@ -1,4 +1,4 @@
-.. title:: Optimize
+.. title:: Trainer
 
 .. autoclass:: flamo.optimize.trainer.Trainer
    :members:

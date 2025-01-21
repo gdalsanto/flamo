@@ -17,7 +17,7 @@ class Series(nn.Sequential):
     modules are expected to have these attributes.
 
         **Arguments**:
-            - **\*args**: An arbitrary number of DSP modules of the type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
+            **\*args**: An arbitrary number of DSP modules of the type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
     """
     def __init__(self, *args):
         super().__init__(self.__unpack_modules(modules=args, current_keys=[]))
@@ -75,8 +75,8 @@ class Series(nn.Sequential):
         Inserts a given item at the given index in the Series instance.
 
             **Arguments**:
-                **index** (int): index at which to insert the new module.
-                **new_module** (nn.Module | nn.Sequential | OrderedDict): item to append.
+                - **index** (int): index at which to insert the new module.
+                - **new_module** (nn.Module | nn.Sequential | OrderedDict): item to append.
 
             **Returns**:
                 Series: self.
@@ -134,15 +134,15 @@ class Series(nn.Sequential):
             5. if a custom key is found and can be converted to an integer (e.g. '3'), such key is considered missing and rule 4 is applied
 
         **Arguments**:
-            **modules** (tuple): The input modules.
-            **current_keys** (list): The current keys of the already unpacked modules.
+            - **modules** (tuple): The input modules.
+            - **current_keys** (list): The current keys of the already unpacked modules.
 
         **Returns**:
             The unpacked modules (:class:`OrderedDict`).
 
         **Raises**:
-            ValueError: If modules are not of type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
-            ValueError: If a custom key is not unique.
+            - ValueError: If modules are not of type :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`.
+            - ValueError: If a custom key is not unique.
         """
         # initialize the unpacked modules as empty OrderedDict
         unpacked_modules = OrderedDict()
@@ -264,8 +264,8 @@ class Series(nn.Sequential):
         Forward pass through the Series.
             
                 **Arguments**:
-                    **input** (Tensor): The input tensor.
-                    **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
+                    - **input** (Tensor): The input tensor.
+                    - **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
     
                 **Returns**:
                     Tensor: The output tensor.
@@ -413,8 +413,8 @@ class Recursion(nn.Module):
                 tuple(int,int): The number of input and output channels.
 
             **Raises**:
-                ValueError: The feedforward or the feedback paths do not possess either the input_channels or the output_channels attributes.
-                AssertionError: The feedforward and the feedback paths' input and output channels are not compatible.
+                - ValueError: The feedforward or the feedback paths do not possess either the input_channels or the output_channels attributes.
+                - AssertionError: The feedforward and the feedback paths' input and output channels are not compatible.
         """
         # Get input channels of both feedforward and feedback
         ff_in_ch = getattr(self.feedforward, 'input_channels', None)
@@ -563,14 +563,14 @@ class Shell(nn.Module):
         Check if all the modules in core, input layer, and output layer have the same value for the requested attribute.
 
             **Argument**:
-                **attr** (str): The attribute to check.
+                - **attr** (str): The attribute to check.
             
             **Returns**:
                 int: The attribute value.
             
             **Raises**:
-                ValueError: The core component does not possess the requested attribute.
-                AssertionError: Core, input layer, and output layer do not have the same value of the requested attribute.
+                - ValueError: The core component does not possess the requested attribute.
+                - AssertionError: Core, input layer, and output layer do not have the same value of the requested attribute.
         """
 
         # Check that core, input layer, and output layer all possess the nfft attribute.
@@ -631,8 +631,8 @@ class Shell(nn.Module):
         Generates the impulse response of the DSP.
 
             **Arguments**:
-                **fs** (int, optional): Sampling frequency. Defaults to 48000.
-                **identity** (bool, optional): If False, return the input-to-output impulse responses of the DSP.
+                - **fs** (int, optional): Sampling frequency. Defaults to 48000.
+                - **identity** (bool, optional): If False, return the input-to-output impulse responses of the DSP.
                                         If True, return the input-free impulse responses of the DSP.
                                         Defaults to False.
                 
@@ -688,8 +688,8 @@ class Shell(nn.Module):
         Generates the frequency response of the DSP.
 
             **Arguments**:
-                **fs** (int, optional): Sampling frequency. Defaults to 48000.
-                **identity** (bool, optional): If False, return the input-to-output frequency responses of the DSP.
+                - **fs** (int, optional): Sampling frequency. Defaults to 48000.
+                - **identity** (bool, optional): If False, return the input-to-output frequency responses of the DSP.
                                         If True, return the input-free frequency responses of the DSP.
                                         Defaults to False.
             
