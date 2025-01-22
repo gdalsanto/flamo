@@ -15,8 +15,8 @@
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Functional" href="../functional.html" />
-    <link rel="prev" title="Utils" href="utils.html" />
+    <link rel="next" title="Utils" href="utils.html" />
+    <link rel="prev" title="Dataset" href="dataset.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -196,10 +196,15 @@ The loss is calculated using a masked version of the predicted output. This opti
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">utils.generate_partitions()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html#flamo.optimize.dataset.DatasetColorless"><code class="docutils literal notranslate"><span class="pre">DatasetColorless</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html#flamo.optimize.dataset.get_dataloader"><code class="docutils literal notranslate"><span class="pre">dataset.get_dataloader()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html#flamo.optimize.dataset.split_dataset"><code class="docutils literal notranslate"><span class="pre">dataset.split_dataset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html#flamo.optimize.dataset.load_dataset"><code class="docutils literal notranslate"><span class="pre">dataset.load_dataset()</span></code></a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">sparsity_loss</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="#flamo.optimize.loss.mse_loss"><code class="docutils literal notranslate"><span class="pre">mse_loss</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="#flamo.optimize.loss.masked_mse_loss"><code class="docutils literal notranslate"><span class="pre">masked_mse_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">utils.generate_partitions()</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
 <ul>
@@ -207,13 +212,28 @@ The loss is calculated using a masked version of the predicted output. This opti
 <li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Auxiliary:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html"><code class="docutils literal notranslate"><span class="pre">eq.eq_freqs()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.octave_bands"><code class="docutils literal notranslate"><span class="pre">eq.octave_bands()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.geq"><code class="docutils literal notranslate"><span class="pre">eq.geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">eq.design_geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/filterbank.html"><code class="docutils literal notranslate"><span class="pre">FilterBank</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/minimize.html"><code class="docutils literal notranslate"><span class="pre">MLS</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize.minimize_LBFGS()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html"><code class="docutils literal notranslate"><span class="pre">HomogeneousFDN</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">reverb.rt2slope()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">reverb.rt2absorption()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/scattering.html"><code class="docutils literal notranslate"><span class="pre">ScatteringMapping</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/scattering.html#flamo.auxiliary.scattering.cascaded_paraunit_matrix"><code class="docutils literal notranslate"><span class="pre">scattering.cascaded_paraunit_matrix()</span></code></a></li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="../index.html">Documentation overview</a><ul>
-      <li>Previous: <a href="utils.html" title="previous chapter">Utils</a></li>
-      <li>Next: <a href="../functional.html" title="next chapter">Functional</a></li>
+      <li>Previous: <a href="dataset.html" title="previous chapter">Dataset</a></li>
+      <li>Next: <a href="utils.html" title="next chapter">Utils</a></li>
   </ul></li>
 </ul>
 </div>

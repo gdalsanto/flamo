@@ -15,7 +15,8 @@
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Optimize" href="optimize/trainer.html" />
+    <link rel="next" title="Equalizer" href="auxiliary/eq.html" />
+    <link rel="prev" title="Utils" href="optimize/utils.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -162,19 +163,28 @@ the cutoff frequencies and gain to the filter coefficients to the to the <span c
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Differentiable Digitial Signal Processor:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Processor:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.FFTAntiAlias"><code class="docutils literal notranslate"><span class="pre">FFTAntiAlias</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.iFFTAntiAlias"><code class="docutils literal notranslate"><span class="pre">iFFTAntiAlias</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.HouseholderMatrix"><code class="docutils literal notranslate"><span class="pre">HouseholderMatrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Filter"><code class="docutils literal notranslate"><span class="pre">Filter</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelFilter"><code class="docutils literal notranslate"><span class="pre">parallelFilter</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.ScatteringMatrix"><code class="docutils literal notranslate"><span class="pre">ScatteringMatrix</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelSVF"><code class="docutils literal notranslate"><span class="pre">parallelSVF</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.GEQ"><code class="docutils literal notranslate"><span class="pre">GEQ</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelGEQ"><code class="docutils literal notranslate"><span class="pre">parallelGEQ</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="processor/system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
@@ -183,6 +193,15 @@ the cutoff frequencies and gain to the filter coefficients to the to the <span c
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.DatasetColorless"><code class="docutils literal notranslate"><span class="pre">DatasetColorless</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.get_dataloader"><code class="docutils literal notranslate"><span class="pre">dataset.get_dataloader()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.split_dataset"><code class="docutils literal notranslate"><span class="pre">dataset.split_dataset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.load_dataset"><code class="docutils literal notranslate"><span class="pre">dataset.load_dataset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/loss.html"><code class="docutils literal notranslate"><span class="pre">sparsity_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/loss.html#flamo.optimize.loss.mse_loss"><code class="docutils literal notranslate"><span class="pre">mse_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/loss.html#flamo.optimize.loss.masked_mse_loss"><code class="docutils literal notranslate"><span class="pre">masked_mse_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/utils.html"><code class="docutils literal notranslate"><span class="pre">utils.generate_partitions()</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
 <ul class="current">
@@ -190,12 +209,28 @@ the cutoff frequencies and gain to the filter coefficients to the to the <span c
 <li class="toctree-l1"><a class="reference internal" href="#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Auxiliary:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html"><code class="docutils literal notranslate"><span class="pre">eq.eq_freqs()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.octave_bands"><code class="docutils literal notranslate"><span class="pre">eq.octave_bands()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.geq"><code class="docutils literal notranslate"><span class="pre">eq.geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">eq.design_geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/filterbank.html"><code class="docutils literal notranslate"><span class="pre">FilterBank</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/minimize.html"><code class="docutils literal notranslate"><span class="pre">MLS</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize.minimize_LBFGS()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/reverb.html"><code class="docutils literal notranslate"><span class="pre">HomogeneousFDN</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">reverb.rt2slope()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">reverb.rt2absorption()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/scattering.html"><code class="docutils literal notranslate"><span class="pre">ScatteringMapping</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/scattering.html#flamo.auxiliary.scattering.cascaded_paraunit_matrix"><code class="docutils literal notranslate"><span class="pre">scattering.cascaded_paraunit_matrix()</span></code></a></li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
-      <li>Previous: <a href="optimize/trainer.html" title="previous chapter">Optimize</a></li>
+      <li>Previous: <a href="optimize/utils.html" title="previous chapter">Utils</a></li>
+      <li>Next: <a href="auxiliary/eq.html" title="next chapter">Equalizer</a></li>
   </ul></li>
 </ul>
 </div>

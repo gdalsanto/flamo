@@ -7,15 +7,22 @@ from collections import OrderedDict
 from flamo.processor import dsp, system
 
 def rt2slope(rt60, fs):
-    '''convert time in seconds of 60db decay to energy decay slope'''
+    r'''
+    Convert time in seconds of 60db decay to energy decay slope
+    '''
     return -60/(rt60*fs)
 
 def rt2absorption(rt60, fs, delays_len):
-    '''convert time in seconds of 60db decay to energy decay slope relative to the delay line length'''
+    r'''
+    Convert time in seconds of 60db decay to energy decay slope relative to the delay line length
+    '''
     slope = rt2slope(rt60, fs)
     return torch.einsum('i,j->ij', slope , delays_len)
 
 class HomogeneousFDN:
+    r"""
+    Class for creating a Feedback Delay Network (FDN) model with homogeneous attenuation.
+    """
     
     def __init__(self, config_dict):
 

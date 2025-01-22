@@ -9,14 +9,14 @@ from flamo.functional import (
 )
 from flamo.auxiliary.minimize import minimize_LBFGS
 
-def eq_freqs(interval=1, start_freq=31.25, end_freq=16000):
+def eq_freqs(interval: int = 1, start_freq: float = 31.25, end_freq: float = 16000.0):
     r"""
     Calculate the center frequencies and shelving crossover frequencies for an equalizer.
 
-    **Args**:
-        - interval (int, optional): The interval between center frequencies in octaves. Default: 1.
-        - start_freq (float, optional): The starting frequency for the equalizer in Hz. Default: 31.25 Hz.
-        - end_freq (float, optional): The ending frequency for the equalizer in Hz. Default: 16000 Hz.
+    **Arguments**:
+        - **interval** (int, optional): The fraction of octave to use in one interval. Default: 1.
+        - **start_freq** (float, optional): The starting frequency in Hz. Default: 31.25.
+        - **end_freq** (float, optional): The ending frequency in Hz. Default: 16000.
 
     **Returns**:
         - tuple: A tuple containing the center frequencies and shelving crossover frequencies in Hz.
@@ -27,17 +27,17 @@ def eq_freqs(interval=1, start_freq=31.25, end_freq=16000):
 
     return center_freq, shelving_crossover
 
-def octave_bands(interval=1, start_freq=31.25, end_freq=16000):
+def octave_bands(interval: int = 1, start_freq: float = 31.25, end_freq: float = 16000.0):
     r"""
     Generate a list of octave band central frequencies.
 
-        **Args**:
-            - interval (int, optional): The interval between the central frequencies. Default: 1.
-            - start_freq (float, optional): The starting frequency of the octave bands. Default: 31.25 Hz.
-            - end_freq (float, optional): The ending frequency of the octave bands. Default: 16000 Hz.
+    **Arguments**:
+        - **interval** (int, optional): The fraction of octave to use in one interval. Default: 1.
+        - **start_freq** (float, optional): The starting frequency in Hz. Default: 31.25.
+        - **end_freq** (float, optional): The ending frequency in Hz. Default: 16000.
 
-        **Returns**:
-            - central_freq (list): A list of octave band central frequencies.
+    **Returns**:
+        - central_freq (list): A list of octave band central frequencies.
 
     """
     central_freq = []
@@ -47,20 +47,22 @@ def octave_bands(interval=1, start_freq=31.25, end_freq=16000):
         c_freq = central_freq[-1]       
     return central_freq
 
-def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor, gain_db: torch.Tensor, fs: int = 48000, device=None):
+def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor, gain_db: torch.Tensor, fs: int = 48000, device: str = 'cpu'):
     r"""
-    Computes the second-order sections coefficents of a graphic equalizer.
+    Computes the second-order sections coefficients of a graphic equalizer.
+    The EQ is implemented as a series of shelving peak filters, using the :meth:`flamo.functional.shelving_filter` and :meth:`flamo.functional.peak_filter` methods.
 
-    **Args**:
-        - center_freq (torch.Tensor): Tensor containing the center frequencies of the bandpass filters in Hz.
-        - shelving_freq (torch.Tensor): Tensor containing the corner frequencies of the shelving filters in Hz.
-        - R (torch.Tensor): Tensor containing the resonance factor for the bandpass filters.
-        - gain_db (torch.Tensor): Tensor containing the gain values in decibels for each frequency band.
-        - fs (int, optional): Sampling frequency. Default: 48000 Hz.
-        - device (str, optional): Device to use for constructing tensors. Default: None.
+    **Arguments**:
+        - **center_freq** (torch.Tensor): Tensor containing the center frequencies of the bandpass filters in Hz.
+        - **shelving_freq** (torch.Tensor): Tensor containing the corner frequencies of the shelving filters in Hz.
+        - **R** (torch.Tensor): Tensor containing the resonance factor for the bandpass filters.
+        - **gain_db** (torch.Tensor): Tensor containing the gain values in decibels for each frequency band.
+        - **fs** (int, optional): Sampling frequency. Default: 48000 Hz.
+        - **device** (str, optional): Device to use for constructing tensors. Default: cpu.
 
     **Returns**:
         - tuple: A tuple containing the numerator and denominator coefficients of the GEQ filter.
+
     """
     num_bands = len(center_freq) + len(shelving_freq) + 1
     assert len(gain_db) == num_bands, 'The number of gains must be equal to the number of frequencies.'
@@ -81,17 +83,17 @@ def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor,
         sos_band = torch.hstack((b, a))
         sos[:, band] = sos_band
 
-    return  sos[:3] ,  sos[3:] 
+    return sos[:3], sos[3:] 
 
-def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_crossover: torch.Tensor, fs=48000):
+def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_crossover: torch.Tensor, fs: int = 48000):
     r"""
     Design a Graphic Equalizer (GEQ) filter.
 
-        **Args**:
-            - target_gain (torch.Tensor): Target gain values in dB for each frequency band.
-            - center_freq (torch.Tensor): Center frequencies of each band.
-            - shelving_crossover (torch.Tensor): Crossover frequencies for shelving filters.
-            - fs (int, optional): Sampling frequency. Default: 48000 Hz.
+        **Arguments**:
+            - **target_gain** (torch.Tensor): Target command gain values in dB for each frequency band.
+            - **center_freq** (torch.Tensor): Center frequencies of each band.
+            - **shelving_crossover** (torch.Tensor): Crossover frequencies for shelving filters.
+            - **fs** (int, optional): Sampling frequency. Default: 48000 Hz.
 
         **Returns**:
             - tuple: A tuple containing the numerator and denominator coefficients of the GEQ filter.

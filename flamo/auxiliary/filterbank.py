@@ -9,17 +9,35 @@ from scipy.signal import sosfreqz
 from flamo.utils import get_device
 
 class FilterBank(nn.Module):
-    """Generates a filterbank and filters tensors.
+    r"""
+    Generates a filterbank and filters tensors.
 
     This is gpu compatible if using torch backend, but it might be slow.
     The octave filterbanks is created using cascade Buttwerworth filters, which then are processed using
     the biquad function native to PyTorch.
 
-    This is useful to get the decay curves of RIRs.
+    This class is useful, e.g., to get the decay curves of RIRs.
+
+    **Arguments**:
+        - **fraction** (int): Fraction of octave bands (1 or 3).
+        - **order** (int): Order of the Butterworth filter.
+        - **fmin** (int): Minimum frequency.
+        - **fmax** (int): Maximum frequency.
+        - **sample_rate** (int): Sampling rate.
+        - **nfft** (int, optional): Number of FFT points.
+        - **backend** (str): Backend to use ('scipy' or 'torch').
+
     Adapted from DecayFitNet original implementation by @georg-goetz https://github.com/georg-goetz/DecayFitNet
     """
 
-    def __init__(self, fraction=3, order=5, fmin = 20, fmax = 18000, sample_rate=48000, nfft = None, backend='scipy'):
+    def __init__(self, 
+                 fraction: int = 3, 
+                 order: int = 5, 
+                 fmin: float = 20.0, 
+                 fmax: float = 18000.0,
+                 sample_rate: int = 48000, 
+                 nfft: int = None, 
+                 backend: str = 'scipy'):
         super(FilterBank, self).__init__()
 
         assert (fraction == 1) | (fraction == 3),  "At the moment only fractions 1 and 3 are supported"
@@ -59,7 +77,16 @@ class FilterBank(nn.Module):
         self._backend = backend
         self._nfft = nfft
 
-    def _forward_scipy(self, x):
+    def _forward_scipy(self, x: torch.Tensor):
+        r"""
+        Forward pass using scipy backend.
+
+        **Arguments**:
+            **x** (torch.Tensor): Input tensor.
+
+        **Returns**:
+            torch.Tensor: Filtered tensor.
+        """
         out = []
         for this_sos in self._sos:
             tmp = torch.clone(x).cpu().numpy()
@@ -70,12 +97,20 @@ class FilterBank(nn.Module):
         return out
 
     def _forward_torch(self, x, filt_type='conv'):
+        r"""
+        Forward pass using torch backend.
+
+        **Arguments**:
+            - **x** (torch.Tensor): Input tensor.
+            - **filt_type** (str): Filter type ('conv' or 'biquad').
+
+        **Returns**:
+            torch.Tensor: Filtered tensor.
+        """
         out = []
         if filt_type == 'conv':
             X = torch.fft.rfft(x, axis=1)
             for i, this_freq in enumerate(self.freqz):
-                # this_imp = this_imp.unsqueeze(0)
-                # tmp = torchaudio.functional.fftconvolve(x, this_imp, "same")
                 this_freq = torch.tensor(this_freq, device=x.device)
                 tmp = torch.fft.irfft(
                     torch.einsum('btn, t -> btn', X, this_freq), 
@@ -83,26 +118,40 @@ class FilterBank(nn.Module):
                 out.append(tmp)
         else:
             for this_sos in self._sos:
-                # loop over the sections 
                 tmp = x
                 for i, sos in enumerate(this_sos):
                     tmp =  torchaudio.functional.biquad(tmp, sos[0], sos[1], sos[2], sos[3], sos[4], sos[5])
                 out.append(tmp)
-                # b, a = scipy.signal.sos2tf(this_sos)
-                # out.append(torchaudio.functional.lfilter(x, torch.tensor(a).float(), torch.tensor(b).float(), clamp = False))
-                # out.append(sosfilt(torch.tensor(this_sos), x, axis=-1))
         out = torch.stack(out, dim=-1)  # Stack over frequency bands
         return out 
 
     def set_sample_rate(self, sample_rate):
+        r"""
+        Sets the sample rate and updates the filters.
+
+        **Arguments**:
+            **sample_rate** (int): New sample rate.
+        """
         self._sample_rate = sample_rate
         self._sos = self._get_octave_filters(self._center_frequencies, self._sample_rate, self._order)
 
     def set_order(self, order):
+        r"""
+        Sets the filter order and updates the filters.
+
+        **Arguments**:
+            **order** (int): New filter order.
+        """
         self._order = order
         self._sos = self._get_octave_filters(self._center_frequencies, self._sample_rate, self._order)
 
     def set_center_frequencies(self, center_freqs):
+        r"""
+        Sets the center frequencies and updates the filters.
+
+        **Arguments**:
+            **center_freqs** (list): List of new center frequencies.
+        """
         center_freqs_np = np.asarray(center_freqs)
         assert not np.any(center_freqs_np < 0) and not np.any(center_freqs_np > self._sample_rate / 2), \
             'Center Frequencies must be greater than 0 and smaller than fs/2. Exceptions: exactly 0 or fs/2 ' \
@@ -111,15 +160,29 @@ class FilterBank(nn.Module):
         self._sos = self._get_octave_filters(center_freqs, self._sample_rate, self._order)
 
     def get_center_frequencies(self):
+        r"""
+        Gets the center frequencies.
+
+        **Returns**:
+            list: List of center frequencies.
+        """
         return self._center_frequencies
 
     def forward(self, x):
-        # compute freqz
+        r"""
+        Forward pass of the filter bank.
+
+        **Returns**:
+            **x** (torch.Tensor): Input tensor.
+
+        **Returns**:
+            torch.Tensor: Filtered tensor.
+        """
         if self._nfft == None:
             self._nfft = x.size(1) // 2 + 1
         self.freqz = np.zeros((len(self._sos), self._nfft), dtype=np.complex128)
         for i, sos in enumerate(self._sos):
-            _, self.freqz[i, :] = sosfreqz(sos, self._nfft, fs = self._sample_rate)  # TEST
+            _, self.freqz[i, :] = sosfreqz(sos, self._nfft, fs = self._sample_rate)
 
         if self._backend == 'scipy':
             out = self._forward_scipy(x)
@@ -130,7 +193,12 @@ class FilterBank(nn.Module):
         return out
 
     def get_filterbank_impulse_response(self):
-        """Returns the impulse response of the filterbank."""
+        """
+        Returns the impulse response of the filterbank.
+
+        **Returns**:
+            torch.Tensor: Impulse response of the filterbank.
+        """
         impulse = torch.zeros(1, self._sample_rate * 20)
         impulse[0, self._sample_rate] = 1
         response = self.forward(impulse)
@@ -140,7 +208,14 @@ class FilterBank(nn.Module):
     def _get_octave_filters(center_freqs, fs, order):
         """
         Design octave band filters (butterworth filter).
-        Returns a tensor with the SOS (second order sections) representation of the filter
+
+        **Returns**:
+            - **center_freqs** (list): List of center frequencies.
+            - **fs** (int): Sampling rate.
+            - **order** (int): Order of the Butterworth filter.
+
+        **Returns**:
+            list: List of SOS (second order sections) representation of the filters.
         """
         sos = []
         for band_idx in range(len(center_freqs)):

@@ -3,7 +3,7 @@
 .. autoclass:: flamo.optimize.dataset.Dataset
    :members:
 
-.. autoclass:: flamo.optimize.dataset.DatasetLoader
+.. autoclass:: flamo.optimize.dataset.DatasetColorless
     :members:
 
 .. automethod:: flamo.optimize.dataset.get_dataloader

@@ -7,6 +7,33 @@ torch.random.manual_seed(0)
 np.random.seed(0)
 
 class ScatteringMapping(nn.Module):
+    r"""
+    Class mapping an orthogonal matrix to a paraunitary matrix using sparse scattering. 
+
+    It is parameterized as a set of :math:`K` orthogonal mixing matrices (input) :math:`\mathbf{U}_k` each followed by a set of parallel delays. 
+
+    .. math::
+
+        \mathbf{U}(z) = \mathbf{D}_{\mathbf{m}_{K+1}}(z)\mathbf{U}_K\cdots\mathbf{U}_2\mathbf{D}_{\mathbf{m}_2}(z)\mathbf{U}_1\mathbf{D}_{\mathbf{m}_1}(z)\mathbf{U}_0\mathbf{D}_{\mathbf{m}_0}(z),
+
+
+    where :math:`\mathbf{U}_0, \dots, \mathbf{U}_K` are :math:`N \times N` orthogonal matrices and :math:`\mathbf{m}_0, \dots, \mathbf{m}_{K+1}` are vectors of :math:`N` integer delays.
+    This parameterization ensures that the scattering matrix is paraunitary and lossless.
+
+    For more details, refer to the paper `Scattering in Feedback Delay Networks <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9113451>`_ by Schlecht, S. J. et al.
+    Adapted to python by: Dal Santo G. 
+
+    **Arguemnts**
+        - **N** (int): The size of the orthogonal matrix.
+        - **n_stages** (int): The number of stages in the paraunitary matrix. Defaults to 3.
+        - **sparsity** (int): The sparsity of the generated FIR filters. Defaults to 3.
+        - **gain_per_sample** (float): The gain per sample for homogenous attenuation. Defaults to 0.9999.
+        - **pulse_size** (int): The size of the pulse. Defaults to 1.
+        - **m_L** (Tensor): The left shift :math:`\mathbf{m}_{K+1}`. Defaults to None.
+        - **m_R** (Tensor): The right shift :math:`\mathbf{m}_{0}`. Defaults to None.
+        - **device** (str): The device to run the calculations on. Defaults to 'cpu'.
+
+    """
     def __init__(self, 
                  N: int,
                  n_stages: int = 3, 
@@ -16,8 +43,8 @@ class ScatteringMapping(nn.Module):
                  m_L: Optional[torch.tensor] = None, 
                  m_R: Optional[torch.tensor] = None, 
                  device: str = 'cpu'):
-        
         super(ScatteringMapping, self).__init__()
+
         self.n_stages = n_stages
         self.sparsity = sparsity
         self.gain_per_sample = gain_per_sample
@@ -64,22 +91,20 @@ def cascaded_paraunit_matrix(U: torch.tensor,
                              m_L: Optional[torch.tensor] = None,
                              m_R: Optional[torch.tensor] = None):
     r"""
-    Creates paraunitary matrix from input othogonal matrix 
-        **Args**:
-            U (Tensor): The input orthogonal matrix of size (n_stages+1, N, N).
-            n_stages (int): The number of stages in the paraunitary matrix.
-            gain_per_sample (float): The gain per sample for homogenous attenuation.
-            sparsity (int): The sparsity of the paraunitary matrix.
-            m_L (Tensor): The left shift of the paraunitary matrix.
-            m_R (Tensor): The right shift of the paraunitary matrix.
-        **Returns**:
-            Tensor: The paraunitary scattering matrix.   
+    Creates paraunitary matrix from input orthogonal matrix.
+    For details refer to :class:`flamo.auxiliary.scattering.ScatteringMapping`
+
+    **Arguments**:
+        - **U** (Tensor): The input orthogonal matrix of size (n_stages+1, N, N).
+        - **n_stages** (int): The number of stages in the paraunitary matrix.
+        - **gain_per_sample** (float): The gain per sample for homogenous attenuation.
+        - **sparsity** (int): The sparsity.
+        - **m_L** (Tensor): The left shift.
+        - **m_R** (Tensor): The right shift.
+
+    **Returns**:
+        Tensor: The paraunitary scattering matrix.   
     
-    References:
-    - Schlecht, S. J., & Habets, E. A. (2020). Scattering in feedback delay
-        networks. IEEE/ACM Transactions on Audio, Speech, and Language P
-        rocessing, 28, 1915-1924.
-    adapted to python by: Dal Santo G. 
     """
 
     K = n_stages+1

@@ -77,6 +77,18 @@ The **functional** module is a collector of signal processing function and trans
 
    functional
 
+The **auxiliary** module is a collector of auxiliary function and modules that showcase and expand applications of the library.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Auxiliary:
+
+   auxiliary/eq
+   auxiliary/filterbank
+   auxiliary/minimize
+   auxiliary/reverb
+   auxiliary/scattering
+
 Reference and Contacts 
 ---------------------------
 
