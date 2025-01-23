@@ -55,7 +55,8 @@ def get_system(args, alias_decay_db=0):
     attenuation = dsp.parallelGain(
         size=(n_chs,), nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device
     )
-    attenuation.assign_value(0.99999 ** (delays.get_delays()))
+    get_delays = delays.get_delays()
+    attenuation.assign_value(0.99999 ** (get_delays(delays.param)))
     # Recursion
     feedback_loop = system.Recursion(fF=delays, fB=system.Series(feedback, attenuation))
 

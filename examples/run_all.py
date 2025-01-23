@@ -18,6 +18,8 @@ def run_all_examples(print_output=False):
     
     # Run each Python file
     for example_file in example_files:
+        if example_file == 'run_all.py':
+            continue
         file_path = os.path.join(examples_folder, example_file)
         print(f"Running {file_path}...")
         if print_output:
