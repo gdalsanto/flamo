@@ -37,11 +37,11 @@
 <dt class="sig sig-object py" id="flamo.optimize.dataset.Dataset">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.optimize.dataset.</span></span><span class="sig-name descname"><span class="pre">Dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">tensor([[1.5410]])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">tensor([[-0.2934]])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expand</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.dataset.Dataset" title="Link to this definition">¶</a></dt>
 <dd><p>Base Dataset class. Inherits from <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.Dataset</span></code>.</p>
-<p>In simple gradient descent optimization of differentiable DSP, both the input 
-and target are represented by individual tensors. Therefore, the dataset 
-consists of a single input tensor and a single target tensor. To accommodate 
+<p>In simple gradient descent optimization of differentiable DSP, both the input
+and target are represented by individual tensors. Therefore, the dataset
+consists of a single input tensor and a single target tensor. To accommodate
 larger datasets, the input and target tensors can be expanded to the desired
-dataset length using the <code class="xref py py-attr docutils literal notranslate"><span class="pre">expand</span></code> attribute. This enables performing 
+dataset length using the <code class="xref py py-attr docutils literal notranslate"><span class="pre">expand</span></code> attribute. This enables performing
 multiple optimization steps within a single epoch and allows for batch sizes greater than 1.</p>
 <blockquote>
 <div><dl class="simple">
@@ -61,7 +61,7 @@ multiple optimization steps within a single epoch and allows for batch sizes gre
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.optimize.dataset.</span></span><span class="sig-name descname"><span class="pre">DatasetColorless</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expand</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.dataset.DatasetColorless" title="Link to this definition">¶</a></dt>
 <dd><p>A dataset class for colorless optimization.</p>
 <p>The input tensor is an impulse of length <code class="xref py py-attr docutils literal notranslate"><span class="pre">input_shape</span></code>.
-The target is an instance of torch.ones with the shape <code class="xref py py-attr docutils literal notranslate"><span class="pre">target_shape</span></code>, 
+The target is an instance of torch.ones with the shape <code class="xref py py-attr docutils literal notranslate"><span class="pre">target_shape</span></code>,
 corresponding to a flat magnitude spectrum.</p>
 <blockquote>
 <div><dl class="simple">
@@ -200,9 +200,26 @@ corresponding to a flat magnitude spectrum.</p>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">get_magnitude()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.get_eigenvalues"><code class="docutils literal notranslate"><span class="pre">get_eigenvalues()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.skew_matrix"><code class="docutils literal notranslate"><span class="pre">skew_matrix()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.get_frequency_samples"><code class="docutils literal notranslate"><span class="pre">get_frequency_samples()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.biquad2tf"><code class="docutils literal notranslate"><span class="pre">biquad2tf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.signal_gallery"><code class="docutils literal notranslate"><span class="pre">signal_gallery()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.hertz2rad"><code class="docutils literal notranslate"><span class="pre">hertz2rad()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.rad2hertz"><code class="docutils literal notranslate"><span class="pre">rad2hertz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.db2mag"><code class="docutils literal notranslate"><span class="pre">db2mag()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.mag2db"><code class="docutils literal notranslate"><span class="pre">mag2db()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter"><code class="docutils literal notranslate"><span class="pre">lowpass_filter()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">highpass_filter()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">bandpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.shelving_filter"><code class="docutils literal notranslate"><span class="pre">shelving_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.peak_filter"><code class="docutils literal notranslate"><span class="pre">peak_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.sosfreqz"><code class="docutils literal notranslate"><span class="pre">sosfreqz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.svf"><code class="docutils literal notranslate"><span class="pre">svf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.probe_sos"><code class="docutils literal notranslate"><span class="pre">probe_sos()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.find_onset"><code class="docutils literal notranslate"><span class="pre">find_onset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.WGN_reverb"><code class="docutils literal notranslate"><span class="pre">WGN_reverb()</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Auxiliary:</span></p>
 <ul>

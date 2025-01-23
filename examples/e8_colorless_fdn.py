@@ -14,6 +14,7 @@ from flamo.utils import save_audio
 
 torch.manual_seed(130709)
 
+
 def example_fdn(args):
     """
     Example function that demonstrates the construction and training of a Feedback Delay Network (FDN) model.
@@ -32,10 +33,18 @@ def example_fdn(args):
 
     # Input and output gains
     input_gain = dsp.Gain(
-        size=(N, 1), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db, device=args.device
+        size=(N, 1),
+        nfft=args.nfft,
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
     )
     output_gain = dsp.Gain(
-        size=(1, N), nfft=args.nfft, requires_grad=True, alias_decay_db=alias_decay_db, device=args.device
+        size=(1, N),
+        nfft=args.nfft,
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
     )
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -57,10 +66,10 @@ def example_fdn(args):
         alias_decay_db=alias_decay_db,
         device=args.device,
     )
-    
+
     # # Feedback path with scattering matrix
-    # m_L =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N]) 
-    # m_R =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N]) 
+    # m_L =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N])
+    # m_R =  torch.randint(low=1, high=int(torch.floor(min(delay_lengths)/2)), size=[N])
     # feedback = dsp.ScatteringMatrix(
     #     size=(4, N, N),
     #     nfft=args.nfft,
@@ -72,27 +81,35 @@ def example_fdn(args):
     #     requires_grad=True,
     #     device=args.device,
     # )
-    
+
     # Recursion
     feedback_loop = system.Recursion(fF=delays, fB=feedback)
 
     # Full FDN
-    FDN = system.Series(OrderedDict({
-        'input_gain': input_gain,
-        'feedback_loop': feedback_loop,
-        'output_gain': output_gain
-    }))
+    FDN = system.Series(
+        OrderedDict(
+            {
+                "input_gain": input_gain,
+                "feedback_loop": feedback_loop,
+                "output_gain": output_gain,
+            }
+        )
+    )
 
     # Create the model with Shell
     input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.Transform(transform=lambda x : torch.abs(x))
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
     # Get initial impulse response
     with torch.no_grad():
-        ir_init =  model.get_time_response(identity=False, fs=args.samplerate).squeeze() 
-        save_audio(os.path.join(args.train_dir, "ir_init.wav"), ir_init/torch.max(torch.abs(ir_init)), fs=args.samplerate)
-        save_fdn_params(model, filename='parameters_init')
+        ir_init = model.get_time_response(identity=False, fs=args.samplerate).squeeze()
+        save_audio(
+            os.path.join(args.train_dir, "ir_init.wav"),
+            ir_init / torch.max(torch.abs(ir_init)),
+            fs=args.samplerate,
+        )
+        save_fdn_params(model, filename="parameters_init")
 
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
 
@@ -105,7 +122,13 @@ def example_fdn(args):
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
     # Initialize training process
-    trainer = Trainer(model, max_epochs=args.max_epochs, lr=args.lr, train_dir=args.train_dir, device=args.device)
+    trainer = Trainer(
+        model,
+        max_epochs=args.max_epochs,
+        lr=args.lr,
+        train_dir=args.train_dir,
+        device=args.device,
+    )
     trainer.register_criterion(mse_loss(nfft=args.nfft, device=args.device), 1)
     trainer.register_criterion(sparsity_loss(), 0.2, requires_model=True)
 
@@ -116,11 +139,16 @@ def example_fdn(args):
 
     # Get optimized impulse response
     with torch.no_grad():
-        ir_optim =  model.get_time_response(identity=False, fs=args.samplerate).squeeze()
-        save_audio(os.path.join(args.train_dir, "ir_optim.wav"), ir_optim/torch.max(torch.abs(ir_optim)), fs=args.samplerate)
-        save_fdn_params(model, filename='parameters_optim')
+        ir_optim = model.get_time_response(identity=False, fs=args.samplerate).squeeze()
+        save_audio(
+            os.path.join(args.train_dir, "ir_optim.wav"),
+            ir_optim / torch.max(torch.abs(ir_optim)),
+            fs=args.samplerate,
+        )
+        save_fdn_params(model, filename="parameters_optim")
 
-def save_fdn_params(net, filename='parameters'):
+
+def save_fdn_params(net, filename="parameters"):
     r"""
     Retrieves the parameters of a feedback delay network (FDN) from a given network and saves them in .mat format.
 
@@ -137,14 +165,23 @@ def save_fdn_params(net, filename='parameters'):
 
     core = net.get_core()
     param = {}
-    param['A'] = core.feedback_loop.feedback.param.squeeze().detach().cpu().numpy()
-    param['B'] = core.input_gain.param.squeeze().detach().cpu().numpy()
-    param['C'] = core.output_gain.param.squeeze().detach().cpu().numpy()
-    param['m'] = core.feedback_loop.feedforward.s2sample(core.feedback_loop.feedforward.map(core.feedback_loop.feedforward.param)).squeeze().detach().cpu().numpy()
+    param["A"] = core.feedback_loop.feedback.param.squeeze().detach().cpu().numpy()
+    param["B"] = core.input_gain.param.squeeze().detach().cpu().numpy()
+    param["C"] = core.output_gain.param.squeeze().detach().cpu().numpy()
+    param["m"] = (
+        core.feedback_loop.feedforward.s2sample(
+            core.feedback_loop.feedforward.map(core.feedback_loop.feedforward.param)
+        )
+        .squeeze()
+        .detach()
+        .cpu()
+        .numpy()
+    )
 
-    scipy.io.savemat(os.path.join(args.train_dir, filename + '.mat'), param)
+    scipy.io.savemat(os.path.join(args.train_dir, filename + ".mat"), param)
 
     return param
+
 
 if __name__ == "__main__":
 
@@ -152,32 +189,45 @@ if __name__ == "__main__":
 
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
-    parser.add_argument('--num', type=int, default=2**8,help = 'dataset size')
-    parser.add_argument('--device', type=str, default='cuda', help='device to use for computation')
-    parser.add_argument('--batch_size', type=int, default=1, help='batch size for training')
-    parser.add_argument('--max_epochs', type=int, default=10, help='maximum number of epochs')
-    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
-    parser.add_argument('--train_dir', type=str, help='directory to save training results')
+    parser.add_argument("--num", type=int, default=2**8, help="dataset size")
+    parser.add_argument(
+        "--device", type=str, default="cuda", help="device to use for computation"
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=1, help="batch size for training"
+    )
+    parser.add_argument(
+        "--max_epochs", type=int, default=10, help="maximum number of epochs"
+    )
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
+    parser.add_argument(
+        "--train_dir", type=str, help="directory to save training results"
+    )
 
     args = parser.parse_args()
 
-    # check for compatible device 
-    if args.device == 'cuda' and not torch.cuda.is_available():
-        args.device = 'cpu'
-        print('cuda not available, will use cpu')
-        
+    # check for compatible device
+    if args.device == "cuda" and not torch.cuda.is_available():
+        args.device = "cpu"
+        print("cuda not available, will use cpu")
+
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):
             os.makedirs(args.train_dir)
     else:
-        args.train_dir = os.path.join('output', time.strftime("%Y%m%d-%H%M%S"))
+        args.train_dir = os.path.join("output", time.strftime("%Y%m%d-%H%M%S"))
         os.makedirs(args.train_dir)
 
-    # save arguments 
-    with open(os.path.join(args.train_dir, 'args.txt'), 'w') as f:
-        f.write('\n'.join([str(k) + ',' + str(v) for k, v in sorted(vars(args).items(), key=lambda x: x[0])]))
+    # save arguments
+    with open(os.path.join(args.train_dir, "args.txt"), "w") as f:
+        f.write(
+            "\n".join(
+                [
+                    str(k) + "," + str(v)
+                    for k, v in sorted(vars(args).items(), key=lambda x: x[0])
+                ]
+            )
+        )
 
     example_fdn(args)
-
-    

@@ -38,9 +38,9 @@
 <dt class="sig sig-object py" id="flamo.processor.system.Series">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.processor.system.</span></span><span class="sig-name descname"><span class="pre">Series</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.processor.system.Series" title="Link to this definition">¶</a></dt>
 <dd><p>Module for cascading multiple DSP modules in series. Inherits from <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code>.
-This class serves as a container for a series of DSP modules (preferably constructed from <a class="reference internal" href="dsp.html#flamo.processor.dsp.DSP" title="flamo.processor.dsp.DSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">flamo.processor.dsp.DSP</span></code></a>), allowing them 
-to be cascaded in a single module. It ensures that all included modules 
-share the same values of <code class="xref py py-attr docutils literal notranslate"><span class="pre">nfft</span></code> and <code class="xref py py-attr docutils literal notranslate"><span class="pre">alias_decay_db</span></code> attributes, hence all parsed 
+This class serves as a container for a series of DSP modules (preferably constructed from <a class="reference internal" href="dsp.html#flamo.processor.dsp.DSP" title="flamo.processor.dsp.DSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">flamo.processor.dsp.DSP</span></code></a>), allowing them
+to be cascaded in a single module. It ensures that all included modules
+share the same values of <code class="xref py py-attr docutils literal notranslate"><span class="pre">nfft</span></code> and <code class="xref py py-attr docutils literal notranslate"><span class="pre">alias_decay_db</span></code> attributes, hence all parsed
 modules are expected to have these attributes.</p>
 <blockquote>
 <div><dl class="simple">
@@ -79,9 +79,9 @@ modules are expected to have these attributes.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.processor.system.Series.__unpack_modules">
 <span class="sig-name descname"><span class="pre">__unpack_modules</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">modules</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">current_keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">OrderedDict</span></span></span><a class="headerlink" href="#flamo.processor.system.Series.__unpack_modules" title="Link to this definition">¶</a></dt>
-<dd><p>Generate an <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code> containing the modules given in the input 
+<dd><p>Generate an <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code> containing the modules given in the input
 tuple, and give a key to each module.
-If any module in the input tuple is a <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code> (or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>), 
+If any module in the input tuple is a <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code> (or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>),
 it is recognized as nested <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.Sequential</span></code> (or <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>),
 it is unpacked, and its modules are added to the output <code class="xref py py-class docutils literal notranslate"><span class="pre">OrderedDict</span></code>.
 For each encountered module, key generation follows these rules:</p>
@@ -443,7 +443,7 @@ If * represent the signal-wise matrix convolution operator, then:</p>
 <dt class="sig sig-object py" id="flamo.processor.system.Shell.set_core">
 <span class="sig-name descname"><span class="pre">set_core</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.set_core" title="Link to this definition">¶</a></dt>
 <dd><dl class="simple">
-<dt>Substitutes the current core with a given new one.   </dt><dd><dl class="simple">
+<dt>Substitutes the current core with a given new one.</dt><dd><dl class="simple">
 <dt><strong>Argument</strong>:</dt><dd><p><strong>output_layer</strong> (nn.Module, optional): The core DSP system. Defaults to None.</p>
 </dd>
 </dl>
@@ -455,7 +455,7 @@ If * represent the signal-wise matrix convolution operator, then:</p>
 <dt class="sig sig-object py" id="flamo.processor.system.Shell.set_inputLayer">
 <span class="sig-name descname"><span class="pre">set_inputLayer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.set_inputLayer" title="Link to this definition">¶</a></dt>
 <dd><dl class="simple">
-<dt>Substitutes the current input layer with a given new one.   </dt><dd><dl class="simple">
+<dt>Substitutes the current input layer with a given new one.</dt><dd><dl class="simple">
 <dt><strong>Argument</strong>:</dt><dd><p><strong>input_layer</strong> (nn.Module | nn.Sequential, optional): The new input layer. Defaults to None.</p>
 </dd>
 </dl>
@@ -467,7 +467,7 @@ If * represent the signal-wise matrix convolution operator, then:</p>
 <dt class="sig sig-object py" id="flamo.processor.system.Shell.set_outputLayer">
 <span class="sig-name descname"><span class="pre">set_outputLayer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#flamo.processor.system.Shell.set_outputLayer" title="Link to this definition">¶</a></dt>
 <dd><dl class="simple">
-<dt>Substitutes the current output layer with a given new one.   </dt><dd><dl class="simple">
+<dt>Substitutes the current output layer with a given new one.</dt><dd><dl class="simple">
 <dt><strong>Argument</strong>:</dt><dd><p><strong>output_layer</strong> (nn.Module | nn.Sequential, optional): The new input layer. Defaults to None.</p>
 </dd>
 </dl>
@@ -533,35 +533,52 @@ If * represent the signal-wise matrix convolution operator, then:</p>
 <p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">get_str_results()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/dataset.html"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/dataset.html#flamo.optimize.dataset.DatasetColorless"><code class="docutils literal notranslate"><span class="pre">DatasetColorless</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../optimize/dataset.html#flamo.optimize.dataset.get_dataloader"><code class="docutils literal notranslate"><span class="pre">dataset.get_dataloader()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../optimize/dataset.html#flamo.optimize.dataset.split_dataset"><code class="docutils literal notranslate"><span class="pre">dataset.split_dataset()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../optimize/dataset.html#flamo.optimize.dataset.load_dataset"><code class="docutils literal notranslate"><span class="pre">dataset.load_dataset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/dataset.html#flamo.optimize.dataset.get_dataloader"><code class="docutils literal notranslate"><span class="pre">get_dataloader()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/dataset.html#flamo.optimize.dataset.split_dataset"><code class="docutils literal notranslate"><span class="pre">split_dataset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/dataset.html#flamo.optimize.dataset.load_dataset"><code class="docutils literal notranslate"><span class="pre">load_dataset()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/loss.html"><code class="docutils literal notranslate"><span class="pre">sparsity_loss</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/loss.html#flamo.optimize.loss.mse_loss"><code class="docutils literal notranslate"><span class="pre">mse_loss</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../optimize/loss.html#flamo.optimize.loss.masked_mse_loss"><code class="docutils literal notranslate"><span class="pre">masked_mse_loss</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../optimize/utils.html"><code class="docutils literal notranslate"><span class="pre">utils.generate_partitions()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optimize/utils.html"><code class="docutils literal notranslate"><span class="pre">generate_partitions()</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">get_magnitude()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.get_eigenvalues"><code class="docutils literal notranslate"><span class="pre">get_eigenvalues()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.skew_matrix"><code class="docutils literal notranslate"><span class="pre">skew_matrix()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.get_frequency_samples"><code class="docutils literal notranslate"><span class="pre">get_frequency_samples()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.biquad2tf"><code class="docutils literal notranslate"><span class="pre">biquad2tf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.signal_gallery"><code class="docutils literal notranslate"><span class="pre">signal_gallery()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.hertz2rad"><code class="docutils literal notranslate"><span class="pre">hertz2rad()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.rad2hertz"><code class="docutils literal notranslate"><span class="pre">rad2hertz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.db2mag"><code class="docutils literal notranslate"><span class="pre">db2mag()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.mag2db"><code class="docutils literal notranslate"><span class="pre">mag2db()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter"><code class="docutils literal notranslate"><span class="pre">lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">bandpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.shelving_filter"><code class="docutils literal notranslate"><span class="pre">shelving_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.peak_filter"><code class="docutils literal notranslate"><span class="pre">peak_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.sosfreqz"><code class="docutils literal notranslate"><span class="pre">sosfreqz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.svf"><code class="docutils literal notranslate"><span class="pre">svf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.probe_sos"><code class="docutils literal notranslate"><span class="pre">probe_sos()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.find_onset"><code class="docutils literal notranslate"><span class="pre">find_onset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.WGN_reverb"><code class="docutils literal notranslate"><span class="pre">WGN_reverb()</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Auxiliary:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html"><code class="docutils literal notranslate"><span class="pre">eq.eq_freqs()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.octave_bands"><code class="docutils literal notranslate"><span class="pre">eq.octave_bands()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.geq"><code class="docutils literal notranslate"><span class="pre">eq.geq()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">eq.design_geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html"><code class="docutils literal notranslate"><span class="pre">eq_freqs()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.octave_bands"><code class="docutils literal notranslate"><span class="pre">octave_bands()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.geq"><code class="docutils literal notranslate"><span class="pre">geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">design_geq()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../auxiliary/filterbank.html"><code class="docutils literal notranslate"><span class="pre">FilterBank</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../auxiliary/minimize.html"><code class="docutils literal notranslate"><span class="pre">MLS</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../auxiliary/minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize.minimize_LBFGS()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize_LBFGS()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html"><code class="docutils literal notranslate"><span class="pre">HomogeneousFDN</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">reverb.rt2slope()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">reverb.rt2absorption()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">rt2slope()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">rt2absorption()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../auxiliary/scattering.html"><code class="docutils literal notranslate"><span class="pre">ScatteringMapping</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../auxiliary/scattering.html#flamo.auxiliary.scattering.cascaded_paraunit_matrix"><code class="docutils literal notranslate"><span class="pre">scattering.cascaded_paraunit_matrix()</span></code></a></li>
 </ul>

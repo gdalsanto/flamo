@@ -1,13 +1,9 @@
 import torch
 import numpy as np
 from flamo.utils import RegularGridInterpolator
-from flamo.functional import (
-    db2mag,
-    shelving_filter,
-    peak_filter,
-    probe_sos
-)
+from flamo.functional import db2mag, shelving_filter, peak_filter, probe_sos
 from flamo.auxiliary.minimize import minimize_LBFGS
+
 
 def eq_freqs(interval: int = 1, start_freq: float = 31.25, end_freq: float = 16000.0):
     r"""
@@ -22,12 +18,22 @@ def eq_freqs(interval: int = 1, start_freq: float = 31.25, end_freq: float = 160
         - tuple: A tuple containing the center frequencies and shelving crossover frequencies in Hz.
 
     """
-    center_freq = torch.tensor(octave_bands(interval=interval, start_freq=start_freq, end_freq=end_freq))
-    shelving_crossover = torch.tensor([center_freq[0]/np.power(2, 1/interval/2), center_freq[-1]*np.power(2, 1/interval/2)])  
+    center_freq = torch.tensor(
+        octave_bands(interval=interval, start_freq=start_freq, end_freq=end_freq)
+    )
+    shelving_crossover = torch.tensor(
+        [
+            center_freq[0] / np.power(2, 1 / interval / 2),
+            center_freq[-1] * np.power(2, 1 / interval / 2),
+        ]
+    )
 
     return center_freq, shelving_crossover
 
-def octave_bands(interval: int = 1, start_freq: float = 31.25, end_freq: float = 16000.0):
+
+def octave_bands(
+    interval: int = 1, start_freq: float = 31.25, end_freq: float = 16000.0
+):
     r"""
     Generate a list of octave band central frequencies.
 
@@ -43,11 +49,19 @@ def octave_bands(interval: int = 1, start_freq: float = 31.25, end_freq: float =
     central_freq = []
     c_freq = start_freq
     while c_freq < end_freq:
-        central_freq.append(c_freq*np.power(2, 1/interval))
-        c_freq = central_freq[-1]       
+        central_freq.append(c_freq * np.power(2, 1 / interval))
+        c_freq = central_freq[-1]
     return central_freq
 
-def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor, gain_db: torch.Tensor, fs: int = 48000, device: str = 'cpu'):
+
+def geq(
+    center_freq: torch.Tensor,
+    shelving_freq: torch.Tensor,
+    R: torch.Tensor,
+    gain_db: torch.Tensor,
+    fs: int = 48000,
+    device: str = "cpu",
+):
     r"""
     Computes the second-order sections coefficients of a graphic equalizer.
     The EQ is implemented as a series of shelving peak filters, using the :meth:`flamo.functional.shelving_filter` and :meth:`flamo.functional.peak_filter` methods.
@@ -65,7 +79,9 @@ def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor,
 
     """
     num_bands = len(center_freq) + len(shelving_freq) + 1
-    assert len(gain_db) == num_bands, 'The number of gains must be equal to the number of frequencies.'
+    assert (
+        len(gain_db) == num_bands
+    ), "The number of gains must be equal to the number of frequencies."
     sos = torch.zeros((6, num_bands), device=device)
 
     for band in range(num_bands):
@@ -73,19 +89,31 @@ def geq(center_freq: torch.Tensor, shelving_freq: torch.Tensor, R: torch.Tensor,
             b = torch.tensor([db2mag(gain_db[band]), 0, 0], device=device)
             a = torch.tensor([1, 0, 0], device=device)
         elif band == 1:
-            b, a = shelving_filter(shelving_freq[0], db2mag(gain_db[band]), 'low', fs=fs, device=device)
+            b, a = shelving_filter(
+                shelving_freq[0], db2mag(gain_db[band]), "low", fs=fs, device=device
+            )
         elif band == num_bands - 1:
-            b, a = shelving_filter(shelving_freq[1], db2mag(gain_db[band]), 'high', fs=fs, device=device)
+            b, a = shelving_filter(
+                shelving_freq[1], db2mag(gain_db[band]), "high", fs=fs, device=device
+            )
         else:
             Q = torch.sqrt(R) / (R - 1)
-            b, a = peak_filter(center_freq[band-2], db2mag(gain_db[band]), Q , fs=fs, device=device)
-            
+            b, a = peak_filter(
+                center_freq[band - 2], db2mag(gain_db[band]), Q, fs=fs, device=device
+            )
+
         sos_band = torch.hstack((b, a))
         sos[:, band] = sos_band
 
-    return sos[:3], sos[3:] 
+    return sos[:3], sos[3:]
 
-def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_crossover: torch.Tensor, fs: int = 48000):
+
+def design_geq(
+    target_gain: torch.Tensor,
+    center_freq: torch.Tensor,
+    shelving_crossover: torch.Tensor,
+    fs: int = 48000,
+):
     r"""
     Design a Graphic Equalizer (GEQ) filter.
 
@@ -100,25 +128,31 @@ def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_cr
     """
 
     # Initialization
-    
-    assert len(target_gain) == len(center_freq) + 2, 'The number of target gains must be equal to the number of center frequencies + 2.'
+
+    assert (
+        len(target_gain) == len(center_freq) + 2
+    ), "The number of target gains must be equal to the number of center frequencies + 2."
 
     nfft = 2**16
-    num_freq = len(center_freq) + len(shelving_crossover) 
+    num_freq = len(center_freq) + len(shelving_crossover)
     R = torch.tensor(2.7)
     # Control frequencies are spaced logarithmically
     num_control = 100
-    control_freq = torch.round(torch.logspace(np.log10(1), np.log10(fs/2.1), num_control+1))
+    control_freq = torch.round(
+        torch.logspace(np.log10(1), np.log10(fs / 2.1), num_control + 1)
+    )
     # interpolate the target gain values at control frequencies
-    target_freq = torch.cat((torch.tensor([1]), center_freq, torch.tensor([fs/2.1])))
+    target_freq = torch.cat((torch.tensor([1]), center_freq, torch.tensor([fs / 2.1])))
     # targetInterp = torch.tensor(np.interp(control_freq, target_freq, target_gain.squeeze()))
     interp = RegularGridInterpolator([target_freq], target_gain)
     targetInterp = interp([control_freq])
 
     # Design prototype of the biquad sections
     prototype_gain = 10  # dB
-    prototype_gain_array = torch.full((num_freq + 1 ,1), prototype_gain)
-    prototype_b, prototype_a = geq(center_freq, shelving_crossover, R, prototype_gain_array, fs)
+    prototype_gain_array = torch.full((num_freq + 1, 1), prototype_gain)
+    prototype_b, prototype_a = geq(
+        center_freq, shelving_crossover, R, prototype_gain_array, fs
+    )
     prototype_sos = torch.vstack((prototype_b, prototype_a))
     G, _, _ = probe_sos(prototype_sos, control_freq, nfft, fs)
     G = G / prototype_gain  # dB vs control frequencies
@@ -134,5 +168,3 @@ def design_geq(target_gain: torch.Tensor, center_freq: torch.Tensor, shelving_cr
     b, a = geq(center_freq, shelving_crossover, R, opt_gains, fs)
 
     return b, a
-
-

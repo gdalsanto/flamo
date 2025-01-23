@@ -3,4 +3,4 @@
 .. autoclass:: flamo.auxiliary.scattering.ScatteringMapping
    :members:
 
-.. autofunction:: flamo.auxiliary.scattering.cascaded_paraunit_matrix
+.. automethod:: flamo.auxiliary.scattering.cascaded_paraunit_matrix

@@ -42,7 +42,7 @@ It handles the training step, validation steps, results logging, and the early s
 By default, it uses <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.optim.Adam()</span></code> as the optimizer, and <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.optim.lr_scheduler.StepLR()</span></code> as the learning rate scheduler.
 Each loss (criterion) can be registered using the <a class="reference internal" href="#flamo.optimize.trainer.Trainer.register_criterion" title="flamo.optimize.trainer.Trainer.register_criterion"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_criterion()</span></code></a> method.
 The training process can be started using the <a class="reference internal" href="#flamo.optimize.trainer.Trainer.train" title="flamo.optimize.trainer.Trainer.train"><code class="xref py py-meth docutils literal notranslate"><span class="pre">train()</span></code></a> method with the training and validation datasets.
-To each loss it is possible to assign a weight <span class="math notranslate nohighlight">\(\alpha\)</span> and a flag indicating whether the loss function 
+To each loss it is possible to assign a weight <span class="math notranslate nohighlight">\(\alpha\)</span> and a flag indicating whether the loss function
 requires the model as an input, which might be needed when the loss depends on the model’s parameters.</p>
 <blockquote>
 <div><dl class="simple">
@@ -69,7 +69,7 @@ requires the model as an input, which might be needed when the loss depends on t
 </dd>
 </dl>
 <p>Examples:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>  <span class="c1"># initialize the trainer with a trainable nn.Module net </span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>  <span class="c1"># initialize the trainer with a trainable nn.Module net</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">alpha_1</span><span class="p">,</span> <span class="n">alpha_2</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.1</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">loss_1</span><span class="p">,</span> <span class="n">loss_2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">MSELoss</span><span class="p">(),</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">L1Loss</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">register_criterion</span><span class="p">(</span><span class="n">loss_1</span><span class="p">,</span> <span class="n">alpha_1</span><span class="p">)</span>  <span class="c1"># register the first loss function with weight 1</span>
@@ -180,7 +180,7 @@ requires the model as an input, which might be needed when the loss depends on t
 <dl class="py function">
 <dt class="sig sig-object py" id="flamo.optimize.trainer.get_str_results">
 <span class="sig-prename descclassname"><span class="pre">flamo.optimize.trainer.</span></span><span class="sig-name descname"><span class="pre">get_str_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epoch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_loss</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_loss</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.trainer.get_str_results" title="Link to this definition">¶</a></dt>
-<dd><p>Construct the string that has to be printed at the end of the epoch containing 
+<dd><p>Construct the string that has to be printed at the end of the epoch containing
 information relative to the training performance.</p>
 <blockquote>
 <div><dl class="simple">
@@ -268,9 +268,26 @@ information relative to the training performance.</p>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">get_magnitude()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.get_eigenvalues"><code class="docutils literal notranslate"><span class="pre">get_eigenvalues()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.skew_matrix"><code class="docutils literal notranslate"><span class="pre">skew_matrix()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.get_frequency_samples"><code class="docutils literal notranslate"><span class="pre">get_frequency_samples()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.biquad2tf"><code class="docutils literal notranslate"><span class="pre">biquad2tf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.signal_gallery"><code class="docutils literal notranslate"><span class="pre">signal_gallery()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.hertz2rad"><code class="docutils literal notranslate"><span class="pre">hertz2rad()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.rad2hertz"><code class="docutils literal notranslate"><span class="pre">rad2hertz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.db2mag"><code class="docutils literal notranslate"><span class="pre">db2mag()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.mag2db"><code class="docutils literal notranslate"><span class="pre">mag2db()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter"><code class="docutils literal notranslate"><span class="pre">lowpass_filter()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">highpass_filter()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">bandpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.shelving_filter"><code class="docutils literal notranslate"><span class="pre">shelving_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.peak_filter"><code class="docutils literal notranslate"><span class="pre">peak_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.sosfreqz"><code class="docutils literal notranslate"><span class="pre">sosfreqz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.svf"><code class="docutils literal notranslate"><span class="pre">svf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.probe_sos"><code class="docutils literal notranslate"><span class="pre">probe_sos()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.find_onset"><code class="docutils literal notranslate"><span class="pre">find_onset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.WGN_reverb"><code class="docutils literal notranslate"><span class="pre">WGN_reverb()</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Auxiliary:</span></p>
 <ul>
