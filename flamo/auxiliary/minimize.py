@@ -6,10 +6,10 @@ class MLS(nn.Module):
     """
     Mean Least Squares module.
     Computes the mean of the squares of the residuals, computed as 
+
+    .. math::
     
-    .. :math:
-    
-        \frac{1}{n} \sum_{i=1}^{n} (Gx_i - y_i)^2
+        \\frac{1}{n} \sum_{i=1}^{n} (Gx_i - y_i)^2
 
     where :math:`G` is the matrix to be multiplied with the input, :math:`x_i` is the input, and :math:`y_i` is the target tensor.
 
@@ -23,6 +23,9 @@ class MLS(nn.Module):
         self.target_interp = target_interp
 
     def forward(self, x):
+        r"""
+        Computes the mean least squares loss.
+        """
         return torch.mean(torch.pow(torch.matmul(self.G, x) - self.target_interp, 2))
 
 

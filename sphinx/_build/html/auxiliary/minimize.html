@@ -37,13 +37,11 @@
   <dl class="py class">
 <dt class="sig sig-object py" id="flamo.auxiliary.minimize.MLS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.auxiliary.minimize.</span></span><span class="sig-name descname"><span class="pre">MLS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">G</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_interp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.minimize.MLS" title="Link to this definition">¶</a></dt>
-<dd><blockquote>
-<div><p>Mean Least Squares module.
+<dd><p>Mean Least Squares module.
 Computes the mean of the squares of the residuals, computed as</p>
-</div></blockquote>
-<p>rac{1}{n} sum_{i=1}^{n} (Gx_i - y_i)^2</p>
-<blockquote>
-<div><p>where <span class="math notranslate nohighlight">\(G\)</span> is the matrix to be multiplied with the input, <span class="math notranslate nohighlight">\(x_i\)</span> is the input, and <span class="math notranslate nohighlight">\(y_i\)</span> is the target tensor.</p>
+<div class="math notranslate nohighlight">
+\[\frac{1}{n} \sum_{i=1}^{n} (Gx_i - y_i)^2\]</div>
+<p>where <span class="math notranslate nohighlight">\(G\)</span> is the matrix to be multiplied with the input, <span class="math notranslate nohighlight">\(x_i\)</span> is the input, and <span class="math notranslate nohighlight">\(y_i\)</span> is the target tensor.</p>
 <dl class="simple">
 <dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
 <li><p><strong>G</strong> (torch.Tensor): The matrix to be multiplied with the input.</p></li>
@@ -51,26 +49,17 @@ Computes the mean of the squares of the residuals, computed as</p>
 </ul>
 </dd>
 </dl>
-</div></blockquote>
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.auxiliary.minimize.MLS.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.minimize.MLS.forward" title="Link to this definition">¶</a></dt>
-<dd><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
+<dd><p>Computes the mean least squares loss.</p>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="py method">
+<dl class="py function">
 <dt class="sig sig-object py" id="flamo.auxiliary.minimize.minimize_LBFGS">
-<span class="sig-prename descclassname"><span class="pre">minimize.</span></span><span class="sig-name descname"><span class="pre">minimize_LBFGS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target_interp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lower_bound</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">upper_bound</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_freq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.minimize.minimize_LBFGS" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">flamo.auxiliary.minimize.</span></span><span class="sig-name descname"><span class="pre">minimize_LBFGS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">G</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_interp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lower_bound</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">upper_bound</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_freq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.minimize.minimize_LBFGS" title="Link to this definition">¶</a></dt>
 <dd><p>Minimize the mean least square (MLS) loss using the LBFGS optimizer.</p>
 <dl class="simple">
 <dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
@@ -168,10 +157,10 @@ registered hooks while the latter silently ignores them.</p>
 <li class="toctree-l1"><a class="reference internal" href="eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">eq.design_geq()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="filterbank.html"><code class="docutils literal notranslate"><span class="pre">FilterBank</span></code></a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">MLS</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize.minimize_LBFGS()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize_LBFGS()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="reverb.html"><code class="docutils literal notranslate"><span class="pre">HomogeneousFDN</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">reverb.rt2slope()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">reverb.rt2absorption()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">rt2slope()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">rt2absorption()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="scattering.html"><code class="docutils literal notranslate"><span class="pre">ScatteringMapping</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="scattering.html#flamo.auxiliary.scattering.cascaded_paraunit_matrix"><code class="docutils literal notranslate"><span class="pre">scattering.cascaded_paraunit_matrix()</span></code></a></li>
 </ul>

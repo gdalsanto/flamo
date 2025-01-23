@@ -1,3 +1,3 @@
 .. title:: Utils
 
-.. automethod:: flamo.optimize.utils.generate_partitions
+.. autofunction:: flamo.optimize.utils.generate_partitions

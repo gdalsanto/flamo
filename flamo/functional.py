@@ -3,15 +3,15 @@ import numpy as np
 import scipy.signal
 from flamo.utils import RegularGridInterpolator
 
-def get_magnitude(x):
+def get_magnitude(x: torch.Tensor):
     r"""
     Gets the magnitude of a complex tensor.
 
-        **Args**:
-            x (torch.tensor): The input tensor.
+        **Arguments**:
+            **x** (torch.tensor): The input tensor.
 
         **Returns**:
-            torch.tensor: The magnitude of x.
+            torch.tensor: The absolute value of **x**.
     """
     # get the magnitude of a complex tensor
     return torch.abs(x)
@@ -21,11 +21,11 @@ def get_eigenvalues(x: torch.Tensor):
     Gets the eigenvalues of a complex tensor.
     The last two dimensions of the input tensor must be identical.
 
-        **Args**:
-            x (torch.tensor): The input tensor.
+        **Arguments**:
+            **x** (torch.tensor): The input tensor.
 
         **Returns**:
-            torch.tensor: The eigenvalues of x.
+            torch.tensor: The eigenvalues of **x**.
     """
     assert(x.shape[-1] == x.shape[-2])
     if x.shape[-1] == 1:
@@ -35,18 +35,27 @@ def get_eigenvalues(x: torch.Tensor):
 
 def skew_matrix(X):
     r"""
-    Generate a skew symmetric matrix from a given matrix X.
+    Generate a skew symmetric matrix from a given matrix :math:`\mathbf{X}_{\textrm{Tr}}` as follows 
+
+    .. math::
+
+        \mathbf{X} = \mathbf{X}_{\textrm{Tr}} - \mathbf{X}_{\textrm{Tr}}^\top
+
+    where :math:`\mathbf{X_{\textrm{Tr}}}` is the upper triangular part of :math:`\mathbf{X}`, and :math:`\cdot^\top` denotes the transpose operation.
+
+    **Arguments**:
+        **X** (torch.Tensor): The input matrix.
     """
     A = X.triu(1)
     return A - A.transpose(-1, -2)
 
-def get_frequency_samples(num, device=None):
+def get_frequency_samples(num: int, device: str | torch.device = None):
     r'''
     Get frequency samples (in radians) sampled at linearly spaced points along the unit circle.
     
-    **Args**
-        - num (int): number of frequency samples
-        - device (torch.device, optional): The device of constructed tensors. Default: None.
+    **Arguments**
+        - **num** (int): number of frequency samples
+        - **device** (torch.device, str): The device of constructed tensors. Default: None.
         
     **Returns**
         - frequency samples in radians between [0, pi]
@@ -55,15 +64,15 @@ def get_frequency_samples(num, device=None):
     abs = torch.ones(num, device=device)
     return torch.polar(abs, angle * np.pi)
 
-def biquad2tf(b, a, nfft):
-    """
+def biquad2tf(b: torch.Tensor, a: torch.Tensor, nfft: int):
+    r"""
     Converts a biquad filter representation to a transfer function.
-    Shape of :math:`b` and :math:`a` is (3, n_sections)
+    Shape of :attr:`b` and :attr:`a` is (3, n_sections)
 
-    **Args**:
-        - b (torch.Tensor): Coefficients of the numerator polynomial of the biquad filter.
-        - a (torch.Tensor): Coefficients of the denominator polynomial of the biquad filter.
-        - nfft (int): The number of points to evaluate the transfer function.
+    **Arguments**:
+        - **b** (torch.Tensor): Coefficients of the numerator polynomial of the biquad filter.
+        - **a** (torch.Tensor): Coefficients of the denominator polynomial of the biquad filter.
+        - **nfft** (int): The number of FFT points to compute teh transfer function.
 
     **Returns**:
         - torch.Tensor: Transfer function of the biquad filter evaluated at x.
@@ -84,28 +93,28 @@ def signal_gallery(
     signal_type: str = "impulse",
     fs: int = 48000,
     rate: float = 1.0,
-    reference=None,
-    device=None,
+    reference: torch.Tensor = None,
+    device: str | torch.device = None,
 ):
     r"""
     Generate a tensor containing a signal based on the specified signal type.
     
     Supported signal types are:
-    - impulse: A single impulse at the first sample, followed by :attr:`n_samples-1` zeros.
-    - sine: A sine wave of frequency :attr:`rate` Hz, if given. Otherwise, a sine wave of frequency 1 Hz.
-    - sweep: A linear sweep from 20 Hz to 20 kHz.
-    - wgn: White Gaussian noise.
-    - exp: An exponential decay signal.
-    - reference: A reference signal.
+        - ``impulse``: A single impulse at the first sample, followed by :attr:`n_samples-1` zeros.
+        - ``sine``: A sine wave of frequency :attr:`rate` Hz, if given. Otherwise, a sine wave of frequency 1 Hz.
+        - ``sweep``: A linear sweep from 20 Hz to 20 kHz.
+        - ``wgn``: White Gaussian noise.
+        - ``exp``: An exponential decay signal.
+        - ``reference``: A reference signal provided as argument :attr:`reference`.
 
-        **Args**:
-            - batch_size (int): The number of signal batches to generate.
-            - n_samples (int): The number of samples in each signal.
-            - n (int): The number of channels in each signal.
-            - signal_type (str, optional): The type of signal to generate. Defaults to 'impulse'.
-            - fs (int, optional): The sampling frequency of the signals. Defaults to 48000.
-            - reference (torch.Tensor, optional): A reference signal to use. Defaults to None.
-            - device (torch.device, optional): The device of constructed tensors. Defaults to None.
+        **Arguments**:
+            - **batch_size** (int): The number of batches to generate.
+            - **n_samples** (int): THe signal length in samples.
+            - **n_channel** (int): The number of channels in each signal.
+            - **signal_type** (str, optional): The type of signal to generate. Defaults to 'impulse'.
+            - **fs** (int, optional): The sampling frequency of the signals. Defaults to 48000.
+            - **reference** (torch.Tensor, optional): A reference signal to use. Defaults to None.
+            - **device** (torch.device, optional): The device of constructed tensors. Defaults to None.
 
         **Returns**:
             - torch.Tensor: A tensor of shape (batch_size, n_samples, n) containing the generated signals.
@@ -155,66 +164,76 @@ def signal_gallery(
             else:
                 return torch.tensor(reference, device=device).expand(batch_size, n_samples, n)
         
-def hertz2rad(hertz: torch.Tensor, fs):
+def hertz2rad(hertz: torch.Tensor, fs: int):
     r'''
-    Convert frequency from cycles per second to rad
+    Convert frequency from Hz to rad.
+
     .. math::
         \omega = \frac{2\pi f}{f_s}
+    
     where :math:`f` is the frequency in Hz and :math:`f_s` is the sampling frequency in Hz.
 
-    **Args**:
-        - hertz (torch.Tensor): The frequency in Hz.
-        - fs (int): The sampling frequency in Hz.
+    **Arguments**:
+        - **hertz** (torch.Tensor): The frequency in Hz.
+        - **fs** (int): The sampling frequency in Hz.
     '''
     return torch.divide(hertz, fs)*2*torch.pi
 
-def rad2hertz(rad: torch.Tensor, fs):
+def rad2hertz(rad: torch.Tensor, fs: int):
     r'''
-    Convert frequency from rad to cycles per second
+    Convert frequency from rad to Hz
+
     .. math::
         f = \frac{\omega f_s}{2\pi}
+
     where :math:`\omega` is the frequency in rad and :math:`f_s` is the sampling frequency in Hz.
 
-    **Args**:
+    **Arguments**:
         - rad (torch.Tensor): The frequency in rad.
         - fs (int): The sampling frequency in Hz.
     '''
     return torch.divide(rad*fs, 2*torch.pi)
 
-def db2mag(db):
+def db2mag(dB: torch.Tensor | float):
     r"""
     Convert a value from decibels (dB) to magnitude.
-    .. math::
-        \text{magnitude} = 10^{db/20}
-    where :math:`db` is the input value in decibels.
 
-    **Args**:
-        - db (float): The value in decibels.
+    .. math::
+        \text{magnitude} = 10^{dB/20}
+
+    where :math:`dB` is the input value in decibels.
+
+    **Arguments**:
+        **dB** (torch.tensor | float): The value in decibels.
     **Returns**:
         - float: The corresponding magnitude value.
     """
 
-    return 10**(db/20)
+    return 10**(dB/20)
 
-def mag2db(mag):
+def mag2db(mag: torch.Tensor):
     r"""
     Convert a value from magnitude to decibels (dB).
+
     .. math::
         \text{dB} = 20\log_{10}(\text{magnitude})
+   
     where :math:`\text{magnitude}` is the input value in magnitude.
 
-    **Args**:
-        - mag (float): The value in magnitude.
+    **Arguments**:
+
+        - **mag** (torch.tensor): The value in magnitude.
+
     **Returns**:
         - float: The corresponding value in decibels.
     """
 
     return 20*torch.log10(torch.abs(mag))
 
-def lowpass_filter(fc: float=500.0, gain:float=0.0, fs: int=48000, device=None) -> tuple:
+def lowpass_filter(fc: float=500.0, gain: float=0.0, fs: int=48000, device: str | torch.device = None) -> tuple:
     r"""
     Lowpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map 
-    the cutoff frequency and gain to the filter coefficients to the to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+    the cutoff frequency and gain to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
     The transfer function of the filter is given by
 
     .. math::
@@ -231,15 +250,15 @@ def lowpass_filter(fc: float=500.0, gain:float=0.0, fs: int=48000, device=None) 
     where :math:`\omega_c = 2\pi f_c / f_s`, :math:`\alpha = \sin(\omega_c)/2 \cdot \sqrt{2}` and :math:`\cos(\omega_c)` is the cosine of the cutoff frequency.
     The gain is applied to the filter coefficients as :math:`b = 10^{g_{\textrm{dB}}/20} b`.
 
-    **Args**:
-        - fc (float): The cutoff frequency of the filter in Hz. Default: 500 Hz.
-        - gain (float): The gain of the filter in dB. Default: 0 dB.
-        - fs (int): The sampling frequency of the signal in Hz. Default: 48000 Hz.
-        - device (torch.device, optional): The device of constructed tensors. Default: None.
+    **Arguments**:
+        - **fc** (float, optional): The cutoff frequency of the filter in Hz. Default: 500 Hz.
+        - **gain** (float, optional): The gain of the filter in dB. Default: 0 dB.
+        - **fs** (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.
+        - **device** (str | torch.device, optional): The device of constructed tensors. Default: None.
 
     **Returns**:
-        - b (ndarray): The numerator coefficients of the filter transfer function.
-        - a (ndarray): The denominator coefficients of the filter transfer function.
+        - **b** (torch.tensor): The numerator coefficients of the filter transfer function.
+        - **a** (torch.tensor): The denominator coefficients of the filter transfer function.
     """
 
     omegaC = hertz2rad(fc, fs).to(device=device)
@@ -259,10 +278,10 @@ def lowpass_filter(fc: float=500.0, gain:float=0.0, fs: int=48000, device=None) 
 
     return 10**(gain/20)*b, a
 
-def highpass_filter(fc: float=10000.0, gain:float=0.0, fs: int=48000, device=None) -> tuple:
+def highpass_filter(fc: float=10000.0, gain:float=0.0, fs: int=48000, device: str | torch.device = None) -> tuple:
     r"""
     Highpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map 
-    the cutoff frequency and gain to the filter coefficients to the to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+    the cutoff frequency and gain to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
 
     .. math::
         H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
@@ -278,15 +297,15 @@ def highpass_filter(fc: float=10000.0, gain:float=0.0, fs: int=48000, device=Non
     where :math:`\omega_c = 2\pi f_c / f_s`, :math:`\alpha = \sin(\omega_c)/2 \cdot \sqrt{2}` and :math:`\cos(\omega_c)` is the cosine of the cutoff frequency.
     The gain is applied to the filter coefficients as :math:`b = 10^{g_{\textrm{dB}}/20} b`.
 
-        **Args**:
-            - fc (float, optional): The cutoff frequency of the filter in Hz. Default: 10000 Hz.
-            - gain (float, optional): The gain of the filter in dB. Default: 0 dB.
-            - fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.
-            - device (torch.device, optional): The device of constructed tensors. Default: None.
+        **Arguments**:
+            - **fc** (float, optional): The cutoff frequency of the filter in Hz. Default: 10000 Hz.
+            - **gain** (float, optional): The gain of the filter in dB. Default: 0 dB.
+            - **fs** (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.
+            - **device** (str | torch.device), optional: The device of constructed tensors. Default: None.
             
         **Returns**:
-            - b (ndarray): The numerator coefficients of the filter transfer function.
-            - a (ndarray): The denominator coefficients of the filter transfer function.
+            - **b** (torch.tensor): The numerator coefficients of the filter transfer function.
+            - **a** (torch.tensor): The denominator coefficients of the filter transfer function.
     """
 
     omegaC = hertz2rad(fc, fs)
@@ -306,10 +325,10 @@ def highpass_filter(fc: float=10000.0, gain:float=0.0, fs: int=48000, device=Non
 
     return 10**(gain/20)*b, a
 
-def bandpass_filter(fc1:torch.Tensor, fc2:torch.Tensor, gain:float=0.0, fs: int=48000, device=None) -> tuple:
+def bandpass_filter(fc1: torch.Tensor, fc2 :torch.Tensor, gain: float = 0.0, fs: int = 48000, device: str | torch.device = None) -> tuple:
     r"""
     Bandpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map 
-    the cutoff frequencies and gain to the filter coefficients to the to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+    the cutoff frequencies and gain to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
 
     .. math::
         H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
@@ -335,16 +354,16 @@ def bandpass_filter(fc1:torch.Tensor, fc2:torch.Tensor, gain:float=0.0, fs: int=
 
     The gain is applied to the filter coefficients as :math:`b = 10^{g_{\textrm{dB}}/20} b`.
 
-        **Args**:
-            - fc1 (float): The left cutoff frequency of the filter in Hz. 
-            - fc2 (float): The right cutoff frequency of the filter in Hz. 
-            - gain (float, optional): The gain of the filter in dB. Default: 0 dB.
-            - fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.
-            - device (torch.device, optional): The device of constructed tensors. Default: None.
+        **Arguments**:
+            - **fc1** (float): The left cutoff frequency of the filter in Hz. 
+            - **fc2** (float): The right cutoff frequency of the filter in Hz. 
+            - **gain** (float, optional): The gain of the filter in dB. Default: 0 dB.
+            - **fs** (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.
+            - **device** (torch.device | str, optional): The device of constructed tensors. Default: None.
             
         **Returns**:
-            - b (ndarray): The numerator coefficients of the filter transfer function.
-            - a (ndarray): The denominator coefficients of the filter transfer function.
+            - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
+            - **a** (torch.Tensor): The denominator coefficients of the filter transfer function.
     """
 
     omegaC = (hertz2rad(fc1, fs) + hertz2rad(fc2, fs)) / 2
@@ -366,37 +385,40 @@ def bandpass_filter(fc1:torch.Tensor, fc2:torch.Tensor, gain:float=0.0, fs: int=
 
     return 10**(gain/20)*b, a
 
-def shelving_filter(fc:torch.Tensor, gain:torch.Tensor, type:str='low', fs: int=48000, device=None):
+def shelving_filter(fc: torch.Tensor, gain: torch.Tensor, type: str = 'low', fs: int = 48000, device: torch.device | str = None):
     r"""
-    Shelving filter coefficents. 
-    Outputs the cutoff frequencies and gain to the filter coefficients to the to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+    Shelving filter coefficients. 
+    Maps the cutoff frequencies and gain to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+
     .. math::
         H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
 
     for low shelving filter:
+    
     .. math::
-        b_0 = g^{1/2} ( g^{1/2} \tau^2 + \sqrt{2} \tau g^{1/4} + 1 ),\;\; b_1 = g^{1/2} (2 g^{1/2} \tau^2 - 2 ),\;\; b_2 = g^{1/2} ( g^{1/2} \tau^2 - \sqrt{2} \tau g^{1/4} + 1 )
+        b_0 = \sqrt{g} ( \sqrt{g} \tau^2 + \sqrt{2} \tau g^{1/4} + 1 ),\;\; b_1 = \sqrt{g} (2 \sqrt{g} \tau^2 - 2 ),\;\; b_2 = \sqrt{g} ( \sqrt{g} \tau^2 - \sqrt{2} \tau g^{1/4} + 1 )
 
-        a_0 = g^{1/2} + \sqrt{2} \tau g^{1/4} + \tau^2,\;\; a_1 = 2 \tau^{2} - 2 g^{1/2} ,\;\; a_2 = g^{1/2} - \sqrt{2} \tau g^{1/4} + \tau^2
+        a_0 = \sqrt{g} + \sqrt{2} \tau g^{1/4} + \tau^2,\;\; a_1 = 2 \tau^{2} - 2 \sqrt{g} ,\;\; a_2 = \sqrt{g} - \sqrt{2} \tau g^{1/4} + \tau^2
     
     for high shelving filter:
+    
     .. math::
-        b_0 = g ( g^{1/2} + \sqrt{2} \tau g^{1/4} + \tau^2 ),\;\; a_1 = g ( 2 \tau^{2} - 2 g^{1/2} ),\;\; a_2 = g (g^{1/2} - \sqrt{2} \tau g^{1/4} + \tau^2)
+        b_0 = g ( \sqrt{g} + \sqrt{2} \tau g^{1/4} + \tau^2 ),\;\; a_1 = g ( 2 \tau^{2} - 2 \sqrt{g} ),\;\; a_2 = g (\sqrt{g} - \sqrt{2} \tau g^{1/4} + \tau^2)
 
-        a_0 = g^{1/2} ( g^{1/2} \tau^2 + \sqrt{2} \tau g^{1/4} + 1 ),\;\; a_1 = g^{1/2} (2 g^{1/2} \tau^2 - 2 ),\;\; a_2 = g^{1/2} ( g^{1/2} \tau^2 - \sqrt{2} \tau g^{1/4} + 1 )
+        a_0 = \sqrt{g} ( \sqrt{g} \tau^2 + \sqrt{2} \tau g^{1/4} + 1 ),\;\; a_1 = \sqrt{g} (2 \sqrt{g} \tau^2 - 2 ),\;\; a_2 = \sqrt{g} ( \sqrt{g} \tau^2 - \sqrt{2} \tau g^{1/4} + 1 )
 
-    where :math:`\tau = \tan(2 \pi f_c/ (2 f_s))`, :math:`f_c`is the cutoff frequency, :math:`f_s`is the sampling frequency, and :math:`g`is the linear gain.
+    where :math:`\tau = \tan(2 \pi f_c / (2 f_s))`, :math:`f_c` is the cutoff frequency, :math:`f_s` is the sampling frequency, and :math:`g` is the linear gain.
 
-        **Args**:
-            - fc (torch.Tensor): The cutoff frequency of the filter in Hz.
-            - gain (torch.Tensor): The linear gain of the filter.
-            - type (str, optional): The type of shelving filter. Can be 'low' or 'high'. Default: 'low'.
-            - fs (int, optional): The sampling frequency of the signal in Hz.
-            - device (torch.device, optional): The device of constructed tensors. Default: None.
+        **Arguments**:
+            - **fc** (torch.Tensor): The cutoff frequency of the filter in Hz.
+            - **gain** (torch.Tensor): The linear gain of the filter.
+            - **type** (str, optional): The type of shelving filter. Can be 'low' or 'high'. Default: 'low'.
+            - **fs** (int, optional): The sampling frequency of the signal in Hz.
+            - **device** (torch.device | str, optional): The device of constructed tensors. Default: None.
             
         **Returns**:
-            - b (torch.Tensor): The numerator coefficients of the filter transfer function.
-            - a (torch.Tensor): The denominator coefficients of the filter transfer function.
+            - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
+            - **a** (torch.Tensor): The denominator coefficients of the filter transfer function.
     """
     b = torch.ones(3, device=device)
     a = torch.ones(3, device=device)
@@ -425,14 +447,16 @@ def shelving_filter(fc:torch.Tensor, gain:torch.Tensor, type:str='low', fs: int=
 
     return b, a
 
-def peak_filter(fc:torch.Tensor, gain:torch.Tensor, Q:torch.Tensor,  fs: int=48000, device=None) -> tuple:
+def peak_filter(fc: torch.Tensor, gain: torch.Tensor, Q: torch.Tensor,  fs: int=48000, device: str | torch.device = None) -> tuple:
     r"""
     Peak filter coefficients.
-    Outputs the cutoff frequencies and gain to the filter coefficients to the to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+    Outputs the cutoff frequencies and gain to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+
     .. math::
         H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
 
     for peak filter:
+    
     .. math::
         b_0 = \sqrt{g} + g \tau,\;\; b_1 = -2 \sqrt{g} \cos(\omega_c),\;\; b_2 = \sqrt{g} - g \tau
 
@@ -440,16 +464,16 @@ def peak_filter(fc:torch.Tensor, gain:torch.Tensor, Q:torch.Tensor,  fs: int=480
 
     where :math:`\tau = \tan(\text{BW}/2)`, :math:`BW = \omega_c / Q`, :math:`\omega_c = 2\pi f_c / f_s`, :math:`g`is the linear gain, and :math:`Q` is the quality factor.
 
-        **Args**:
-            - fc (torch.Tensor): The cutoff frequency of the filter in Hz.
-            - gain (torch.Tensor): The linear gain of the filter.
-            - Q (torch.Tensor): The quality factor of the filter.
-            - fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000.
-            - device (torch.device, optional): The device of constructed tensors. Default: None.
+        **Arguments**:
+            - **fc** (torch.Tensor): The cutoff frequency of the filter in Hz.
+            - **gain** (torch.Tensor): The linear gain of the filter.
+            - **Q** (torch.Tensor): The quality factor of the filter.
+            - **fs** (int, optional): The sampling frequency of the signal in Hz. Default: 48000.
+            - **device** (torch.device | str, optional): The device of constructed tensors. Default: None.
 
         **Returns**:
-            - b (torch.Tensor): The numerator coefficients of the filter transfer function.
-            - a (torch.Tensor): The denominator coefficients of the filter transfer function
+            - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
+            - **a** (torch.Tensor): The denominator coefficients of the filter transfer function
     """
     b = torch.ones(3, device=device)
     a = torch.ones(3, device=device)
@@ -469,15 +493,15 @@ def peak_filter(fc:torch.Tensor, gain:torch.Tensor, Q:torch.Tensor,  fs: int=480
     return b, a
 
 def sosfreqz(sos: torch.Tensor, nfft: int = 512):
-    """
-    Compute the complex frequency response via FFT of cascade of biquads
+    r"""
+    Compute the complex frequency response via FFT of cascade of second order filter sections (SOS).
 
-        **Args**:
-            - sos (torch.Tensor): Second order filter sections with shape (n_sections, 6)
-            - nfft (int): FFT size. Default: 512
+        **Arguments**:
+            - **sos** (torch.Tensor): Second order filter sections with shape (n_sections, 6)
+            - **nfft** (int): FFT size. Default: 512
 
         **Returns**:
-            - H (torch.Tensor): Overall complex frequency response with shape (bs, n_bins)
+            - **H** (torch.Tensor): Overall complex frequency response.
     """
     n_sections, n_coeffs = sos.size()
     assert n_coeffs == 6  # must be second order
@@ -487,18 +511,18 @@ def sosfreqz(sos: torch.Tensor, nfft: int = 512):
     H = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
     return H
 
-def svf(fc: torch.Tensor, R: torch.Tensor, m: torch.Tensor = torch.ones((3,)), G: torch.Tensor=None, filter_type=None, fs: int=48000, device=None):
+def svf(fc: torch.Tensor, R: torch.Tensor, m: torch.Tensor = torch.ones((3,)), G: torch.Tensor = None, filter_type: str = None, fs: int = 48000, device: str | torch.device = None) :
     r"""
     Implements a State Variable Filter (SVF) with various filter types.
 
-        **Args**:
-            - fc (torch.Tensor): The cutoff frequency of the filter.
-            - R (torch.Tensor): The resonance parameter of the filter.
-            - m (torch.Tensor, optional): The mixing coefficients of the filter. Default: torch.ones((3,)).
-            - G (torch.Tensor, optional): The gain coefficients of the filter. Default: None.
-            - filter_type (str, optional): The type of filter to be applied. Can be one of "lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "peaking", "notch", or None. Default: None.
-            - fs (int, optional): The sampling frequency. Default: 48000.
-            - device (torch.device, optional): The device of constructed tensors. Default: None.
+        **Arguments**:
+            - **fc** (torch.Tensor): The cutoff frequency of the filter.
+            - **R** (torch.Tensor): The resonance parameter of the filter.
+            - **m** (torch.Tensor, optional): The mixing coefficients of the filter. Default: torch.ones((3,)).
+            - **G** (torch.Tensor, optional): The gain coefficients of the filter. Default: None.
+            - **filter_type** (str, optional): The type of filter to be applied. Can be one of "lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "peaking", "notch", or None. Default: None.
+            - **fs** (int, optional): The sampling frequency. Default: 48000.
+            - **device** (torch.device, optional): The device of constructed tensors. Default: None.
                     
         **Returns**:
             Tuple[torch.Tensor, torch.Tensor]: The numerator and denominator coefficients of the filter transfer function.
@@ -558,22 +582,24 @@ def svf(fc: torch.Tensor, R: torch.Tensor, m: torch.Tensor = torch.ones((3,)), G
 
     return b, a
 
-def probe_sos(sos, control_freqs, nfft, fs, device=None):
-    r''' Probe the frequency / magnitude response of a cascaded SOS filter at the points
+def probe_sos(sos: torch.Tensor, control_freqs: list | torch.Tensor, nfft: int, fs: int, device: str | torch.device = None):
+    r""" 
+    Probe the frequency / magnitude response of a cascaded SOS filter at the points
     specified by the control frequencies.
 
-        **Args**:
-            - sos (torch.Tensor): Cascaded second-order sections (SOS) filter coefficients.
-            - control_freqs (list or torch.Tensor): Frequencies at which to probe the filter response.
-            - nfft (int): Length of the FFT used for frequency analysis.
-            - fs (float): Sampling frequency in Hz.
+        **Arguments**:
+            - **sos** (torch.Tensor): Cascaded second-order sections (SOS) filter coefficients.
+            - **control_freqs** (list or torch.Tensor): Frequencies at which to probe the filter response.
+            - **nfft** (int): Length of the FFT used for frequency analysis.
+            - **fs** (float): Sampling frequency in Hz.
+            - **device** (torch.device, optional): The device of constructed tensors. Default: None.
 
         **Returns**:
             tuple: A tuple containing the following:
-                - G (torch.Tensor): Magnitude response of the filter at the control frequencies.
-                - H (torch.Tensor): Frequency response of the filter.
-                - W (torch.Tensor): Phase response of the filter.
-    '''
+                - **G** (torch.Tensor): Magnitude response of the filter at the control frequencies.
+                - **H** (torch.Tensor): Frequency response of the filter.
+                - **W** (torch.Tensor): Phase response of the filter.
+    """
     n_freqs = sos.shape[-1]
     
     H = torch.zeros((nfft//2+1, n_freqs), dtype=torch.cdouble, device=device)
@@ -596,10 +622,16 @@ def probe_sos(sos, control_freqs, nfft, fs, device=None):
 
     return G, H, W
 
-def find_onset(rir):
-    # TODO add proper docstring
-    r''' find onset in input RIR by extracting a local energy envelope of the 
-    RIR then finding its maximum point'''
+def find_onset(rir: torch.Tensor):
+    # 
+    r""" 
+    Find onset in input RIR by extracting a local energy envelope of the 
+    RIR then finding its maximum point
+    
+        **Arguments**:
+            - **rir** (torch.Tensor): Room impulse response.
+    
+    """
     # extract local energy envelope 
     win_len = 64
     overlap = 0.75
@@ -628,11 +660,11 @@ def WGN_reverb(matrix_size: tuple=(1,1), t60: float=1.0, samplerate: int=48000, 
     r"""
     Generates White-Gaussian-Noise-reverb impulse responses.
 
-        **Args**:
-            - matrix_size (tuple, optional): (output_channels, input_channels). Defaults to (1,1).
-            - t60 (float, optional): Reverberation time. Defaults to 1.0.
-            - samplerate (int, optional): Sampling frequency. Defaults to 48000.
-            - nfft (int, optional): Number of frequency bins. Defaults to 2**11.
+        **Arguments**:
+            - **matrix_size** (tuple, optional): (output_channels, input_channels). Defaults to (1,1).
+            - **t60** (float, optional): Reverberation time. Defaults to 1.0.
+            - **samplerate** (int, optional): Sampling frequency. Defaults to 48000.
+            - **nfft** (int, optional): Number of frequency bins. Defaults to 2**11.
 
         **Returns**:
             torch.Tensor: Matrix of WGN-reverb impulse responses.

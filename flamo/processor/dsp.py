@@ -888,10 +888,12 @@ class ScatteringMatrix(Filter):
 
     .. math::
 
-        \mathbf{U}(z) = \mathbf{D}_{\mathbf{m}_K}(z)\mathbf{U}_K\cdots\mathbf{U}_2\mathbf{D}_{\mathbf{m}_1}(z)\mathbf{U}_1\mathbf{D}_{\mathbf{m}_0}(z),
+        \mathbf{U}(z) = \mathbf{D}_{\mathbf{m}_K+1}(z)\mathbf{U}_K\cdots\mathbf{U}_2\mathbf{D}_{\mathbf{m}_2}(z)\mathbf{U}_1\mathbf{D}_{\mathbf{m}_1}(z)\mathbf{U}_0\mathbf{D}_{\mathbf{m}_0}(z),
 
-    where :math:`\mathbf{U}_1, \dots, \mathbf{U}_K` are :math:`N \times N` orthogonal matrices and :math:`\mathbf{m}_0, \dots, \mathbf{m}_K` are vectors of :math:`N` integer delays.
+
+    where :math:`\mathbf{U}_1, \dots, \mathbf{U}_K` are :math:`N \times N` orthogonal matrices and :math:`\mathbf{m}_0, \dots, \mathbf{m}_{K+1}` are vectors of :math:`N` integer delays.
     This parameterization ensures that the scattering matrix is paraunitary and lossless.
+    
     For more details, refer to the paper `Scattering in Feedback Delay Networks <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9113451>`_ by Schlecht, S. J. et al.
     
     The input tensor is expected to be a complex-valued tensor representing the

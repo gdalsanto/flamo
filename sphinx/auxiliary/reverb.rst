@@ -3,6 +3,6 @@
 .. autoclass:: flamo.auxiliary.reverb.HomogeneousFDN
    :members:
 
-.. automethod:: flamo.auxiliary.reverb.rt2slope
+.. autofunction:: flamo.auxiliary.reverb.rt2slope
 
-.. automethod:: flamo.auxiliary.reverb.rt2absorption
+.. autofunction:: flamo.auxiliary.reverb.rt2absorption

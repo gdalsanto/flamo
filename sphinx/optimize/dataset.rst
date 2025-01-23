@@ -6,8 +6,8 @@
 .. autoclass:: flamo.optimize.dataset.DatasetColorless
     :members:
 
-.. automethod:: flamo.optimize.dataset.get_dataloader
+.. autofunction:: flamo.optimize.dataset.get_dataloader
 
-.. automethod:: flamo.optimize.dataset.split_dataset
+.. autofunction:: flamo.optimize.dataset.split_dataset
 
-.. automethod:: flamo.optimize.dataset.load_dataset
+.. autofunction:: flamo.optimize.dataset.load_dataset

@@ -635,10 +635,10 @@ Ellipsis <span class="math notranslate nohighlight">\((...)\)</span> represents 
 </dl>
 <p>It is parameterized as a set of <span class="math notranslate nohighlight">\(K\)</span> orthogonal mixing matrices <span class="math notranslate nohighlight">\(\mathbf{U}_k\)</span> each followed by a set of parallel delays.</p>
 <div class="math notranslate nohighlight">
-\[\mathbf{U}(z) = \mathbf{D}_{\mathbf{m}_K}(z)\mathbf{U}_K\cdots\mathbf{U}_2\mathbf{D}_{\mathbf{m}_1}(z)\mathbf{U}_1\mathbf{D}_{\mathbf{m}_0}(z),\]</div>
-<p>where <span class="math notranslate nohighlight">\(\mathbf{U}_1, \dots, \mathbf{U}_K\)</span> are <span class="math notranslate nohighlight">\(N \times N\)</span> orthogonal matrices and <span class="math notranslate nohighlight">\(\mathbf{m}_0, \dots, \mathbf{m}_K\)</span> are vectors of <span class="math notranslate nohighlight">\(N\)</span> integer delays.
-This parameterization ensures that the scattering matrix is paraunitary and lossless.
-For more details, refer to the paper <a class="reference external" href="https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9113451">Scattering in Feedback Delay Networks</a> by Schlecht, S. J. et al.</p>
+\[\mathbf{U}(z) = \mathbf{D}_{\mathbf{m}_K+1}(z)\mathbf{U}_K\cdots\mathbf{U}_2\mathbf{D}_{\mathbf{m}_2}(z)\mathbf{U}_1\mathbf{D}_{\mathbf{m}_1}(z)\mathbf{U}_0\mathbf{D}_{\mathbf{m}_0}(z),\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbf{U}_1, \dots, \mathbf{U}_K\)</span> are <span class="math notranslate nohighlight">\(N \times N\)</span> orthogonal matrices and <span class="math notranslate nohighlight">\(\mathbf{m}_0, \dots, \mathbf{m}_{K+1}\)</span> are vectors of <span class="math notranslate nohighlight">\(N\)</span> integer delays.
+This parameterization ensures that the scattering matrix is paraunitary and lossless.</p>
+<p>For more details, refer to the paper <a class="reference external" href="https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9113451">Scattering in Feedback Delay Networks</a> by Schlecht, S. J. et al.</p>
 <p>The input tensor is expected to be a complex-valued tensor representing the
 frequency response of the input signal. The input tensor is then convolved in
 frequency domain with the filter frequency responses to produce the output tensor.</p>

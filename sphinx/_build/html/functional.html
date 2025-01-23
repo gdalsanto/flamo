@@ -34,11 +34,192 @@
 
           <div class="body" role="main">
             
-  <dl class="py method">
+  <dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.get_magnitude">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">get_magnitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.get_magnitude" title="Link to this definition">¶</a></dt>
+<dd><p>Gets the magnitude of a complex tensor.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>x</strong> (torch.tensor): The input tensor.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.tensor: The absolute value of <strong>x</strong>.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.get_eigenvalues">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">get_eigenvalues</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.get_eigenvalues" title="Link to this definition">¶</a></dt>
+<dd><p>Gets the eigenvalues of a complex tensor.
+The last two dimensions of the input tensor must be identical.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>x</strong> (torch.tensor): The input tensor.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.tensor: The eigenvalues of <strong>x</strong>.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.skew_matrix">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">skew_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.skew_matrix" title="Link to this definition">¶</a></dt>
+<dd><p>Generate a skew symmetric matrix from a given matrix <span class="math notranslate nohighlight">\(\mathbf{X}_{\textrm{Tr}}\)</span> as follows</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{X} = \mathbf{X}_{\textrm{Tr}} - \mathbf{X}_{\textrm{Tr}}^\top\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbf{X_{\textrm{Tr}}}\)</span> is the upper triangular part of <span class="math notranslate nohighlight">\(\mathbf{X}\)</span>, and <span class="math notranslate nohighlight">\(\cdot^\top\)</span> denotes the transpose operation.</p>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>X</strong> (torch.Tensor): The input matrix.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.get_frequency_samples">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">get_frequency_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.get_frequency_samples" title="Link to this definition">¶</a></dt>
+<dd><p>Get frequency samples (in radians) sampled at linearly spaced points along the unit circle.</p>
+<dl class="simple">
+<dt><strong>Arguments</strong></dt><dd><ul class="simple">
+<li><p><strong>num</strong> (int): number of frequency samples</p></li>
+<li><p><strong>device</strong> (torch.device, str): The device of constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong></dt><dd><ul class="simple">
+<li><p>frequency samples in radians between [0, pi]</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.biquad2tf">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">biquad2tf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.biquad2tf" title="Link to this definition">¶</a></dt>
+<dd><p>Converts a biquad filter representation to a transfer function.
+Shape of <code class="xref py py-attr docutils literal notranslate"><span class="pre">b</span></code> and <code class="xref py py-attr docutils literal notranslate"><span class="pre">a</span></code> is (3, n_sections)</p>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>b</strong> (torch.Tensor): Coefficients of the numerator polynomial of the biquad filter.</p></li>
+<li><p><strong>a</strong> (torch.Tensor): Coefficients of the denominator polynomial of the biquad filter.</p></li>
+<li><p><strong>nfft</strong> (int): The number of FFT points to compute teh transfer function.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>torch.Tensor: Transfer function of the biquad filter evaluated at x.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.signal_gallery">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">signal_gallery</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signal_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'impulse'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.signal_gallery" title="Link to this definition">¶</a></dt>
+<dd><p>Generate a tensor containing a signal based on the specified signal type.</p>
+<dl>
+<dt>Supported signal types are:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">impulse</span></code>: A single impulse at the first sample, followed by <code class="xref py py-attr docutils literal notranslate"><span class="pre">n_samples-1</span></code> zeros.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sine</span></code>: A sine wave of frequency <code class="xref py py-attr docutils literal notranslate"><span class="pre">rate</span></code> Hz, if given. Otherwise, a sine wave of frequency 1 Hz.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sweep</span></code>: A linear sweep from 20 Hz to 20 kHz.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">wgn</span></code>: White Gaussian noise.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">exp</span></code>: An exponential decay signal.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reference</span></code>: A reference signal provided as argument <code class="xref py py-attr docutils literal notranslate"><span class="pre">reference</span></code>.</p></li>
+</ul>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>batch_size</strong> (int): The number of batches to generate.</p></li>
+<li><p><strong>n_samples</strong> (int): THe signal length in samples.</p></li>
+<li><p><strong>n_channel</strong> (int): The number of channels in each signal.</p></li>
+<li><p><strong>signal_type</strong> (str, optional): The type of signal to generate. Defaults to ‘impulse’.</p></li>
+<li><p><strong>fs</strong> (int, optional): The sampling frequency of the signals. Defaults to 48000.</p></li>
+<li><p><strong>reference</strong> (torch.Tensor, optional): A reference signal to use. Defaults to None.</p></li>
+<li><p><strong>device</strong> (torch.device, optional): The device of constructed tensors. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>torch.Tensor: A tensor of shape (batch_size, n_samples, n) containing the generated signals.</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.hertz2rad">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">hertz2rad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hertz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.hertz2rad" title="Link to this definition">¶</a></dt>
+<dd><p>Convert frequency from Hz to rad.</p>
+<div class="math notranslate nohighlight">
+\[\omega = \frac{2\pi f}{f_s}\]</div>
+<p>where <span class="math notranslate nohighlight">\(f\)</span> is the frequency in Hz and <span class="math notranslate nohighlight">\(f_s\)</span> is the sampling frequency in Hz.</p>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>hertz</strong> (torch.Tensor): The frequency in Hz.</p></li>
+<li><p><strong>fs</strong> (int): The sampling frequency in Hz.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.rad2hertz">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">rad2hertz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.rad2hertz" title="Link to this definition">¶</a></dt>
+<dd><p>Convert frequency from rad to Hz</p>
+<div class="math notranslate nohighlight">
+\[f = \frac{\omega f_s}{2\pi}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\omega\)</span> is the frequency in rad and <span class="math notranslate nohighlight">\(f_s\)</span> is the sampling frequency in Hz.</p>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p>rad (torch.Tensor): The frequency in rad.</p></li>
+<li><p>fs (int): The sampling frequency in Hz.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.db2mag">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">db2mag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dB</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.db2mag" title="Link to this definition">¶</a></dt>
+<dd><p>Convert a value from decibels (dB) to magnitude.</p>
+<div class="math notranslate nohighlight">
+\[\text{magnitude} = 10^{dB/20}\]</div>
+<p>where <span class="math notranslate nohighlight">\(dB\)</span> is the input value in decibels.</p>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><p><strong>dB</strong> (torch.tensor | float): The value in decibels.</p>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>float: The corresponding magnitude value.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.mag2db">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">mag2db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mag</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.mag2db" title="Link to this definition">¶</a></dt>
+<dd><p>Convert a value from magnitude to decibels (dB).</p>
+<div class="math notranslate nohighlight">
+\[\text{dB} = 20\log_{10}(\text{magnitude})\]</div>
+<p>where <span class="math notranslate nohighlight">\(\text{magnitude}\)</span> is the input value in magnitude.</p>
+<p><strong>Arguments</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>mag</strong> (torch.tensor): The value in magnitude.</p></li>
+</ul>
+</div></blockquote>
+<dl class="simple">
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p>float: The corresponding value in decibels.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="flamo.functional.lowpass_filter">
-<span class="sig-prename descclassname"><span class="pre">functional.</span></span><span class="sig-name descname"><span class="pre">lowpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.lowpass_filter" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">lowpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.lowpass_filter" title="Link to this definition">¶</a></dt>
 <dd><p>Lowpass filter coefficients. It uses the <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook formulas</a> to map 
-the cutoff frequency and gain to the filter coefficients to the to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.
+the cutoff frequency and gain to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.
 The transfer function of the filter is given by</p>
 <div class="math notranslate nohighlight">
 \[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
@@ -50,26 +231,26 @@ The transfer function of the filter is given by</p>
 <p>where <span class="math notranslate nohighlight">\(\omega_c = 2\pi f_c / f_s\)</span>, <span class="math notranslate nohighlight">\(\alpha = \sin(\omega_c)/2 \cdot \sqrt{2}\)</span> and <span class="math notranslate nohighlight">\(\cos(\omega_c)\)</span> is the cosine of the cutoff frequency.
 The gain is applied to the filter coefficients as <span class="math notranslate nohighlight">\(b = 10^{g_{\textrm{dB}}/20} b\)</span>.</p>
 <dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>fc (float): The cutoff frequency of the filter in Hz. Default: 500 Hz.</p></li>
-<li><p>gain (float): The gain of the filter in dB. Default: 0 dB.</p></li>
-<li><p>fs (int): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
-<li><p>device (torch.device, optional): The device of constructed tensors. Default: None.</p></li>
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fc</strong> (float, optional): The cutoff frequency of the filter in Hz. Default: 500 Hz.</p></li>
+<li><p><strong>gain</strong> (float, optional): The gain of the filter in dB. Default: 0 dB.</p></li>
+<li><p><strong>fs</strong> (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
+<li><p><strong>device</strong> (str | torch.device, optional): The device of constructed tensors. Default: None.</p></li>
 </ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><ul class="simple">
-<li><p>b (ndarray): The numerator coefficients of the filter transfer function.</p></li>
-<li><p>a (ndarray): The denominator coefficients of the filter transfer function.</p></li>
+<li><p><strong>b</strong> (torch.tensor): The numerator coefficients of the filter transfer function.</p></li>
+<li><p><strong>a</strong> (torch.tensor): The denominator coefficients of the filter transfer function.</p></li>
 </ul>
 </dd>
 </dl>
 </dd></dl>
 
-<dl class="py method">
+<dl class="py function">
 <dt class="sig sig-object py" id="flamo.functional.highpass_filter">
-<span class="sig-prename descclassname"><span class="pre">functional.</span></span><span class="sig-name descname"><span class="pre">highpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.highpass_filter" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">highpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.highpass_filter" title="Link to this definition">¶</a></dt>
 <dd><p>Highpass filter coefficients. It uses the <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook formulas</a> to map 
-the cutoff frequency and gain to the filter coefficients to the to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.</p>
+the cutoff frequency and gain to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.</p>
 <div class="math notranslate nohighlight">
 \[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
 <p>for</p>
@@ -81,27 +262,27 @@ the cutoff frequency and gain to the filter coefficients to the to the <span cla
 The gain is applied to the filter coefficients as <span class="math notranslate nohighlight">\(b = 10^{g_{\textrm{dB}}/20} b\)</span>.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>fc (float, optional): The cutoff frequency of the filter in Hz. Default: 10000 Hz.</p></li>
-<li><p>gain (float, optional): The gain of the filter in dB. Default: 0 dB.</p></li>
-<li><p>fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
-<li><p>device (torch.device, optional): The device of constructed tensors. Default: None.</p></li>
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fc</strong> (float, optional): The cutoff frequency of the filter in Hz. Default: 10000 Hz.</p></li>
+<li><p><strong>gain</strong> (float, optional): The gain of the filter in dB. Default: 0 dB.</p></li>
+<li><p><strong>fs</strong> (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
+<li><p><strong>device</strong> (str | torch.device), optional: The device of constructed tensors. Default: None.</p></li>
 </ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><ul class="simple">
-<li><p>b (ndarray): The numerator coefficients of the filter transfer function.</p></li>
-<li><p>a (ndarray): The denominator coefficients of the filter transfer function.</p></li>
+<li><p><strong>b</strong> (torch.tensor): The numerator coefficients of the filter transfer function.</p></li>
+<li><p><strong>a</strong> (torch.tensor): The denominator coefficients of the filter transfer function.</p></li>
 </ul>
 </dd>
 </dl>
 </div></blockquote>
 </dd></dl>
 
-<dl class="py method">
+<dl class="py function">
 <dt class="sig sig-object py" id="flamo.functional.bandpass_filter">
-<span class="sig-prename descclassname"><span class="pre">functional.</span></span><span class="sig-name descname"><span class="pre">bandpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fc2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.bandpass_filter" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">bandpass_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fc1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fc2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.bandpass_filter" title="Link to this definition">¶</a></dt>
 <dd><p>Bandpass filter coefficients. It uses the <a class="reference external" href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ cookbook formulas</a> to map 
-the cutoff frequencies and gain to the filter coefficients to the to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.</p>
+the cutoff frequencies and gain to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.</p>
 <div class="math notranslate nohighlight">
 \[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
 <p>for</p>
@@ -119,18 +300,184 @@ the cutoff frequencies and gain to the filter coefficients to the to the <span c
 <p>The gain is applied to the filter coefficients as <span class="math notranslate nohighlight">\(b = 10^{g_{\textrm{dB}}/20} b\)</span>.</p>
 <blockquote>
 <div><dl class="simple">
-<dt><strong>Args</strong>:</dt><dd><ul class="simple">
-<li><p>fc1 (float): The left cutoff frequency of the filter in Hz.</p></li>
-<li><p>fc2 (float): The right cutoff frequency of the filter in Hz.</p></li>
-<li><p>gain (float, optional): The gain of the filter in dB. Default: 0 dB.</p></li>
-<li><p>fs (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
-<li><p>device (torch.device, optional): The device of constructed tensors. Default: None.</p></li>
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fc1</strong> (float): The left cutoff frequency of the filter in Hz.</p></li>
+<li><p><strong>fc2</strong> (float): The right cutoff frequency of the filter in Hz.</p></li>
+<li><p><strong>gain</strong> (float, optional): The gain of the filter in dB. Default: 0 dB.</p></li>
+<li><p><strong>fs</strong> (int, optional): The sampling frequency of the signal in Hz. Default: 48000 Hz.</p></li>
+<li><p><strong>device</strong> (torch.device | str, optional): The device of constructed tensors. Default: None.</p></li>
 </ul>
 </dd>
 <dt><strong>Returns</strong>:</dt><dd><ul class="simple">
-<li><p>b (ndarray): The numerator coefficients of the filter transfer function.</p></li>
-<li><p>a (ndarray): The denominator coefficients of the filter transfer function.</p></li>
+<li><p><strong>b</strong> (torch.Tensor): The numerator coefficients of the filter transfer function.</p></li>
+<li><p><strong>a</strong> (torch.Tensor): The denominator coefficients of the filter transfer function.</p></li>
 </ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.shelving_filter">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">shelving_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'low'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">device</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.shelving_filter" title="Link to this definition">¶</a></dt>
+<dd><p>Shelving filter coefficients. 
+Maps the cutoff frequencies and gain to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.</p>
+<div class="math notranslate nohighlight">
+\[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
+<p>for low shelving filter:</p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}b_0 = \sqrt{g} ( \sqrt{g} \tau^2 + \sqrt{2} \tau g^{1/4} + 1 ),\;\; b_1 = \sqrt{g} (2 \sqrt{g} \tau^2 - 2 ),\;\; b_2 = \sqrt{g} ( \sqrt{g} \tau^2 - \sqrt{2} \tau g^{1/4} + 1 )\\a_0 = \sqrt{g} + \sqrt{2} \tau g^{1/4} + \tau^2,\;\; a_1 = 2 \tau^{2} - 2 \sqrt{g} ,\;\; a_2 = \sqrt{g} - \sqrt{2} \tau g^{1/4} + \tau^2\end{aligned}\end{align} \]</div>
+<p>for high shelving filter:</p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}b_0 = g ( \sqrt{g} + \sqrt{2} \tau g^{1/4} + \tau^2 ),\;\; a_1 = g ( 2 \tau^{2} - 2 \sqrt{g} ),\;\; a_2 = g (\sqrt{g} - \sqrt{2} \tau g^{1/4} + \tau^2)\\a_0 = \sqrt{g} ( \sqrt{g} \tau^2 + \sqrt{2} \tau g^{1/4} + 1 ),\;\; a_1 = \sqrt{g} (2 \sqrt{g} \tau^2 - 2 ),\;\; a_2 = \sqrt{g} ( \sqrt{g} \tau^2 - \sqrt{2} \tau g^{1/4} + 1 )\end{aligned}\end{align} \]</div>
+<p>where <span class="math notranslate nohighlight">\(\tau = \tan(2 \pi f_c / (2 f_s))\)</span>, <span class="math notranslate nohighlight">\(f_c\)</span> is the cutoff frequency, <span class="math notranslate nohighlight">\(f_s\)</span> is the sampling frequency, and <span class="math notranslate nohighlight">\(g\)</span> is the linear gain.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fc</strong> (torch.Tensor): The cutoff frequency of the filter in Hz.</p></li>
+<li><p><strong>gain</strong> (torch.Tensor): The linear gain of the filter.</p></li>
+<li><p><strong>type</strong> (str, optional): The type of shelving filter. Can be ‘low’ or ‘high’. Default: ‘low’.</p></li>
+<li><p><strong>fs</strong> (int, optional): The sampling frequency of the signal in Hz.</p></li>
+<li><p><strong>device</strong> (torch.device | str, optional): The device of constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p><strong>b</strong> (torch.Tensor): The numerator coefficients of the filter transfer function.</p></li>
+<li><p><strong>a</strong> (torch.Tensor): The denominator coefficients of the filter transfer function.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.peak_filter">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">peak_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Q</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#flamo.functional.peak_filter" title="Link to this definition">¶</a></dt>
+<dd><p>Peak filter coefficients.
+Outputs the cutoff frequencies and gain to the <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> biquad coefficients.</p>
+<div class="math notranslate nohighlight">
+\[H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}\]</div>
+<p>for peak filter:</p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}b_0 = \sqrt{g} + g \tau,\;\; b_1 = -2 \sqrt{g} \cos(\omega_c),\;\; b_2 = \sqrt{g} - g \tau\\a_0 = \sqrt{g} + \tau,\;\; a_1 = -2 \sqrt{g} \cos(\omega_c),\;\; a_2 = \sqrt{g} - \tau\end{aligned}\end{align} \]</div>
+<p>where <span class="math notranslate nohighlight">\(\tau = \tan(\text{BW}/2)\)</span>, <span class="math notranslate nohighlight">\(BW = \omega_c / Q\)</span>, <span class="math notranslate nohighlight">\(\omega_c = 2\pi f_c / f_s\)</span>, <span class="math notranslate nohighlight">\(g`is the linear gain, and :math:`Q\)</span> is the quality factor.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fc</strong> (torch.Tensor): The cutoff frequency of the filter in Hz.</p></li>
+<li><p><strong>gain</strong> (torch.Tensor): The linear gain of the filter.</p></li>
+<li><p><strong>Q</strong> (torch.Tensor): The quality factor of the filter.</p></li>
+<li><p><strong>fs</strong> (int, optional): The sampling frequency of the signal in Hz. Default: 48000.</p></li>
+<li><p><strong>device</strong> (torch.device | str, optional): The device of constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p><strong>b</strong> (torch.Tensor): The numerator coefficients of the filter transfer function.</p></li>
+<li><p><strong>a</strong> (torch.Tensor): The denominator coefficients of the filter transfer function</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.sosfreqz">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">sosfreqz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">512</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.sosfreqz" title="Link to this definition">¶</a></dt>
+<dd><p>Compute the complex frequency response via FFT of cascade of second order filter sections (SOS).</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>sos</strong> (torch.Tensor): Second order filter sections with shape (n_sections, 6)</p></li>
+<li><p><strong>nfft</strong> (int): FFT size. Default: 512</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><ul class="simple">
+<li><p><strong>H</strong> (torch.Tensor): Overall complex frequency response.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.svf">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">svf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">R</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">tensor([1.,</span> <span class="pre">1.,</span> <span class="pre">1.])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">G</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.svf" title="Link to this definition">¶</a></dt>
+<dd><p>Implements a State Variable Filter (SVF) with various filter types.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>fc</strong> (torch.Tensor): The cutoff frequency of the filter.</p></li>
+<li><p><strong>R</strong> (torch.Tensor): The resonance parameter of the filter.</p></li>
+<li><p><strong>m</strong> (torch.Tensor, optional): The mixing coefficients of the filter. Default: torch.ones((3,)).</p></li>
+<li><p><strong>G</strong> (torch.Tensor, optional): The gain coefficients of the filter. Default: None.</p></li>
+<li><p><strong>filter_type</strong> (str, optional): The type of filter to be applied. Can be one of “lowpass”, “highpass”, “bandpass”, “lowshelf”, “highshelf”, “peaking”, “notch”, or None. Default: None.</p></li>
+<li><p><strong>fs</strong> (int, optional): The sampling frequency. Default: 48000.</p></li>
+<li><p><strong>device</strong> (torch.device, optional): The device of constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>Tuple[torch.Tensor, torch.Tensor]: The numerator and denominator coefficients of the filter transfer function.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.probe_sos">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">probe_sos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">control_freqs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.probe_sos" title="Link to this definition">¶</a></dt>
+<dd><p>Probe the frequency / magnitude response of a cascaded SOS filter at the points
+specified by the control frequencies.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>sos</strong> (torch.Tensor): Cascaded second-order sections (SOS) filter coefficients.</p></li>
+<li><p><strong>control_freqs</strong> (list or torch.Tensor): Frequencies at which to probe the filter response.</p></li>
+<li><p><strong>nfft</strong> (int): Length of the FFT used for frequency analysis.</p></li>
+<li><p><strong>fs</strong> (float): Sampling frequency in Hz.</p></li>
+<li><p><strong>device</strong> (torch.device, optional): The device of constructed tensors. Default: None.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><dl class="simple">
+<dt>tuple: A tuple containing the following:</dt><dd><ul class="simple">
+<li><p><strong>G</strong> (torch.Tensor): Magnitude response of the filter at the control frequencies.</p></li>
+<li><p><strong>H</strong> (torch.Tensor): Frequency response of the filter.</p></li>
+<li><p><strong>W</strong> (torch.Tensor): Phase response of the filter.</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.find_onset">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">find_onset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.functional.find_onset" title="Link to this definition">¶</a></dt>
+<dd><p>Find onset in input RIR by extracting a local energy envelope of the 
+RIR then finding its maximum point</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>rir</strong> (torch.Tensor): Room impulse response.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flamo.functional.WGN_reverb">
+<span class="sig-prename descclassname"><span class="pre">flamo.functional.</span></span><span class="sig-name descname"><span class="pre">WGN_reverb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">matrix_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t60</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samplerate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">48000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#flamo.functional.WGN_reverb" title="Link to this definition">¶</a></dt>
+<dd><p>Generates White-Gaussian-Noise-reverb impulse responses.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>matrix_size</strong> (tuple, optional): (output_channels, input_channels). Defaults to (1,1).</p></li>
+<li><p><strong>t60</strong> (float, optional): Reverberation time. Defaults to 1.0.</p></li>
+<li><p><strong>samplerate</strong> (int, optional): Sampling frequency. Defaults to 48000.</p></li>
+<li><p><strong>nfft</strong> (int, optional): Number of frequency bins. Defaults to 2**11.</p></li>
+</ul>
+</dd>
+<dt><strong>Returns</strong>:</dt><dd><p>torch.Tensor: Matrix of WGN-reverb impulse responses.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -192,35 +539,52 @@ the cutoff frequencies and gain to the filter coefficients to the to the <span c
 <p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">trainer.get_str_results()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">get_str_results()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.DatasetColorless"><code class="docutils literal notranslate"><span class="pre">DatasetColorless</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.get_dataloader"><code class="docutils literal notranslate"><span class="pre">dataset.get_dataloader()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.split_dataset"><code class="docutils literal notranslate"><span class="pre">dataset.split_dataset()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.load_dataset"><code class="docutils literal notranslate"><span class="pre">dataset.load_dataset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.get_dataloader"><code class="docutils literal notranslate"><span class="pre">get_dataloader()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.split_dataset"><code class="docutils literal notranslate"><span class="pre">split_dataset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/dataset.html#flamo.optimize.dataset.load_dataset"><code class="docutils literal notranslate"><span class="pre">load_dataset()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimize/loss.html"><code class="docutils literal notranslate"><span class="pre">sparsity_loss</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimize/loss.html#flamo.optimize.loss.mse_loss"><code class="docutils literal notranslate"><span class="pre">mse_loss</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimize/loss.html#flamo.optimize.loss.masked_mse_loss"><code class="docutils literal notranslate"><span class="pre">masked_mse_loss</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="optimize/utils.html"><code class="docutils literal notranslate"><span class="pre">utils.generate_partitions()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimize/utils.html"><code class="docutils literal notranslate"><span class="pre">generate_partitions()</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">functional.lowpass_filter()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.highpass_filter()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">functional.bandpass_filter()</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">get_magnitude()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.get_eigenvalues"><code class="docutils literal notranslate"><span class="pre">get_eigenvalues()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.skew_matrix"><code class="docutils literal notranslate"><span class="pre">skew_matrix()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.get_frequency_samples"><code class="docutils literal notranslate"><span class="pre">get_frequency_samples()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.biquad2tf"><code class="docutils literal notranslate"><span class="pre">biquad2tf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.signal_gallery"><code class="docutils literal notranslate"><span class="pre">signal_gallery()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.hertz2rad"><code class="docutils literal notranslate"><span class="pre">hertz2rad()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.rad2hertz"><code class="docutils literal notranslate"><span class="pre">rad2hertz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.db2mag"><code class="docutils literal notranslate"><span class="pre">db2mag()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.mag2db"><code class="docutils literal notranslate"><span class="pre">mag2db()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.lowpass_filter"><code class="docutils literal notranslate"><span class="pre">lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">bandpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.shelving_filter"><code class="docutils literal notranslate"><span class="pre">shelving_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.peak_filter"><code class="docutils literal notranslate"><span class="pre">peak_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.sosfreqz"><code class="docutils literal notranslate"><span class="pre">sosfreqz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.svf"><code class="docutils literal notranslate"><span class="pre">svf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.probe_sos"><code class="docutils literal notranslate"><span class="pre">probe_sos()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.find_onset"><code class="docutils literal notranslate"><span class="pre">find_onset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.functional.WGN_reverb"><code class="docutils literal notranslate"><span class="pre">WGN_reverb()</span></code></a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Auxiliary:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html"><code class="docutils literal notranslate"><span class="pre">eq.eq_freqs()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.octave_bands"><code class="docutils literal notranslate"><span class="pre">eq.octave_bands()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.geq"><code class="docutils literal notranslate"><span class="pre">eq.geq()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">eq.design_geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html"><code class="docutils literal notranslate"><span class="pre">eq_freqs()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.octave_bands"><code class="docutils literal notranslate"><span class="pre">octave_bands()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.geq"><code class="docutils literal notranslate"><span class="pre">geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">design_geq()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="auxiliary/filterbank.html"><code class="docutils literal notranslate"><span class="pre">FilterBank</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="auxiliary/minimize.html"><code class="docutils literal notranslate"><span class="pre">MLS</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="auxiliary/minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize.minimize_LBFGS()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize_LBFGS()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="auxiliary/reverb.html"><code class="docutils literal notranslate"><span class="pre">HomogeneousFDN</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="auxiliary/reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">reverb.rt2slope()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="auxiliary/reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">reverb.rt2absorption()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">rt2slope()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="auxiliary/reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">rt2absorption()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="auxiliary/scattering.html"><code class="docutils literal notranslate"><span class="pre">ScatteringMapping</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="auxiliary/scattering.html#flamo.auxiliary.scattering.cascaded_paraunit_matrix"><code class="docutils literal notranslate"><span class="pre">scattering.cascaded_paraunit_matrix()</span></code></a></li>
 </ul>

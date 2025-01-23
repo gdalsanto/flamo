@@ -61,7 +61,9 @@ class ScatteringMapping(nn.Module):
         self.shifts = get_random_shifts(N, self.sparsity_vect, pulse_size)
 
     def forward(self, U):
-
+        r"""
+        Forward pass of the scattering mapping.
+        """
         K = self.n_stages+1
         # check that the input matrix is of correct shape
         assert U.shape[0] == K, 'The input matrix must have n_stages+1 stages'

@@ -35,7 +35,7 @@
             
   <dl class="py class">
 <dt class="sig sig-object py" id="flamo.auxiliary.reverb.HomogeneousFDN">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.auxiliary.reverb.</span></span><span class="sig-name descname"><span class="pre">HomogeneousFDN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_dict</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.reverb.HomogeneousFDN" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.auxiliary.reverb.</span></span><span class="sig-name descname"><span class="pre">HomogeneousFDN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.reverb.HomogeneousFDN" title="Link to this definition">¶</a></dt>
 <dd><p>Class for creating a Feedback Delay Network (FDN) model with homogeneous attenuation.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="flamo.auxiliary.reverb.HomogeneousFDN.get_delay_lines">
@@ -53,16 +53,16 @@ Read more at <a class="reference external" href="https://pytorch.org/docs/stable
 
 </dd></dl>
 
-<dl class="py method">
+<dl class="py function">
 <dt class="sig sig-object py" id="flamo.auxiliary.reverb.rt2slope">
-<span class="sig-prename descclassname"><span class="pre">reverb.</span></span><span class="sig-name descname"><span class="pre">rt2slope</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.reverb.rt2slope" title="Link to this definition">¶</a></dt>
-<dd><p>Convert time in seconds of 60db decay to energy decay slope</p>
+<span class="sig-prename descclassname"><span class="pre">flamo.auxiliary.reverb.</span></span><span class="sig-name descname"><span class="pre">rt2slope</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rt60</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.reverb.rt2slope" title="Link to this definition">¶</a></dt>
+<dd><p>Convert time in seconds of 60 dB decay to energy decay slope.</p>
 </dd></dl>
 
-<dl class="py method">
+<dl class="py function">
 <dt class="sig sig-object py" id="flamo.auxiliary.reverb.rt2absorption">
-<span class="sig-prename descclassname"><span class="pre">reverb.</span></span><span class="sig-name descname"><span class="pre">rt2absorption</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delays_len</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.reverb.rt2absorption" title="Link to this definition">¶</a></dt>
-<dd><p>Convert time in seconds of 60db decay to energy decay slope relative to the delay line length</p>
+<span class="sig-prename descclassname"><span class="pre">flamo.auxiliary.reverb.</span></span><span class="sig-name descname"><span class="pre">rt2absorption</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rt60</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delays_len</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.auxiliary.reverb.rt2absorption" title="Link to this definition">¶</a></dt>
+<dd><p>Convert time in seconds of 60 dB decay to energy decay slope relative to the delay line length.</p>
 </dd></dl>
 
 
@@ -146,10 +146,10 @@ Read more at <a class="reference external" href="https://pytorch.org/docs/stable
 <li class="toctree-l1"><a class="reference internal" href="eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">eq.design_geq()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="filterbank.html"><code class="docutils literal notranslate"><span class="pre">FilterBank</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="minimize.html"><code class="docutils literal notranslate"><span class="pre">MLS</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize.minimize_LBFGS()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize_LBFGS()</span></code></a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">HomogeneousFDN</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">reverb.rt2slope()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">reverb.rt2absorption()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">rt2slope()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">rt2absorption()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="scattering.html"><code class="docutils literal notranslate"><span class="pre">ScatteringMapping</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="scattering.html#flamo.auxiliary.scattering.cascaded_paraunit_matrix"><code class="docutils literal notranslate"><span class="pre">scattering.cascaded_paraunit_matrix()</span></code></a></li>
 </ul>
