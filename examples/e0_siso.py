@@ -308,7 +308,7 @@ if __name__ == "__main__":
         )
 
     # Run examples
-    # example_fft(args)
-    # example_gains(args)
-    # example_gains_2(args)
+    example_fft(args) 
+    example_gains(args)
+    example_gains_2(args)
     example_fir(args)

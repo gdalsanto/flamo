@@ -542,8 +542,8 @@ if __name__ == "__main__":
         )
 
     # Run examples
-    # example_shell(args)
+    example_shell(args)
     # example_shell_error(args)
-    # example_shell_gets(args)
+    example_shell_gets(args)
     example_shell_gets_2(args)
-    # example_shell_training(args)
+    example_shell_training(args)

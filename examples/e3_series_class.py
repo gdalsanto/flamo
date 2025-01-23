@@ -492,9 +492,9 @@ if __name__ == "__main__":
         )
 
     # Run examples
-    # example_series(args)
+    example_series(args)
     # example_series_with_error(args)
-    # example_series_OrderedDict(args)
-    # example_series_nesting(args)
-    # example_series_training(args)
+    example_series_OrderedDict(args)
+    example_series_nesting(args)
+    example_series_training(args)
     example_series_utils(args)

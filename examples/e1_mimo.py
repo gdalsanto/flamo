@@ -239,5 +239,5 @@ if __name__ == "__main__":
         )
 
     # Run examples
-    # example_delays(args)
+    example_delays(args)
     example_biquads(args)

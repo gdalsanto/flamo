@@ -355,6 +355,6 @@ if __name__ == "__main__":
 
     # Run examples
     example_mimo(args)
-    # example_siso(args)
-    # example_assign_new_values(args)
-    # example_requires_grad(args)
+    example_siso(args)
+    example_assign_new_values(args)
+    example_requires_grad(args)
