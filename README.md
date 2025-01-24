@@ -1,4 +1,5 @@
 # flamo
+[![docs](https://img.shields.io/badge/docs-brightgreen)](https://gdalsanto.github.io/flamo/) [![Pypi](https://img.shields.io/badge/PyPI-blue)](https://pypi.org/project/flamo/)
 [PyPI](https://pypi.org/project/flamo/) | [ICASSP25-arXiv](https://arxiv.org/abs/2409.08723) 
 
 Open-source library for frequency-domain differentiable audio processing.
