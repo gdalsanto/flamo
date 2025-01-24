@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Loss &#8212; FLAMO 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Utils" href="utils.html" />
+    <link rel="prev" title="Dataset" href="dataset.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <dl class="py class">
+<dt class="sig sig-object py" id="flamo.optimize.loss.sparsity_loss">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.optimize.loss.</span></span><span class="sig-name descname"><span class="pre">sparsity_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.loss.sparsity_loss" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the sparsity loss for a given model.</p>
+<p>The sparsity loss is calculated based on the feedback loop of the FDN model’s core.
+It measures the sparsity of the feedback matrix A of size (N, N).
+Note: for the loss to be compatible with the class <a class="reference internal" href="trainer.html#flamo.optimize.trainer.Trainer" title="flamo.optimize.trainer.Trainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">flamo.optimize.trainer.Trainer</span></code></a>, it requires <code class="xref py py-attr docutils literal notranslate"><span class="pre">y_pred</span></code> and <code class="xref py py-attr docutils literal notranslate"><span class="pre">y_target</span></code> as arguments even if these are not being considered.
+If the feedback matrix has a third dimension C, A.size = (C, N, N), the loss is calculated as the mean of the contribution of each (N,N) matrix.</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{L} = \frac{\sum_{i,j} |A_{i,j}| - N\sqrt{N}}{N(1 - \sqrt{N})}\]</div>
+<p>For more details, refer to the paper <a class="reference external" href="https://arxiv.org/abs/2402.11216">Optimizing Tiny Colorless Feedback Delay Networks</a> by Dal Santo, G. et al.</p>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>y_pred</strong> (torch.Tensor): The predicted output.</p></li>
+<li><p><strong>y_target</strong> (torch.Tensor): The target output.</p></li>
+<li><p><strong>model</strong> (nn.Module): The model containing the core with the feedback loop.</p></li>
+</ul>
+</dd>
+<dt>Returns:</dt><dd><p>torch.Tensor: The calculated sparsity loss.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.loss.sparsity_loss.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y_pred</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Module</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.loss.sparsity_loss.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.optimize.loss.mse_loss">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.optimize.loss.</span></span><span class="sig-name descname"><span class="pre">mse_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.loss.mse_loss" title="Link to this definition">¶</a></dt>
+<dd><p>Wrapper for the mean squared error loss.</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{L} = \frac{1}{N} \sum_{i=1}^{N} \left( y_{\text{pred},i} -  y_{\text{true},i} \right)^2\]</div>
+<p>where <span class="math notranslate nohighlight">\(N\)</span> is the number of nfft points and <span class="math notranslate nohighlight">\(M\)</span> is the number of channels.</p>
+<dl class="simple">
+<dt><strong>Arguments / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>nfft</strong> (int): Number of FFT points.</p></li>
+<li><p><strong>device</strong> (str): Device to run the calculations on.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.loss.mse_loss.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y_pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_true</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.loss.mse_loss.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the mean squared error loss.
+If <code class="xref py py-attr docutils literal notranslate"><span class="pre">is_masked</span></code> is set to True, the loss is calculated using a masked version of the predicted output. This option is useful to introduce stochasticity, as the mask is generated randomly.</p>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>y_pred</strong> (torch.Tensor): The predicted output.</p></li>
+<li><p><strong>y_true</strong> (torch.Tensor): The target output.</p></li>
+</ul>
+</dd>
+<dt>Returns:</dt><dd><p>torch.Tensor: The calculated MSE loss.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flamo.optimize.loss.masked_mse_loss">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flamo.optimize.loss.</span></span><span class="sig-name descname"><span class="pre">masked_mse_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nfft</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sets</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regenerate_mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.loss.masked_mse_loss" title="Link to this definition">¶</a></dt>
+<dd><p>Wrapper for the mean squared error loss with random masking.</p>
+<p>Calculates the mean squared error loss between the predicted and target outputs.
+The loss is calculated using a masked version of the predicted output. This option is useful to introduce stochasticity, as the mask is generated randomly.</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{L} = \frac{1}{\left| \mathbb{S} \right|} \sum_{i \in \mathbb{S}} \left( y_{\text{pred}, i} - y_{\text{true},i} \right)^2\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbb{S}\)</span> is the set of indices of the mask being analyzed during the training step.</p>
+<dl class="simple">
+<dt><strong>Arguments / Attributes</strong>:</dt><dd><ul class="simple">
+<li><p><strong>nfft</strong> (int): Number of FFT points.</p></li>
+<li><p><strong>n_samples</strong> (int): Number of samples for masking.</p></li>
+<li><p><strong>n_sets</strong> (int): Number of sets for masking. Default is 1.</p></li>
+<li><p><strong>regenerate_mask</strong> (bool): After all sets are used, if True, the mask is regenerated. Default is True.</p></li>
+<li><p><strong>device</strong> (str): Device to run the calculations on. Default is ‘cpu’.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="flamo.optimize.loss.masked_mse_loss.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y_pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_true</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#flamo.optimize.loss.masked_mse_loss.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the masked mean squared error loss.</p>
+<dl class="simple">
+<dt><strong>Arguments</strong>:</dt><dd><ul class="simple">
+<li><p><strong>y_pred</strong> (torch.Tensor): The predicted output.</p></li>
+<li><p><strong>y_true</strong> (torch.Tensor): The target output.</p></li>
+</ul>
+</dd>
+<dt>Returns:</dt><dd><p>torch.Tensor: The calculated masked MSE loss.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">FLAMO</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Processor:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html"><code class="docutils literal notranslate"><span class="pre">Transform</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.FFT"><code class="docutils literal notranslate"><span class="pre">FFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.iFFT"><code class="docutils literal notranslate"><span class="pre">iFFT</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.FFTAntiAlias"><code class="docutils literal notranslate"><span class="pre">FFTAntiAlias</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.iFFTAntiAlias"><code class="docutils literal notranslate"><span class="pre">iFFTAntiAlias</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.DSP"><code class="docutils literal notranslate"><span class="pre">DSP</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Gain"><code class="docutils literal notranslate"><span class="pre">Gain</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.HouseholderMatrix"><code class="docutils literal notranslate"><span class="pre">HouseholderMatrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Filter"><code class="docutils literal notranslate"><span class="pre">Filter</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.parallelFilter"><code class="docutils literal notranslate"><span class="pre">parallelFilter</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.ScatteringMatrix"><code class="docutils literal notranslate"><span class="pre">ScatteringMatrix</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Biquad"><code class="docutils literal notranslate"><span class="pre">Biquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.parallelBiquad"><code class="docutils literal notranslate"><span class="pre">parallelBiquad</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.SVF"><code class="docutils literal notranslate"><span class="pre">SVF</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.parallelSVF"><code class="docutils literal notranslate"><span class="pre">parallelSVF</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.GEQ"><code class="docutils literal notranslate"><span class="pre">GEQ</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.parallelGEQ"><code class="docutils literal notranslate"><span class="pre">parallelGEQ</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.Delay"><code class="docutils literal notranslate"><span class="pre">Delay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/dsp.html#flamo.processor.dsp.parallelDelay"><code class="docutils literal notranslate"><span class="pre">parallelDelay</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/system.html"><code class="docutils literal notranslate"><span class="pre">Series</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/system.html#flamo.processor.system.Recursion"><code class="docutils literal notranslate"><span class="pre">Recursion</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../processor/system.html#flamo.processor.system.Shell"><code class="docutils literal notranslate"><span class="pre">Shell</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="trainer.html"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainer.html#flamo.optimize.trainer.get_str_results"><code class="docutils literal notranslate"><span class="pre">get_str_results()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html#flamo.optimize.dataset.DatasetColorless"><code class="docutils literal notranslate"><span class="pre">DatasetColorless</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html#flamo.optimize.dataset.get_dataloader"><code class="docutils literal notranslate"><span class="pre">get_dataloader()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html#flamo.optimize.dataset.split_dataset"><code class="docutils literal notranslate"><span class="pre">split_dataset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html#flamo.optimize.dataset.load_dataset"><code class="docutils literal notranslate"><span class="pre">load_dataset()</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">sparsity_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.optimize.loss.mse_loss"><code class="docutils literal notranslate"><span class="pre">mse_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#flamo.optimize.loss.masked_mse_loss"><code class="docutils literal notranslate"><span class="pre">masked_mse_loss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">generate_partitions()</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Functional:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html"><code class="docutils literal notranslate"><span class="pre">get_magnitude()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.get_eigenvalues"><code class="docutils literal notranslate"><span class="pre">get_eigenvalues()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.skew_matrix"><code class="docutils literal notranslate"><span class="pre">skew_matrix()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.get_frequency_samples"><code class="docutils literal notranslate"><span class="pre">get_frequency_samples()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.biquad2tf"><code class="docutils literal notranslate"><span class="pre">biquad2tf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.signal_gallery"><code class="docutils literal notranslate"><span class="pre">signal_gallery()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.hertz2rad"><code class="docutils literal notranslate"><span class="pre">hertz2rad()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.rad2hertz"><code class="docutils literal notranslate"><span class="pre">rad2hertz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.db2mag"><code class="docutils literal notranslate"><span class="pre">db2mag()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.mag2db"><code class="docutils literal notranslate"><span class="pre">mag2db()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.lowpass_filter"><code class="docutils literal notranslate"><span class="pre">lowpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.highpass_filter"><code class="docutils literal notranslate"><span class="pre">highpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.bandpass_filter"><code class="docutils literal notranslate"><span class="pre">bandpass_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.shelving_filter"><code class="docutils literal notranslate"><span class="pre">shelving_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.peak_filter"><code class="docutils literal notranslate"><span class="pre">peak_filter()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.sosfreqz"><code class="docutils literal notranslate"><span class="pre">sosfreqz()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.svf"><code class="docutils literal notranslate"><span class="pre">svf()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.probe_sos"><code class="docutils literal notranslate"><span class="pre">probe_sos()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.find_onset"><code class="docutils literal notranslate"><span class="pre">find_onset()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../functional.html#flamo.functional.WGN_reverb"><code class="docutils literal notranslate"><span class="pre">WGN_reverb()</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Auxiliary:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html"><code class="docutils literal notranslate"><span class="pre">eq_freqs()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.octave_bands"><code class="docutils literal notranslate"><span class="pre">octave_bands()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.geq"><code class="docutils literal notranslate"><span class="pre">geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/eq.html#flamo.auxiliary.eq.design_geq"><code class="docutils literal notranslate"><span class="pre">design_geq()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/filterbank.html"><code class="docutils literal notranslate"><span class="pre">FilterBank</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/minimize.html"><code class="docutils literal notranslate"><span class="pre">MLS</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/minimize.html#flamo.auxiliary.minimize.minimize_LBFGS"><code class="docutils literal notranslate"><span class="pre">minimize_LBFGS()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html"><code class="docutils literal notranslate"><span class="pre">HomogeneousFDN</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html#flamo.auxiliary.reverb.rt2slope"><code class="docutils literal notranslate"><span class="pre">rt2slope()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/reverb.html#flamo.auxiliary.reverb.rt2absorption"><code class="docutils literal notranslate"><span class="pre">rt2absorption()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/scattering.html"><code class="docutils literal notranslate"><span class="pre">ScatteringMapping</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auxiliary/scattering.html#flamo.auxiliary.scattering.cascaded_paraunit_matrix"><code class="docutils literal notranslate"><span class="pre">scattering.cascaded_paraunit_matrix()</span></code></a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="dataset.html" title="previous chapter">Dataset</a></li>
+      <li>Next: <a href="utils.html" title="next chapter">Utils</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Gloria Dal Santo, Gian Marco De Bortoli, and Sebastian J. Schlecht.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/optimize/loss.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
