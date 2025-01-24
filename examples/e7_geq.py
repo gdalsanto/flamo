@@ -99,21 +99,21 @@ def example_geq(args):
     # plot magniture response of target and estimated filter
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
 
-    ax1.plot(torch.abs(target[0, :, 0]).detach().numpy(), label="Target")
+    ax1.plot(torch.abs(target[0, :, 0]).cpu().detach().numpy(), label="Target")
     ax1.plot(
-        torch.abs(estimation_init[0, :, 0]).detach().numpy(), label="Estimation Init"
+        torch.abs(estimation_init[0, :, 0]).cpu().detach().numpy(), label="Estimation Init"
     )
-    ax1.plot(torch.abs(estimation[0, :, 0]).detach().numpy(), "--", label="Estimation")
+    ax1.plot(torch.abs(estimation[0, :, 0]).cpu().detach().numpy(), "--", label="Estimation")
     ax1.set_title("Magnitude Response")
     ax1.set_xlabel("Frequency")
     ax1.set_ylabel("Magnitude")
     ax1.legend()
 
-    ax2.plot(torch.abs(target[0, :, 1]).detach().numpy(), label="Target")
+    ax2.plot(torch.abs(target[0, :, 1]).cpu().detach().numpy(), label="Target")
     ax2.plot(
-        torch.abs(estimation_init[0, :, 1]).detach().numpy(), label="Estimation Init"
+        torch.abs(estimation_init[0, :, 1]).cpu().detach().numpy(), label="Estimation Init"
     )
-    ax2.plot(torch.abs(estimation[0, :, 1]).detach().numpy(), "--", label="Estimation")
+    ax2.plot(torch.abs(estimation[0, :, 1]).cpu().detach().numpy(), "--", label="Estimation")
     ax2.set_title("Magnitude Response")
     ax2.set_xlabel("Frequency")
     ax2.set_ylabel("Magnitude")
@@ -208,21 +208,21 @@ def example_parallel_geq(args):
     # plot magniture response of target and estimated filter
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
 
-    ax1.plot(torch.abs(target[0, :, 0]).detach().numpy(), label="Target")
+    ax1.plot(torch.abs(target[0, :, 0]).cpu().detach().numpy(), label="Target")
     ax1.plot(
-        torch.abs(estimation_init[0, :, 0]).detach().numpy(), label="Estimation Init"
+        torch.abs(estimation_init[0, :, 0]).cpu().detach().numpy(), label="Estimation Init"
     )
-    ax1.plot(torch.abs(estimation[0, :, 0]).detach().numpy(), "--", label="Estimation")
+    ax1.plot(torch.abs(estimation[0, :, 0]).cpu().detach().numpy(), "--", label="Estimation")
     ax1.set_title("Magnitude Response")
     ax1.set_xlabel("Frequency")
     ax1.set_ylabel("Magnitude")
     ax1.legend()
 
-    ax2.plot(torch.abs(target[0, :, 1]).detach().numpy(), label="Target")
+    ax2.plot(torch.abs(target[0, :, 1]).cpu().detach().numpy(), label="Target")
     ax2.plot(
-        torch.abs(estimation_init[0, :, 1]).detach().numpy(), label="Estimation Init"
+        torch.abs(estimation_init[0, :, 1]).cpu().detach().numpy(), label="Estimation Init"
     )
-    ax2.plot(torch.abs(estimation[0, :, 1]).detach().numpy(), "--", label="Estimation")
+    ax2.plot(torch.abs(estimation[0, :, 1]).cpu().detach().numpy(), "--", label="Estimation")
     ax2.set_title("Magnitude Response")
     ax2.set_xlabel("Frequency")
     ax2.set_ylabel("Magnitude")

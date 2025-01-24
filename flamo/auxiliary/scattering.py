@@ -154,7 +154,7 @@ def cascaded_paraunit_matrix(
 
 
 def poly_matrix_conv(A: torch.tensor, B: torch.tensor):
-    """Multiply two matrix polynomials A and B by convolution"""
+    r"""Multiply two matrix polynomials A and B by convolution"""
 
     if len(A.shape) == 2:
         A = A.view(A.shape[0], A.shape[1], 1)
