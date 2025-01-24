@@ -1,144 +1,151 @@
-import torch 
-import torch.nn as nn 
+import torch
+import torch.nn as nn
 import numpy as np
 from flamo.auxiliary.filterbank import FilterBank
+from flamo.optimize.utils import generate_partitions
+
 
 # wrapper for the sparsity loss
 class sparsity_loss(nn.Module):
-    """Calculates the sparsity loss for a given model."""
-    def forward(self, y_pred, y_target, model):
+    r"""
+    Calculates the sparsity loss for a given model.
+
+    The sparsity loss is calculated based on the feedback loop of the FDN model's core.
+    It measures the sparsity of the feedback matrix A of size (N, N).
+    Note: for the loss to be compatible with the class :class:`flamo.optimize.trainer.Trainer`, it requires :attr:`y_pred` and :attr:`y_target` as arguments even if these are not being considered.
+    If the feedback matrix has a third dimension C, A.size = (C, N, N), the loss is calculated as the mean of the contribution of each (N,N) matrix.
+
+    .. math::
+
+        \mathcal{L} = \frac{\sum_{i,j} |A_{i,j}| - N\sqrt{N}}{N(1 - \sqrt{N})}
+
+    For more details, refer to the paper `Optimizing Tiny Colorless Feedback Delay Networks <https://arxiv.org/abs/2402.11216>`_ by Dal Santo, G. et al.
+
+    **Arguments**:
+        - **y_pred** (torch.Tensor): The predicted output.
+        - **y_target** (torch.Tensor): The target output.
+        - **model** (nn.Module): The model containing the core with the feedback loop.
+
+    Returns:
+        torch.Tensor: The calculated sparsity loss.
+    """
+
+    def forward(self, y_pred: torch.Tensor, y_target: torch.Tensor, model: nn.Module):
         core = model.get_core()
-        try: 
+        try:
             A = core.feedback_loop.feedback.map(core.feedback_loop.feedback.param)
         except:
-            A = core.feedback_loop.feedback.mixing_matrix.map(core.feedback_loop.feedback.mixing_matrix.param)
+            A = core.feedback_loop.feedback.mixing_matrix.map(
+                core.feedback_loop.feedback.mixing_matrix.param
+            )
         N = A.shape[-1]
+        if len(A.shape) == 3:
+            return torch.mean(
+                (torch.sum(torch.abs(A), dim=(-2, -1)) - N * np.sqrt(N))
+                / (N * (1 - np.sqrt(N)))
+            )
         # A = torch.matrix_exp(skew_matrix(A))
-        return -(torch.sum(torch.abs(A)) - N*np.sqrt(N))/(N*(np.sqrt(N)-1))
-    
+        return -(torch.sum(torch.abs(A)) - N * np.sqrt(N)) / (N * (np.sqrt(N) - 1))
+
+
 class mse_loss(nn.Module):
-    '''Means squared error between abs(x1) and x2'''
-    def __init__(self, is_masked=False, nfft=None, n_sections=10, device='cpu'):
+    r"""
+    Wrapper for the mean squared error loss.
+
+    .. math::
+
+        \mathcal{L} = \frac{1}{N} \sum_{i=1}^{N} \left( y_{\text{pred},i} -  y_{\text{true},i} \right)^2
+
+    where :math:`N` is the number of nfft points and :math:`M` is the number of channels.
+
+    **Arguments / Attributes**:
+        - **nfft** (int): Number of FFT points.
+        - **device** (str): Device to run the calculations on.
+
+    """
+
+    def __init__(self, nfft: int = None, device: str = "cpu"):
+
         super().__init__()
-        self.is_masked = is_masked
-        self.n_sections = n_sections    
         self.nfft = nfft
         self.device = device
-        self.mask_indices = torch.chunk(torch.arange(0, self.nfft//2+1, device=device), self.n_sections)
+        self.mse_loss = nn.MSELoss()
+
+    def forward(self, y_pred, y_true):
+        """
+        Calculates the mean squared error loss.
+        If :attr:`is_masked` is set to True, the loss is calculated using a masked version of the predicted output. This option is useful to introduce stochasticity, as the mask is generated randomly.
+
+        **Arguments**:
+            - **y_pred** (torch.Tensor): The predicted output.
+            - **y_true** (torch.Tensor): The target output.
+
+        Returns:
+            torch.Tensor: The calculated MSE loss.
+        """
+        y_pred_sum = torch.sum(y_pred, dim=-1)
+        return self.mse_loss(y_pred_sum, y_true.squeeze(-1))
+
+
+class masked_mse_loss(nn.Module):
+    r"""
+    Wrapper for the mean squared error loss with random masking.
+
+    Calculates the mean squared error loss between the predicted and target outputs.
+    The loss is calculated using a masked version of the predicted output. This option is useful to introduce stochasticity, as the mask is generated randomly.
+
+    .. math::
+
+        \mathcal{L} = \frac{1}{\left| \mathbb{S} \right|} \sum_{i \in \mathbb{S}} \left( y_{\text{pred}, i} - y_{\text{true},i} \right)^2
+
+    where :math:`\mathbb{S}` is the set of indices of the mask being analyzed during the training step.
+
+    **Arguments / Attributes**:
+        - **nfft** (int): Number of FFT points.
+        - **n_samples** (int): Number of samples for masking.
+        - **n_sets** (int): Number of sets for masking. Default is 1.
+        - **regenerate_mask** (bool): After all sets are used, if True, the mask is regenerated. Default is True.
+        - **device** (str): Device to run the calculations on. Default is 'cpu'.
+    """
+
+    def __init__(
+        self,
+        nfft: int,
+        n_samples: int,
+        n_sets: int = 1,
+        regenerate_mask: bool = True,
+        device: str = "cpu",
+    ):
+        super().__init__()
+        self.device = device
+        self.n_samples = n_samples
+        self.n_sets = n_sets
+        self.nfft = nfft
+        self.regenerate_mask = regenerate_mask
+        self.mask_indices = generate_partitions(
+            torch.arange(self.nfft // 2 + 1), n_samples, n_sets
+        )
         self.i = -1
 
-        # create 
     def forward(self, y_pred, y_true):
+        """
+        Calculates the masked mean squared error loss.
+
+        **Arguments**:
+            - **y_pred** (torch.Tensor): The predicted output.
+            - **y_true** (torch.Tensor): The target output.
+
+        Returns:
+            torch.Tensor: The calculated masked MSE loss.
+        """
         self.i += 1
-        N = y_pred.size(dim=-1)
-        y_pred_sum = torch.sum(y_pred, dim=-1)
-        # generate random mask for sparse sampling 
-        if self.is_masked:
-            self.i = self.i % self.n_sections
-            return torch.mean(torch.pow(torch.abs(y_pred_sum[:,self.mask_indices[self.i]])-torch.abs(y_true.squeeze(-1)[:,self.mask_indices[self.i]]), 2*torch.ones(y_pred[:,self.mask_indices[self.i]].size(1), device=self.device))) 
-        else:
-            return torch.mean(torch.pow(torch.abs(y_pred_sum)-torch.abs(y_true.squeeze(-1)), 2*torch.ones(y_pred.size(1), device=self.device))) 
-
-class amse_loss(nn.Module):
-    '''Asymmetric Means squared error between abs(x1) and x2'''
-    def forward(self, y_pred, y_true):
-
-        # loss on system's output
-        y_pred_sum = torch.sum(y_pred, dim=-1)
-        loss = self.p_loss(y_pred_sum, y_true) # *torch.sqrt(torch.tensor(y_pred.size(0)))
-
-        return loss
-    
-    def p_loss(self, y_pred, y_true):
-        gT = 2*torch.ones((y_pred.size(0),y_pred.size(1)))
-        gT = gT + 2*torch.gt((torch.abs(y_pred) - torch.abs(y_true.squeeze(-1))),1).type(torch.uint8)
-        loss = torch.mean(torch.pow(torch.abs(y_pred)-torch.abs(y_true.squeeze(-1)),gT))   
-
-        return loss  
-    
-
-class edc_loss(nn.Module):
-    '''compute the loss on energy decay curves of two RIRs'''
-    def __init__(self, sample_rate=48000, nfft=None, is_broadband=False, normalize=False, convergence=False):
-        super().__init__()   
-        self.sample_rate = sample_rate 
-        self.is_broadband = is_broadband
-        self.normalize = normalize
-        self.convergence = convergence
-        self.FilterBank = FilterBank(fraction=1,
-                                     order = 5,
-                                     fmin = 60,
-                                     fmax = 15000,
-                                     sample_rate= self.sample_rate, 
-                                     backend='torch',
-                                     nfft=nfft)
-        self.mse = nn.MSELoss(reduction='mean')
-
-    def filterbank(self, x):
-        if self.is_broadband:
-            return x
-        else: 
-            return self.FilterBank(x)
-
-    def discard_last_n_percent(self, x, n_percent):
-        # Discard last n%
-        last_id = int(np.round((1 - n_percent / 100) * x.shape[1]))
-        out = x[:, 0:last_id, :]
-
-        return out
-    
-    def schroeder_backward_int(self, x, normalize=False):
-
-        # Backwards integral
-        out = torch.flip(x, dims=[1])
-        out = torch.cumsum(out ** 2, dim=1)
-        out = torch.flip(out, dims=[1])
-
-        # Normalize to 1
-        if normalize:
-            norm_vals = torch.max(out, dim=1, keepdim=True)[0]  # per channel
-        else: 
-            norm_vals = torch.ones((x.shape[0], 1, *x.shape[2:]), device=x.device)
-
-        out = out / norm_vals
-
-        return out, norm_vals
-
-    def get_edc(self, x):
-        # Remove filtering artefacts (last 5 permille)
-        out = self.discard_last_n_percent(x, 0.5)
-        # compute EDCs
-        out = self.schroeder_backward_int(self.filterbank(out))[0]
-        # get energy in dB
-        out = 10*torch.log10(out + 1e-32)
-
-        return out 
-
-    def forward(self, y_pred, y_true):
-        # assert that y_pred and y_true have the same shape = (n_batch, n_samples, n_channels)
-        assert (y_pred.shape == y_true.shape) & (len( y_true.shape) == 3), 'y_pred and y_true must have the same shape (n_batch, n_samples, n_channels)'
-        # compute the edcs
-        y_pred_edc = self.get_edc(y_pred)
-        y_true_edc = self.get_edc(y_true)
-
-        if self.normalize: 
-            norm_vals_pred = torch.max(y_pred_edc, dim=1, keepdim=True)[0]
-            norm_vals_true = torch.max(y_true_edc, dim=1, keepdim=True)[0]
-            y_pred_edc = y_pred_edc - norm_vals_pred
-            y_true_edc = y_true_edc - norm_vals_true
-            norm_vals = {
-                'pred': norm_vals_pred,
-                'true': norm_vals_true
-            }
-        else: 
-            norm_vals = None
-        
-        
-        # compute normalized mean squared error on the EDCs 
-        num = self.mse(y_pred_edc, y_true_edc)
-        den = torch.mean(torch.pow(y_true_edc, 2))
-        if self.convergence:
-            return  num / den
-        else:
-            return num 
-    
+        # generate random mask for sparse sampling
+        if self.i >= self.mask_indices.shape[0]:
+            self.i = 0
+            if self.regenerate_mask:
+                # generate a new mask
+                self.mask_indices = generate_partitions(
+                    torch.arange(self.nfft // 2 + 1), self.n_samples, self.n_sets
+                )
+        mask = self.mask_indices[self.i]
+        return torch.mean(torch.pow(y_pred[:, mask] - y_true[:, mask], 2))
