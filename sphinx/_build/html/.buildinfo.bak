@@ -1,4 +1,8 @@
 # Sphinx build info version 1
 # This file records the configuration used when building these files. When it is not found, a full rebuild will be done.
+<<<<<<< Updated upstream
 config: 3fdc76c67af42db89c1b7401aa0763bc
+=======
+config: 16e948f27df2432cad3acd958a04c3ca
+>>>>>>> Stashed changes
 tags: 645f666f9bcd5a90fca523b33c5a78b7

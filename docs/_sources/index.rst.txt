@@ -49,10 +49,10 @@ The main code is contained in **processor** and is divided in two parts:
 
 * ``dsp`` contains the differentiable systems (e.g., filters, delays) and basic transformations (e.g. FFT, IFFT)
 * ``system`` contains classes that allow to build differentiable systems (i.e. Series, Recursion) and other utility classes (i.e. Shell).
-
+ 
 .. toctree::
-   :maxdepth: 1
-   :caption: Processor:
+   :maxdepth: 2
+   :caption: Processor
 
    processor/dsp
    processor/system
@@ -60,8 +60,8 @@ The main code is contained in **processor** and is divided in two parts:
 The **optimize** module contains classes for handling training, validation, results logging, etc. It comes with a set of datasets and loss functions.
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Optimization:
+   :maxdepth: 2
+   :caption: Optimization
 
    optimize/trainer
    optimize/dataset
@@ -72,16 +72,16 @@ The **optimize** module contains classes for handling training, validation, resu
 The **functional** module is a collector of signal processing function and transformations that can be used as, e.g., parameters mappings.
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Functional:
+   :maxdepth: 2
+   :caption: Functional
 
    functional
 
 The **auxiliary** module is a collector of auxiliary function and modules that showcase and expand applications of the library.
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Auxiliary:
+   :maxdepth: 2
+   :caption: Auxiliary
 
    auxiliary/eq
    auxiliary/filterbank

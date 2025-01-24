@@ -39,5 +39,10 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 # html_theme = 'alabaster'
-html_theme = 'pydata_sphinx_theme'
+html_sidebars = {
+    "**": ["sidebar-nav-bs", "sidebar-ethical-ads"],
+}
 html_static_path = ['_static']
+html_theme = 'sphinx_rtd_theme'
+
+
