@@ -248,3 +248,15 @@ class map_gamma(torch.nn.Module):
         return (
             torch.sigmoid(x[0]) * (self.g_max - self.g_min) + self.g_min
         ) ** self.delays
+
+class inverse_map_gamma(torch.nn.Module):
+
+    def __init__(self, delays):
+        super().__init__()
+        self.delays = delays
+        self.g_min = 0.99
+        self.g_max = 1.0
+
+    def forward(self, y):
+        sig = (y**(1/self.delays) - self.g_min) / (self.g_max - self.g_min)
+        return torch.log(sig/(1-sig)) 
