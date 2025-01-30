@@ -10,14 +10,14 @@ from typing import List, Callable, Optional
 class ParameterConfig(BaseModel):
     key: str = None               # key of the parameter in the model
     param_map: Callable = None    # mapping function for the parameters in param_dict
-    lower_bound: float = None     
-    upper_bound: float = None     
-    target_value: float = None   
+    lower_bound: float | List[float] | List[List[float]] = None     
+    upper_bound: float | List[float] | List[List[float]]= None     
+    target_value: float | List[float] | List[List[float]] = None   
     scale: str = 'linear'
-
+    
 class LossConfig(BaseModel):
     criteria: List[Callable] = None     # loss function to be used
-    param_config: ParameterConfig = None     
+    param_config: List[ParameterConfig] = None     
     perturb_dict: str = None            # key of the parameter to be perturbed
     perturb_map: Callable = lambda x: x        # mapping function for the perturbation parameter
     n_steps: int = None                 # number of steps between lower and upper bound of the parameter
@@ -50,9 +50,10 @@ class LossProfile():
             net: Shell, 
             loss_config: LossConfig):
         
+        super().__init__()
         self.net = net
         self.loss_config = loss_config  
-        self.param_config = loss_config.param_config
+        self.param_config = loss_config.param_config[0]
         self.criteria = loss_config.criteria
         self.n_steps = loss_config.n_steps
         self.n_runs = loss_config.n_runs
@@ -76,7 +77,12 @@ class LossProfile():
                 self.set_raw_parameter(self.loss_config.perturb_dict, new_value, self.loss_config.perturb_map)
 
                 for i_step in range(self.n_steps):
-                    self.set_raw_parameter(self.param_config.key, self.steps[i_step], self.param_config.param_map)
+                    if type(self.param_config.lower_bound) == list:
+                        # interpolate between the lower and upper bound
+                        new_value = (1-self.steps[i_step]) * torch.tensor(self.param_config.lower_bound) + self.steps[i_step] * torch.tensor(self.param_config.upper_bound)
+                    else: 
+                        new_value = self.steps[i_step]
+                    self.set_raw_parameter(self.param_config.key, new_value, self.param_config.param_map)
 
                     for i_crit in range(len(self.criteria)):
                         pred = self.net(input)
@@ -97,7 +103,10 @@ class LossProfile():
                 ax.plot(self.steps, mean_loss, label=criterion_name)
                 ax.plot(self.steps[mean_loss.argmin()], mean_loss.min(), marker='x', label='Min Loss')
                 ax.fill_between(self.steps, mean_loss-std_loss, mean_loss+std_loss, alpha=0.2)
-                ax.axvline(x=self.param_config.target_value, color='r', linestyle='--', label='Target Value')
+                try: 
+                    ax.axvline(x=self.param_config.target_value, color='r', linestyle='--', label='Target Value')
+                except:
+                    pass
 
                 ax.set_xlabel(self.param_config.key)
                 ax.set_ylabel('Loss')
@@ -111,8 +120,10 @@ class LossProfile():
                 ax[i_crit].plot(self.steps, mean_loss, label=criterion_name[i_crit])
                 ax[i_crit].plot(self.steps[mean_loss.argmin()], mean_loss.min(), marker='x', label='Min Loss')
                 ax.fill_between(self.steps, mean_loss-std_loss, mean_loss+std_loss, alpha=0.2)
-                ax[i_crit].axvline(x=self.param_config.target_value, color='r', linestyle='--', label='Target Value')
-
+                try: 
+                    ax[i_crit].axvline(x=self.param_config.target_value, color='r', linestyle='--', label='Target Value')
+                except:
+                    pass
                 ax[i_crit].set_xlabel(self.param_config.key)
                 ax[i_crit].set_ylabel('Loss')
                 ax[i_crit].legend()
@@ -125,15 +136,23 @@ class LossProfile():
         r"""
         Generate a list of steps between the lower and upper bound of the parameter.
         """
+        if type(self.param_config.lower_bound) == list:
+            # use linear interpolation 
+            lower_bound = 0
+            upper_bound = 1
+        else: 
+            lower_bound = self.param_config.lower_bound
+            upper_bound = self.param_config.upper_bound
+
         if self.param_config.scale == 'linear':
             self.steps = torch.linspace(
-                self.param_config.lower_bound,
-                self.param_config.upper_bound, 
+                lower_bound,
+                upper_bound, 
                 self.n_steps)
         elif self.param_config.scale == 'log':
             self.steps = torch.logspace(
-                np.log10(self.param_config.lower_bound),
-                np.log10(self.param_config.upper_bound), 
+                lower_bound,
+                upper_bound, 
                 self.n_steps)
         else:
             raise ValueError("Scale must be either 'linear' or 'log'")
