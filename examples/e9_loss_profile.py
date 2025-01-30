@@ -5,7 +5,7 @@ import yaml
 from flamo.auxiliary.reverb import HomogeneousFDN, map_gamma, inverse_map_gamma
 from flamo.auxiliary.config.config import HomogeneousFDNConfig
 from flamo.optimize.loss import mse_loss
-from flamo.optimize.surface import LossProfile, LossConfig, ParameterConfig, ReducedLossProfile
+from flamo.optimize.surface import LossProfile, LossConfig, ParameterConfig
 from flamo.functional import signal_gallery, get_magnitude
 
 target_gamma = 0.99
@@ -21,7 +21,8 @@ attenuation_config = ParameterConfig(
             lower_bound=0.9,
             upper_bound=0.999,
             target_value=target_gamma,
-            scale='log'
+            scale='log',
+            n_steps=100,
         )
 
 input_gain_config = ParameterConfig(
@@ -30,7 +31,8 @@ input_gain_config = ParameterConfig(
             lower_bound=(-np.ones((6, 1))).tolist(),
             upper_bound=(np.ones((6, 1))).tolist(),
             target_value=(np.ones((6, 1))).tolist(),
-            scale='linear'
+            scale='linear',
+            n_steps=100,
         )
 
 loss_config = LossConfig(
@@ -38,7 +40,6 @@ loss_config = LossConfig(
     param_config=[input_gain_config],
     perturb_dict='output_gain',
     perturb_map=lambda x: x,
-    n_steps=100,
     n_runs=10,
     output_dir="output/loss-surface-test"
 )
@@ -59,4 +60,4 @@ target_signal = FDN.model(input_signal)
 
 loss = loss_profile.compute_loss_profile(input_signal, target_signal)
 
-loss_profile.plot_loss_profile(loss.detach().numpy(), criterion_name=["MSE"])
+loss_profile.plot_loss_profile(loss, criterion_name=["MSE"])
