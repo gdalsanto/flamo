@@ -5,7 +5,7 @@ import yaml
 from flamo.auxiliary.reverb import HomogeneousFDN, map_gamma, inverse_map_gamma
 from flamo.auxiliary.config.config import HomogeneousFDNConfig
 from flamo.optimize.loss import mse_loss
-from flamo.optimize.surface import LossProfile, LossConfig, ParameterConfig
+from flamo.optimize.surface import LossProfile, LossConfig, ParameterConfig, LossSurface
 from flamo.functional import signal_gallery, get_magnitude
 
 target_gamma = 0.99
@@ -22,7 +22,7 @@ attenuation_config = ParameterConfig(
             upper_bound=0.999,
             target_value=target_gamma,
             scale='log',
-            n_steps=100,
+            n_steps=5,
         )
 
 input_gain_config = ParameterConfig(
@@ -30,18 +30,18 @@ input_gain_config = ParameterConfig(
             param_map=lambda x: x,
             lower_bound=(-np.ones((6, 1))).tolist(),
             upper_bound=(np.ones((6, 1))).tolist(),
-            target_value=(np.ones((6, 1))).tolist(),
+            target_value=1,
             scale='linear',
-            n_steps=100,
+            n_steps=10,
         )
 
 loss_config = LossConfig(
     criteria=[mse_loss()],
-    param_config=[input_gain_config],
+    param_config=[input_gain_config, attenuation_config],
     perturb_dict='output_gain',
     perturb_map=lambda x: x,
-    n_runs=10,
-    output_dir="output/loss-surface-test"
+    n_runs=3,
+    output_dir="output/loss-surface-test-2"
 )
 
 # make output directory if it doesn't exist
@@ -54,10 +54,15 @@ output_file = os.path.join(loss_config.output_dir, 'config.yml')
 with open(output_file, 'w') as file:
     yaml.dump(loss_config, file)
 
-loss_profile = LossProfile(FDN.model, loss_config)
+
 input_signal = signal_gallery(signal_type="impulse", batch_size=1, n=1, n_samples=fdn_config.nfft)
 target_signal = FDN.model(input_signal)
 
-loss = loss_profile.compute_loss_profile(input_signal, target_signal)
+# loss_profile = LossProfile(FDN.model, loss_config)
+# loss = loss_profile.compute_loss(input_signal, target_signal)
+# loss_profile.plot_loss(loss, criterion_name=["MSE"])
 
-loss_profile.plot_loss_profile(loss, criterion_name=["MSE"])
+
+loss_surface = LossSurface(FDN.model, loss_config)
+loss = loss_surface.compute_loss(input_signal, target_signal)
+loss_surface.plot_loss(loss, criterion_name=["MSE"])
