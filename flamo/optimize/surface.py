@@ -14,7 +14,7 @@ class ParameterConfig(BaseModel):
     param_map: Callable = None  # mapping function for the parameters in param_dict
     lower_bound: float | List[float] | List[List[float]] = None
     upper_bound: float | List[float] | List[List[float]] = None
-    target_value: float | List[float] | List[List[float]] = None
+    target_value: float = None 
     scale: str = "linear"
     n_steps: int = (
         None  # number of steps between lower and upper bound of the parameter

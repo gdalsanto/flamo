@@ -1,7 +1,7 @@
 import torch
 import os
 import numpy as np
-import yaml 
+import yaml
 from flamo.auxiliary.reverb import HomogeneousFDN, map_gamma, inverse_map_gamma
 from flamo.auxiliary.config.config import HomogeneousFDNConfig
 from flamo.optimize.loss import mse_loss
@@ -13,35 +13,37 @@ fdn_config = HomogeneousFDNConfig()
 FDN = HomogeneousFDN(fdn_config)
 FDN.set_model(output_layer=get_magnitude)
 inverse_gamma = inverse_map_gamma(torch.tensor(FDN.delays))
-FDN.model.get_core().feedback_loop.feedforward.attenuation.assign_value(inverse_gamma(target_gamma))
+FDN.model.get_core().feedback_loop.feedforward.attenuation.assign_value(
+    inverse_gamma(target_gamma)
+)
 
 attenuation_config = ParameterConfig(
-            key="feedback_loop.feedforward.attenuation",
-            param_map=lambda x: inverse_gamma(x),
-            lower_bound=0.9,
-            upper_bound=0.999,
-            target_value=target_gamma,
-            scale='log',
-            n_steps=5,
-        )
+    key="feedback_loop.feedforward.attenuation",
+    param_map=lambda x: inverse_gamma(x),
+    lower_bound=0.9,
+    upper_bound=0.999,
+    target_value=target_gamma,
+    scale="log",
+    n_steps=5,
+)
 
 input_gain_config = ParameterConfig(
-            key="input_gain",
-            param_map=lambda x: x,
-            lower_bound=(-np.ones((6, 1))).tolist(),
-            upper_bound=(np.ones((6, 1))).tolist(),
-            target_value=1,
-            scale='linear',
-            n_steps=10,
-        )
+    key="input_gain",
+    param_map=lambda x: x,
+    lower_bound=(-np.ones((6, 1))).tolist(),
+    upper_bound=(np.ones((6, 1))).tolist(),
+    target_value=1,
+    scale="linear",
+    n_steps=10,
+)
 
 loss_config = LossConfig(
     criteria=[mse_loss()],
     param_config=[input_gain_config, attenuation_config],
-    perturb_dict='output_gain',
+    perturb_dict="output_gain",
     perturb_map=lambda x: x,
     n_runs=3,
-    output_dir="output/loss-surface-test-2"
+    output_dir="output/loss-surface-test-2",
 )
 
 # make output directory if it doesn't exist
@@ -49,13 +51,15 @@ if not os.path.exists(loss_config.output_dir):
     os.makedirs(loss_config.output_dir)
 
 
-output_file = os.path.join(loss_config.output_dir, 'config.yml')
+output_file = os.path.join(loss_config.output_dir, "config.yml")
 # write the configuration to a YAML file
-with open(output_file, 'w') as file:
+with open(output_file, "w") as file:
     yaml.dump(loss_config, file)
 
 
-input_signal = signal_gallery(signal_type="impulse", batch_size=1, n=1, n_samples=fdn_config.nfft)
+input_signal = signal_gallery(
+    signal_type="impulse", batch_size=1, n=1, n_samples=fdn_config.nfft
+)
 target_signal = FDN.model(input_signal)
 
 # loss_profile = LossProfile(FDN.model, loss_config)
