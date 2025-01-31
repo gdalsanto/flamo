@@ -393,19 +393,29 @@ class LossSurface(LossProfile):
                 ax[i_crit].plot_surface(X, Y, mean_loss + std_loss, cmap=cm.coolwarm,
                                 linewidth=0, antialiased=False, alpha=0.2)
 
-                ax[i_crit].plot_surface(
-                    X[mean_loss.argmin()[0]],
-                    Y[mean_loss.argmin()[0]],
+                X_min, Y_min = np.unravel_index(mean_loss.argmin(), mean_loss.shape)
+                ax.plot(
+                    X[X_min, Y_min],
+                    Y[X_min, Y_min],
                     mean_loss.min(),
                     marker="x",
                     label="Min Loss",
                 )
-
                 try:
-                    ax[i_crit].axvline(
-                        x=self.param_config.target_value,
-                        color="r",
-                        linestyle="--",
+                    ax[i_crit].plot_surface(
+                        self.param_config[0].target_value*np.ones_like(X),
+                        Y, 
+                        mean_loss + std_loss,
+                        color="k",
+                        alpha=0.2,
+                        label="Target Value",
+                    )
+                    ax[i_crit].plot_surface(
+                        X, 
+                        self.param_config[1].target_value*np.ones_like(Y),
+                        mean_loss + std_loss,
+                        color="k",
+                        alpha=0.2,
                         label="Target Value",
                     )
                 except:
