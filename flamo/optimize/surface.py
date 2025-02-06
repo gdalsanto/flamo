@@ -14,7 +14,7 @@ class ParameterConfig(BaseModel):
     param_map: Callable = None  # mapping function for the parameters in param_dict
     lower_bound: float | List[float] | List[List[float]] = None
     upper_bound: float | List[float] | List[List[float]] = None
-    target_value: float = None 
+    target_value: float = None
     scale: str = "linear"
     n_steps: int = (
         None  # number of steps between lower and upper bound of the parameter
@@ -92,7 +92,7 @@ class LossProfile:
                     self.loss_config.perturb_map,
                 )
 
-                if i_run == 0: 
+                if i_run == 0:
                     loss = np.empty((self.n_runs, len(steps), len(self.criteria)))
                 for i_step in range(len(steps)):
                     if type(self.param_config.lower_bound) == list:
@@ -108,9 +108,9 @@ class LossProfile:
 
                     for i_crit in range(len(self.criteria)):
                         pred = self.net(input)
-                        loss[i_run, i_step, i_crit] = self.criteria[i_crit](
-                            pred, target
-                        ).detach().numpy()
+                        loss[i_run, i_step, i_crit] = (
+                            self.criteria[i_crit](pred, target).detach().numpy()
+                        )
 
         return loss
 
@@ -134,6 +134,7 @@ class LossProfile:
                     marker="x",
                     label="Min Loss",
                 )
+                ax.set_xscale(self.param_config.scale)
                 ax.fill_between(
                     steps, mean_loss - std_loss, mean_loss + std_loss, alpha=0.2
                 )
@@ -163,6 +164,7 @@ class LossProfile:
                     marker="x",
                     label="Min Loss",
                 )
+                ax.set_xscale(self.param_config.scale)
                 ax.fill_between(
                     steps, mean_loss - std_loss, mean_loss + std_loss, alpha=0.2
                 )
@@ -198,11 +200,15 @@ class LossProfile:
         if scale == "linear":
             steps = torch.linspace(lower_bound, upper_bound, n_steps)
         elif scale == "log":
-            steps = torch.logspace(torch.log10(torch.tensor(lower_bound)), torch.log10(torch.tensor(upper_bound)), n_steps)
+            steps = torch.logspace(
+                torch.log10(torch.tensor(lower_bound)),
+                torch.log10(torch.tensor(upper_bound)),
+                n_steps,
+            )
         else:
             raise ValueError("Scale must be either 'linear' or 'log'")
         return steps
-    
+
     def set_raw_parameter(
         self, param_key: str, new_value: torch.Tensor, map: lambda x: x
     ):
@@ -250,6 +256,23 @@ class LossProfile:
 
 
 class LossSurface(LossProfile):
+    r"""
+    Class for computing the loss surface of a model given two optimizable parameters.
+    This class allows to investigate how the loss surface changes when other parameters are being perturbed.
+
+    **Arguments / Attributes**:
+        - **net** (Shell): Model to be optimized.
+        - **loss_config** (LossConfig): Configuration for the loss surface computation.
+
+    **Attributes**:
+        - **param_config** (List[ParameterConfig]): Configuration for the parameters to be optimized.
+        - **criteria** (List[Callable]): List of loss functions to be used.
+        - **n_steps** (int): Number of steps between lower and upper bound of the parameters.
+        - **n_runs** (int): Number of perturbation runs.
+        - **output_dir** (str): Output directory for the loss surface plots.
+        - **steps** (dict): Dictionary of steps between the lower and upper bound of the parameters.
+    """
+
     def __init__(self, net: Shell, loss_config: LossConfig):
 
         super().__init__(net, loss_config)
@@ -266,7 +289,7 @@ class LossSurface(LossProfile):
         self.steps = dict.fromkeys([self.param_config[0].key, self.param_config[1].key])
         core = self.net.get_core()
         with torch.no_grad():
-                
+
             # set steps for the parameter
             steps_0 = self.get_steps(
                 self.param_config[0].lower_bound,
@@ -285,44 +308,59 @@ class LossSurface(LossProfile):
 
             for i_run in trange(self.n_runs, desc="Run"):
                 # perturb the given parameter
-                new_value = self.sample_rand_param(
-                    core,
-                    self.get_nested_module(core, self.loss_config.perturb_dict).param,
-                )
-                self.set_raw_parameter(
-                    self.loss_config.perturb_dict,
-                    new_value,
-                    self.loss_config.perturb_map,
-                )
+                if self.loss_config.perturb_dict:
+                    new_value = self.sample_rand_param(
+                        core,
+                        self.get_nested_module(
+                            core, self.loss_config.perturb_dict
+                        ).param,
+                    )
+                    self.set_raw_parameter(
+                        self.loss_config.perturb_dict,
+                        new_value,
+                        self.loss_config.perturb_map,
+                    )
 
-                if i_run == 0: 
-                    loss = np.empty((self.n_runs, len(steps_0), len(steps_1), len(self.criteria)))
+                if i_run == 0:
+                    loss = np.empty(
+                        (self.n_runs, len(steps_0), len(steps_1), len(self.criteria))
+                    )
 
                 for i_step_0 in range(len(steps_0)):
                     if type(self.param_config[0].lower_bound) == list:
                         # interpolate between the lower and upper bound
                         new_value = (1 - steps_0[i_step_0]) * torch.tensor(
                             self.param_config[0].lower_bound
-                        ) + steps_0[i_step_0] * torch.tensor(self.param_config[0].upper_bound)
+                        ) + steps_0[i_step_0] * torch.tensor(
+                            self.param_config[0].upper_bound
+                        )
                     else:
                         new_value = steps_0[i_step_0]
                     self.set_raw_parameter(
-                        self.param_config[0].key, new_value, self.param_config[0].param_map
+                        self.param_config[0].key,
+                        new_value,
+                        self.param_config[0].param_map,
                     )
                     for i_step_1 in range(len(steps_1)):
                         if type(self.param_config[1].lower_bound) == list:
                             # interpolate between the lower and upper bound
                             new_value = (1 - steps_1[i_step_1]) * torch.tensor(
                                 self.param_config[1].lower_bound
-                            ) + steps_1[i_step_1] * torch.tensor(self.param_config[1].upper_bound)
+                            ) + steps_1[i_step_1] * torch.tensor(
+                                self.param_config[1].upper_bound
+                            )
                         else:
                             new_value = steps_1[i_step_1]
                         self.set_raw_parameter(
-                            self.param_config[1].key, new_value, self.param_config[1].param_map
+                            self.param_config[1].key,
+                            new_value,
+                            self.param_config[1].param_map,
                         )
                         for i_crit in range(len(self.criteria)):
                             pred = self.net(input)
-                            current_loss = self.criteria[i_crit](pred, target).detach().numpy()
+                            current_loss = (
+                                self.criteria[i_crit](pred, target).detach().numpy()
+                            )
                             loss[i_run, i_step_0, i_step_1, i_crit] = current_loss
 
         return loss
@@ -331,100 +369,77 @@ class LossSurface(LossProfile):
         r"""
         Plot the loss surface.
         """
-        fig, ax = plt.subplots(
-            1, len(self.criteria), figsize=(len(self.criteria) * 5, 5), 
-            subplot_kw={"projection": "3d"}
-        )
         for i_crit in range(len(self.criteria)):
-            
+            fig, ax = plt.subplots(
+                1,
+                2,
+                figsize=(10, 5),
+            )
             mean_loss = loss[..., i_crit].mean(0)
             std_loss = loss[..., i_crit].std(0)
-            
+
             X = self.steps[self.param_config[0].key]
             Y = self.steps[self.param_config[1].key]
-            X, Y = np.meshgrid(X, Y, indexing='ij')
-            if len(self.criteria) == 1:
-                
-                ax.plot_surface(X, Y, mean_loss, cmap=cm.coolwarm,
-                                linewidth=0, antialiased=False)
-                ax.plot_surface(X, Y, mean_loss - std_loss, cmap=cm.coolwarm,
-                                linewidth=0, antialiased=False, alpha=0.2)
-                ax.plot_surface(X, Y, mean_loss + std_loss, cmap=cm.coolwarm,
-                                linewidth=0, antialiased=False, alpha=0.2)
-                X_min, Y_min = np.unravel_index(mean_loss.argmin(), mean_loss.shape)
-                ax.plot(
-                    X[X_min, Y_min],
-                    Y[X_min, Y_min],
-                    mean_loss.min(),
-                    marker="x",
-                    label="Min Loss",
-                )
-                try:
-                    ax.plot_surface(
-                        self.param_config[0].target_value*np.ones_like(X),
-                        Y, 
-                        mean_loss + std_loss,
-                        color="k",
-                        alpha=0.2,
-                        label="Target Value",
-                    )
-                    ax.plot_surface(
-                        X, 
-                        self.param_config[1].target_value*np.ones_like(Y),
-                        mean_loss + std_loss,
-                        color="k",
-                        alpha=0.2,
-                        label="Target Value",
-                    )
-                except:
-                    pass
-                ax.set_xlabel(self.param_config[0].key)
-                ax.set_ylabel(self.param_config[1].key)
-                ax.set_zlabel("Loss")
-                ax.legend()
-                if criterion_name:
-                    ax.set_title(criterion_name)
-            else:
+            # X, Y = np.meshgrid(X, Y, indexing="ij")
 
-                ax[i_crit].plot_surface(X, Y, mean_loss, cmap=cm.coolwarm,
-                                linewidth=0, antialiased=False)
-                ax[i_crit].plot_surface(X, Y, mean_loss - std_loss, cmap=cm.coolwarm,
-                                linewidth=0, antialiased=False, alpha=0.2)
-                ax[i_crit].plot_surface(X, Y, mean_loss + std_loss, cmap=cm.coolwarm,
-                                linewidth=0, antialiased=False, alpha=0.2)
+            # mean
+            ax[0].set_title(f"Mean Loss - {criterion_name[i_crit]}")
+            ax[0].imshow(
+                mean_loss,
+                extent=[X.min(), X.max(), Y.min(), Y.max()],
+                origin="lower",
+                aspect="auto",
+                cmap=cm.PuBu,
+            )
+            # ax[0].set_xscale(self.param_config[0].scale)
+            # ax[0].set_yscale(self.param_config[1].scale)
+            X_min, Y_min = np.unravel_index(
+                mean_loss.argmin(), mean_loss.shape, order="F"
+            )
+            ax[0].plot(
+                X[X_min],
+                Y[Y_min],
+                marker="x",
+                label="Min Loss",
+            )
+            ax[0].axvline(
+                x=self.param_config[0].target_value,
+                color="r",
+                linestyle="--",
+                label="X Target Value",
+            )
+            ax[0].axhline(
+                y=self.param_config[1].target_value,
+                color="r",
+                linestyle="--",
+                label="Y Target Value",
+            )
+            ax[0].set_xlabel(self.param_config[0].key)
+            ax[0].set_ylabel(self.param_config[1].key)
+            fig.colorbar(
+                cm.ScalarMappable(cmap=cm.PuBu),
+                ax=ax[0],
+                orientation="vertical",
+            )
 
-                X_min, Y_min = np.unravel_index(mean_loss.argmin(), mean_loss.shape)
-                ax.plot(
-                    X[X_min, Y_min],
-                    Y[X_min, Y_min],
-                    mean_loss.min(),
-                    marker="x",
-                    label="Min Loss",
-                )
-                try:
-                    ax[i_crit].plot_surface(
-                        self.param_config[0].target_value*np.ones_like(X),
-                        Y, 
-                        mean_loss + std_loss,
-                        color="k",
-                        alpha=0.2,
-                        label="Target Value",
-                    )
-                    ax[i_crit].plot_surface(
-                        X, 
-                        self.param_config[1].target_value*np.ones_like(Y),
-                        mean_loss + std_loss,
-                        color="k",
-                        alpha=0.2,
-                        label="Target Value",
-                    )
-                except:
-                    pass
-                ax[i_crit].set_xlabel(self.param_config[0].key)
-                ax[i_crit].set_ylabel(self.param_config[1].key)
-                ax[i_crit].set_zlabel("Loss")
-                ax[i_crit].legend()
-                if criterion_name:
-                    ax[i_crit].set_title(criterion_name[i_crit])
-
-        plt.savefig(f"{self.output_dir}/{self.param_config[0].key}-{self.param_config[1].key}.png")
+            # standard deviation
+            ax[1].set_title(f"Std Loss - {criterion_name[i_crit]}")
+            ax[1].imshow(
+                std_loss,
+                extent=[X.min(), X.max(), Y.min(), Y.max()],
+                origin="lower",
+                aspect="auto",
+                cmap=cm.PuBu,
+            )
+            # ax[1].set_xscale(self.param_config[0].scale)
+            # ax[1].set_yscale(self.param_config[1].scale)
+            ax[1].set_xlabel(self.param_config[0].key)
+            ax[1].set_ylabel(self.param_config[1].key)
+            fig.colorbar(
+                cm.ScalarMappable(cmap=cm.PuBu),
+                ax=ax[1],
+                orientation="vertical",
+            )
+            plt.savefig(
+                f"{self.output_dir}/{criterion_name[i_crit]}_{self.param_config[0].key}_{self.param_config[1].key}.png"
+            )
