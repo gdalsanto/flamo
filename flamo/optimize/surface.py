@@ -82,15 +82,16 @@ class LossProfile:
 
             for i_run in trange(self.n_runs, desc="Run"):
                 # perturb the given parameter
-                new_value = self.sample_rand_param(
-                    core,
-                    self.get_nested_module(core, self.loss_config.perturb_dict).param,
-                )
-                self.set_raw_parameter(
-                    self.loss_config.perturb_dict,
-                    new_value,
-                    self.loss_config.perturb_map,
-                )
+                if self.loss_config.perturb_dict:
+                    new_value = self.sample_rand_param(
+                        core,
+                        self.get_nested_module(core, self.loss_config.perturb_dict).param,
+                    )
+                    self.set_raw_parameter(
+                        self.loss_config.perturb_dict,
+                        new_value,
+                        self.loss_config.perturb_map,
+                    )
 
                 if i_run == 0:
                     loss = np.empty((self.n_runs, len(steps), len(self.criteria)))
