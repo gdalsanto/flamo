@@ -185,6 +185,7 @@ class LossProfile:
                     ax[i_crit].set_title(criterion_name[i_crit])
 
         plt.savefig(f"{self.output_dir}/{self.param_config.key}.png")
+        return fig, ax
 
     def get_steps(self, param_lower_bound, param_upper_bound, n_steps, scale):
         r"""
@@ -444,3 +445,4 @@ class LossSurface(LossProfile):
             plt.savefig(
                 f"{self.output_dir}/{criterion_name[i_crit]}_{self.param_config[0].key}_{self.param_config[1].key}.png"
             )
+        return fig, ax
