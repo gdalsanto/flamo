@@ -115,7 +115,7 @@ class LossProfile:
 
         return loss
 
-    def plot_loss(self, loss: np.ndarray, criterion_name: List[str] = None):
+    def plot_loss(self, loss: np.ndarray):
         r"""
         Plot the loss profile.
         """
@@ -124,6 +124,7 @@ class LossProfile:
         )
         steps = self.steps[self.param_config.key]
         for i_crit in range(len(self.criteria)):
+            criterion_name = self.criteria[i_crit].name
             if len(self.criteria) == 1:
                 mean_loss = loss[:, :, i_crit].mean(0)
                 std_loss = loss[:, :, i_crit].std(0)
@@ -158,15 +159,15 @@ class LossProfile:
                 mean_loss = loss[:, :, i_crit].mean(0)
                 std_loss = loss[:, :, i_crit].std(0)
 
-                ax[i_crit].plot(steps, mean_loss, label=criterion_name[i_crit])
+                ax[i_crit].plot(steps, mean_loss, label=criterion_name)
                 ax[i_crit].plot(
                     steps[mean_loss.argmin()],
                     mean_loss.min(),
                     marker="x",
                     label="Min Loss",
                 )
-                ax.set_xscale(self.param_config.scale)
-                ax.fill_between(
+                ax[i_crit].set_xscale(self.param_config.scale)
+                ax[i_crit].fill_between(
                     steps, mean_loss - std_loss, mean_loss + std_loss, alpha=0.2
                 )
                 try:
@@ -182,7 +183,7 @@ class LossProfile:
                 ax[i_crit].set_ylabel("Loss")
                 ax[i_crit].legend()
                 if criterion_name:
-                    ax[i_crit].set_title(criterion_name[i_crit])
+                    ax[i_crit].set_title(criterion_name)
 
         plt.savefig(f"{self.output_dir}/{self.param_config.key}.png")
         return fig, ax
@@ -367,11 +368,12 @@ class LossSurface(LossProfile):
 
         return loss
 
-    def plot_loss(self, loss: dict, criterion_name: List[str] = None):
+    def plot_loss(self, loss: dict):
         r"""
         Plot the loss surface.
         """
         for i_crit in range(len(self.criteria)):
+            criterion_name = self.criteria[i_crit].name
             fig, ax = plt.subplots(
                 1,
                 2,

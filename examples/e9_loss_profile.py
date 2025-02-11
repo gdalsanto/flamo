@@ -10,13 +10,10 @@ from flamo.optimize.loss import mse_loss
 from flamo.optimize.surface import LossProfile, LossConfig, ParameterConfig, LossSurface
 from flamo.functional import signal_gallery, get_magnitude
 
-
-
 def example_loss_profile(args):
     """
     Investigate the loss profile at different values of the attenuation
     """
-
     # create a homogeneous FDN model
     fdn_config = HomogeneousFDNConfig()
     FDN = HomogeneousFDN(fdn_config)
@@ -153,5 +150,4 @@ if __name__ == "__main__":
         os.makedirs(args.output_dir)
 
     # example_loss_profile(args)
-
     example_loss_surface(args)
