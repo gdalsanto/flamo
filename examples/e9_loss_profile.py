@@ -40,7 +40,7 @@ def example_loss_profile(args):
     loss_config = LossConfig(
         criteria=[mse_loss()],
         param_config=[attenuation_config],
-        perturb_dict="output_gain",
+        perturb_param="output_gain",
         perturb_map=lambda x: x,
         n_runs=10,
         output_dir=args.output_dir,
@@ -105,7 +105,7 @@ def example_loss_surface(args):
     loss_config = LossConfig(
         criteria=[mse_loss(), torch.nn.L1Loss()],
         param_config=[attenuation_config, input_gain_config],
-        # perturb_dict=None,#"output_gain",
+        # perturb_param=None,#"output_gain",
         perturb_map=lambda x: x,
         n_runs=1,
         output_dir=args.output_dir,
