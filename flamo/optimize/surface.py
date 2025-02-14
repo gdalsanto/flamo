@@ -159,19 +159,19 @@ class LossProfile:
                 mean_loss = loss[:, :, i_crit].mean(0)
                 std_loss = loss[:, :, i_crit].std(0)
 
-                ax[i_crit].plot(steps, mean_loss, label=criterion_name)
-                ax[i_crit].plot(
+                ax[i_crit % 3, i_crit // 3].plot(steps, mean_loss, label=criterion_name)
+                ax[i_crit % 3, i_crit // 3].plot(
                     steps[mean_loss.argmin()],
                     mean_loss.min(),
                     marker="x",
                     label="Min Loss",
                 )
-                ax[i_crit].set_xscale(self.param_config.scale)
-                ax[i_crit].fill_between(
+                ax[i_crit % 3, i_crit // 3].set_xscale(self.param_config.scale)
+                ax[i_crit % 3, i_crit // 3].fill_between(
                     steps, mean_loss - std_loss, mean_loss + std_loss, alpha=0.2
                 )
                 try:
-                    ax[i_crit].axvline(
+                    ax[i_crit % 3, i_crit // 3].axvline(
                         x=self.param_config.target_value,
                         color="r",
                         linestyle="--",
@@ -179,11 +179,11 @@ class LossProfile:
                     )
                 except:
                     pass
-                ax[i_crit].set_xlabel(self.param_config.key)
-                ax[i_crit].set_ylabel("Loss")
-                ax[i_crit].legend()
+                ax[i_crit % 3, i_crit // 3].set_xlabel(self.param_config.key)
+                ax[i_crit % 3, i_crit // 3].set_ylabel("Loss")
+                ax[i_crit % 3, i_crit // 3].legend()
                 if criterion_name:
-                    ax[i_crit].set_title(criterion_name)
+                    ax[i_crit % 3, i_crit // 3].set_title(criterion_name)
 
         plt.savefig(f"{self.output_dir}/{self.param_config.key}.png")
         return fig, ax
