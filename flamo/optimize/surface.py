@@ -24,7 +24,7 @@ class ParameterConfig(BaseModel):
 class LossConfig(BaseModel):
     criteria: List[Callable] = None  # loss function to be used
     param_config: List[ParameterConfig] = None
-    perturb_dict: str = None  # key of the parameter to be perturbed
+    perturb_param: str = None  # key of the parameter to be perturbed
     perturb_map: Callable = (
         lambda x: x
     )  # mapping function for the perturbation parameter
@@ -82,13 +82,13 @@ class LossProfile:
 
             for i_run in trange(self.n_runs, desc="Run"):
                 # perturb the given parameter
-                if self.loss_config.perturb_dict:
+                if self.loss_config.perturb_param:
                     new_value = self.sample_rand_param(
                         core,
-                        self.get_nested_module(core, self.loss_config.perturb_dict).param,
+                        self.get_nested_module(core, self.loss_config.perturb_param).param,
                     )
                     self.set_raw_parameter(
-                        self.loss_config.perturb_dict,
+                        self.loss_config.perturb_param,
                         new_value,
                         self.loss_config.perturb_map,
                     )
@@ -311,15 +311,15 @@ class LossSurface(LossProfile):
 
             for i_run in trange(self.n_runs, desc="Run"):
                 # perturb the given parameter
-                if self.loss_config.perturb_dict:
+                if self.loss_config.perturb_param:
                     new_value = self.sample_rand_param(
                         core,
                         self.get_nested_module(
-                            core, self.loss_config.perturb_dict
+                            core, self.loss_config.perturb_param
                         ).param,
                     )
                     self.set_raw_parameter(
-                        self.loss_config.perturb_dict,
+                        self.loss_config.perturb_param,
                         new_value,
                         self.loss_config.perturb_map,
                     )
