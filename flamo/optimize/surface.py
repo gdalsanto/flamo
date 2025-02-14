@@ -120,7 +120,7 @@ class LossProfile:
         Plot the loss profile.
         """
         fig, ax = plt.subplots(
-            1, len(self.criteria), figsize=(len(self.criteria) * 5, 5)
+            3, (len(self.criteria) + 2) // 3, figsize=((len(self.criteria) + 2) // 3 * 5, 15)
         )
         steps = self.steps[self.param_config.key]
         for i_crit in range(len(self.criteria)):
