@@ -188,6 +188,7 @@ class Trainer:
         self.optimizer.step()
         return loss.item()
 
+    @torch.no_grad()
     def valid_step(self, data: tuple):
         r"""
         Perform a single validation step.
