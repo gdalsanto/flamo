@@ -1880,6 +1880,7 @@ class AccurateGEQ(Filter):
     :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
     The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).   
+    NOTE: It is not differentiable 
 
         **Args**:
             - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
@@ -1887,7 +1888,6 @@ class AccurateGEQ(Filter):
             - nfft (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
             - fs (int, optional): The sampling frequency. Default: 48000.
             - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: 20*torch.log10(x).
-            - requires_grad (bool, optional): Whether the filter parameters require gradients. Default: False.
             - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - device (str, optional): The device of the constructed tensors. Default: None.
             
@@ -1956,8 +1956,8 @@ class AccurateGEQ(Filter):
         r"""
         Computes the polynomial coefficients for the SOS section.
         """
-        a = torch.zeros((3, *self.size), device=self.device)
-        b = torch.zeros((3, *self.size), device=self.device)
+        a = torch.zeros((3, self.size[0]+1, *self.size[1:]), device=self.device)
+        b = torch.zeros((3, self.size[0]+1, *self.size[1:]), device=self.device)
         for m_i in range(self.size[-2]):
             for n_i in range(self.size[-1]):
                 a[:, :, m_i, n_i], b[:, :, m_i, n_i] = design_geq(
@@ -1996,6 +1996,7 @@ class parallelAccurateGEQ(AccurateGEQ):
     r"""
     Parallel counterpart of the :class:`GEQ` class
     For information about **attributes** and **methods** see :class:`flamo.processor.dsp.GEQ`.
+    NOTE: It is not differentiable 
 
     Shape:
         - input: :math:`(B, M, N, ...)`
