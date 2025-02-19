@@ -5,7 +5,7 @@ import sympy as sp
 from collections import OrderedDict
 
 from flamo.processor import dsp, system
-
+from flamo.auxiliary.eq import design_geq
 
 def rt2slope(rt60: torch.Tensor, fs: int):
     r"""
@@ -21,6 +21,46 @@ def rt2absorption(rt60: torch.Tensor, fs: int, delays_len: torch.Tensor):
     slope = rt2slope(rt60, fs)
     return torch.einsum("i,j->ij", slope, delays_len)
 
+class map_gamma(torch.nn.Module):
+
+    def __init__(self, delays, is_compressed=True):
+        super().__init__()
+        self.delays = delays
+        self.is_compressed = is_compressed
+        self.g_min = 0.99
+        self.g_max = 1.0
+
+    def forward(self, x):
+        if self.is_compressed:
+            return (
+                torch.sigmoid(x[0]) * (self.g_max - self.g_min) + self.g_min
+            ) ** self.delays
+        else:
+            return x[0] ** self.delays
+
+class inverse_map_gamma(torch.nn.Module):
+
+    def __init__(self, delays = None,  is_compressed=True):
+        super().__init__()
+        self.delays = delays
+        self.is_compressed = is_compressed
+        self.g_min = 0.99
+        self.g_max = 1.0
+
+    def forward(self, y):
+
+        if self.is_compressed:
+            if self.delays is None:
+                sig = (y - self.g_min) / (self.g_max - self.g_min)
+            else:
+                sig = (y**(1/self.delays) - self.g_min) / (self.g_max - self.g_min)
+            return torch.log(sig/(1-sig)) 
+        else:
+            if self.delays is None:
+                return y
+            else:
+                return y**(1/self.delays)
+            
 
 class HomogeneousFDN:
     r"""
@@ -234,32 +274,87 @@ class HomogeneousFDN:
             rt60, self.config_dict.sample_rate, torch.tensor(self.delays)
         ).squeeze()
         return 10 ** (gdB / 20)
+    
 
+class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
+    r"""
+    Class for creating a set of parallel attenuation filters that are scaled 
+    according to the given delay lengths. This is meant to be used inside the 
+    feedback path of an FDN.
+    
+    The parameters represent the reverberation time in seconds. 
+    The command gains are computed from the reverberation time as follows:
 
-class map_gamma(torch.nn.Module):
+    .. math::
+        \gamma = 10^{(60 \cdot \text{rt60} / 20)}
+        \gamma_i = \gamma^{d_i}
+    
+    where :math:`\gamma` is the command gain, :math:`\text{rt60}` is the reverberation time,
+    and :math:`d_i` is the delay length of the :math:`i`-th delay line.
 
-    def __init__(self, delays):
-        super().__init__()
+        **Arguments / Attributes**:
+            - **octave_interval** (int): Interval of octaves for the equalizer bands. Default is 1.
+            - **nfft** (int): Number of FFT points. Default is 2**11.
+            - **fs** (int): Sampling frequency. Default is 48000.
+            - **delays** (torch.Tensor): Tensor containing the delay lengths. Must be provided.
+            - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - **device** (optional): Device to perform computations on. Default is None.
+
+    """
+    def __init__(
+        self,
+        octave_interval: int = 1,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        delays: torch.Tensor =  None,
+        alias_decay_db: float = 0.0,
+        device=None
+    ):
+        assert (delays is not None), "Delays must be provided"
         self.delays = delays
-        self.g_min = 0.99
-        self.g_max = 1.0
+        map = lambda x: torch.mul(rt2slope(x, fs).unsqueeze(-1), delays.unsqueeze(0))
+        super().__init__(
+            size=( ),
+            octave_interval=octave_interval,
+            nfft=nfft,
+            fs=fs,
+            map=map,
+            alias_decay_db=alias_decay_db,
+            device=device
+        )
 
-    def forward(self, x):
-        return (
-            torch.sigmoid(x[0]) * (self.g_max - self.g_min) + self.g_min
-        ) ** self.delays
 
-class inverse_map_gamma(torch.nn.Module):
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
+        """
+        a = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
+        b = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
+        for n_i in range(len(self.delays)):
+                a[:, :, n_i], b[:, :, n_i] = design_geq(
+                    target_gain=param[:, n_i],
+                    center_freq=self.center_freq,
+                    shelving_crossover=self.shelving_crossover,                    
+                    fs=self.fs,
+                    device=self.device
+                )
+         
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        A[A == 0+1j*0] = torch.tensor(1e-12)
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        return H, B, A
+    
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 1
+        ), 'The parameter should contain only the command gains'
 
-    def __init__(self, delays = None):
-        super().__init__()
-        self.delays = delays
-        self.g_min = 0.99
-        self.g_max = 1.0
-
-    def forward(self, y):
-        if self.delays is None:
-            sig = (y - self.g_min) / (self.g_max - self.g_min)
-        else:
-            sig = (y**(1/self.delays) - self.g_min) / (self.g_max - self.g_min)
-        return torch.log(sig/(1-sig)) 
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = len(self.delays)
+        self.output_channels = len(self.delays)
