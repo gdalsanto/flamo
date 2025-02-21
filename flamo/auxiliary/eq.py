@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import scipy.signal as signal
 from scipy.io import loadmat  # Add this import
-from flamo.utils import RegularGridInterpolator
+from flamo.utils import RegularGridInterpolator, freq2rad, rad2freq
 from flamo.functional import db2mag, shelving_filter, peak_filter, probe_sos
 from flamo.auxiliary.minimize import minimize_LBFGS
 
@@ -192,40 +192,39 @@ def design_geq(
     return b, a
 
 
-def low_shelf(fc, fs, GL, GH, device="cpu"):
-    """
+def low_shelf(fc: torch.Tensor, fs: torch.Tensor, GL: torch.Tensor, GH: torch.Tensor, device="cpu"):
+    r"""
     Implementation of first-order low-shelf filter.
 
-    Parameters:
-    fc (float): Crossover frequency (Hz)
-    fs (float): Sampling rate
-    GL (float): Gain in the low frequencies (linear)
-    GH (float): Gain in the high frequencies (linear)
+    **Arguments**:
+        - **fc** (torch.Tensor): Crossover frequency in Hz.
+        - **fs** (torch.Tensor): Sampling rate in Hz.
+        - **GL** (torch.Tensor): Gain in the low frequencies (linear).
+        - **GH** (torch.Tensor): Gain in the high frequencies (linear).
+        - **device** (str, optional): Device to use for constructing tensors. Default: 'cpu'.
 
-    Returns:
-    num (torch.Tensor): Numerator coefficients
-    den (torch.Tensor): Denominator coefficients
+    **Returns**:
+        - num (torch.Tensor): Numerator coefficients
+        - den (torch.Tensor): Denominator coefficients
     """
-    wH = torch.tensor(
-        2 * torch.pi * fc / fs, device=device
-    )  # Crossover frequency in radians
+    wH = freq2rad(fc, fs) # crossover frequency in radians
     G = GL / GH
 
-    # Filter coefficients
+    # compute filter coefficients
     aH0 = torch.tan(wH / 2) + torch.sqrt(G)
     aH1 = torch.tan(wH / 2) - torch.sqrt(G)
     bH0 = G * torch.tan(wH / 2) + torch.sqrt(G)
     bH1 = G * torch.tan(wH / 2) - torch.sqrt(G)
 
-    num = GH * torch.tensor([bH0, bH1], dtype=torch.float32)
-    den = torch.tensor([aH0, aH1], dtype=torch.float32)
+    num = GH * torch.stack([bH0, bH1])
+    den = torch.stack([aH0, aH1])
 
     return num, den
 
 
 def design_two_stage_geq(
     target_gain: torch.Tensor,
-    fs=48000,
+    fs: int = 48000,
     device: str = "cpu",
 ):
     r"""
@@ -261,8 +260,8 @@ def design_two_stage_geq(
         fc2[k] = torch.sqrt(fc2[k - 1] * fc2[k + 1])
 
     # convert to radians
-    wg = 2 * torch.pi * fc1 / fs
-    wc = 2 * torch.pi * fc2 / fs
+    wg = freq2rad(fc1, torch.tensor(fs, device=device))
+    wc = freq2rad(fc2, torch.tensor(fs, device=device))
 
     Gdb = target_gain 
 
@@ -338,12 +337,16 @@ def design_two_stage_geq(
     numsopt = numsopt
 
     n_freq = 2**9
-    freq = torch.logspace(
-        torch.log10(torch.tensor(1, device=device)),
-        torch.log10(torch.tensor(fs / 2 - 1, device=device)),
-        n_freq - 1,
-    )
-    freq = torch.cat((freq, torch.tensor([fs / 2], device=device)), -1)
+    freq = torch.cat(
+        (
+            torch.logspace(
+                torch.log10(torch.tensor(1.0)),
+                torch.log10(torch.tensor(fs / 2 - 1.0)),
+                n_freq - 1,
+            ),
+            torch.tensor([fs / 2]),
+        )
+    )  # frequency points
 
     Hopt = torch.ones((n_freq, 31), dtype=complex, device=device)
     Hopttot = torch.ones(n_freq, dtype=complex, device=device)
@@ -512,7 +515,7 @@ if __name__ == "__main__":
 
     G_low = 10 ** (target_mag[0] / 20)  # low shelf gain
     G_high = 10 ** (target_mag[-1] / 20)  # low shelf gain
-    fc = 300  # crossover frequency in Hz
+    fc = torch.tensor(300, device=device) # crossover frequency in Hz
     [b, a] = low_shelf(fc, fs, G_low, G_high)
     b = b / a[0]
     a = a / a[0]
@@ -526,4 +529,13 @@ if __name__ == "__main__":
 
     Gdb = target_mag - G0
 
-    out = design_two_stage_geq(Gdb[ind])
+    out = design_two_stage_geq(Gdb[ind], fs=torch.tensor(fs))
+
+    H_final = out[2] * H_shelf
+
+    import matplotlib.pyplot as plt
+    plt.plot(freq, 20 * torch.log10(torch.abs(H_final)))
+    plt.plot(f_band, gdB_dl, "ro")
+    plt.xscale("log")
+    plt.grid()
+    plt.show()
