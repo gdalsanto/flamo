@@ -29,6 +29,30 @@ def save_audio(filepath, x, fs=48000):
         os.makedirs(folder)
     sf.write(filepath, x.cpu().numpy(), fs)
 
+def rad2freq(rad):
+    r"""
+    Converts radians to frequency.
+
+        **Args**:
+            rad (torch.Tensor): The input tensor in radians.
+
+        **Returns**:
+            torch.Tensor: The frequency tensor.
+    """
+    return rad / (torch.tensor(2, device=rad.device) * torch.pi)
+
+def freq2rad(freq: torch.Tensor, fs: torch.Tensor):
+    r"""
+    Converts frequency to radians.
+
+        **Args**:
+            freq (torch.Tensor): The input tensor in frequency.
+            fs (torch.Tensor): The sampling frequency.
+
+        **Returns**:
+            torch.Tensor: The radian tensor.
+    """
+    return freq * (torch.tensor(2, device=freq.device) * torch.pi) / fs
 
 class RegularGridInterpolator:
     """
