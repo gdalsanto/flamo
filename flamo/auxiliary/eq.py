@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import scipy.signal as signal
-from scipy.io import loadmat  # Add this import
+from scipy.io import loadmat 
 from flamo.utils import RegularGridInterpolator, freq2rad, rad2freq
 from flamo.functional import db2mag, shelving_filter, peak_filter, probe_sos
 from flamo.auxiliary.minimize import minimize_LBFGS
@@ -192,37 +192,41 @@ def design_geq(
     return b, a
 
 
-def low_shelf(fc: torch.Tensor, fs: torch.Tensor, GL: torch.Tensor, GH: torch.Tensor, device="cpu"):
+def low_shelf(fc: torch.Tensor, fs: int, GL: torch.Tensor, GH: torch.Tensor, device="cpu"):
     r"""
     Implementation of first-order low-shelf filter.
 
     **Arguments**:
         - **fc** (torch.Tensor): Crossover frequency in Hz.
-        - **fs** (torch.Tensor): Sampling rate in Hz.
-        - **GL** (torch.Tensor): Gain in the low frequencies (linear).
-        - **GH** (torch.Tensor): Gain in the high frequencies (linear).
+        - **fs** (int): Sampling rate in Hz.
+        - **GL** (torch.Tensor): Gain in the low frequencies (dB).
+        - **GH** (torch.Tensor): Gain in the high frequencies (dB).
         - **device** (str, optional): Device to use for constructing tensors. Default: 'cpu'.
 
     **Returns**:
         - num (torch.Tensor): Numerator coefficients
         - den (torch.Tensor): Denominator coefficients
     """
-    wH = freq2rad(fc, fs) # crossover frequency in radians
-    G = GL / GH
+    wH = freq2rad(fc, torch.tensor(fs)) # crossover frequency in radians
+    gl = 10 ** (GL / 20) # low frequency gain
+    gh = 10 ** (GH / 20) # high frequency gain
+    g = gl / gh
 
     # compute filter coefficients
-    aH0 = torch.tan(wH / 2) + torch.sqrt(G)
-    aH1 = torch.tan(wH / 2) - torch.sqrt(G)
-    bH0 = G * torch.tan(wH / 2) + torch.sqrt(G)
-    bH1 = G * torch.tan(wH / 2) - torch.sqrt(G)
+    aH0 = torch.tan(wH / 2) + torch.sqrt(g)
+    aH1 = torch.tan(wH / 2) - torch.sqrt(g)
+    bH0 = g * torch.tan(wH / 2) + torch.sqrt(g)
+    bH1 = g * torch.tan(wH / 2) - torch.sqrt(g)
 
-    num = GH * torch.stack([bH0, bH1])
-    den = torch.stack([aH0, aH1])
+    num = gh * torch.stack([bH0, bH1, torch.tensor(0, device=device)])
+    den = torch.stack([aH0, aH1, torch.tensor(0, device=device)])
+
+    num = num / den[0]
+    den = den / den[0]
 
     return num, den
 
-
-def design_two_stage_geq(
+def design_geq_liski(
     target_gain: torch.Tensor,
     fs: int = 48000,
     device: str = "cpu",
@@ -333,31 +337,9 @@ def design_two_stage_geq(
         num, den = pareq(G2opt[k], G2wopt[k], wg[k], bw[k])
         numsopt[:, k] = num
         densopt[:, k] = den
-
-    numsopt = numsopt
-
-    n_freq = 2**9
-    freq = torch.cat(
-        (
-            torch.logspace(
-                torch.log10(torch.tensor(1.0)),
-                torch.log10(torch.tensor(fs / 2 - 1.0)),
-                n_freq - 1,
-            ),
-            torch.tensor([fs / 2]),
-        )
-    )  # frequency points
-
-    Hopt = torch.ones((n_freq, 31), dtype=complex, device=device)
-    Hopttot = torch.ones(n_freq, dtype=complex, device=device)
-    exp_term = torch.exp(-1j * ( 2 * torch.pi * freq[:, None] / fs ) * torch.arange(3, device=device))
-    for k in range(31):
-        num = torch.sum(numsopt[:, k] * exp_term, dim=1)
-        den = torch.sum(densopt[:, k] * exp_term, dim=1)
-        Hopt[:, k] = num / den
-        Hopttot *= num / den
-
-    return numsopt, densopt, Hopttot
+    numsopt = numsopt / densopt[0, :]
+    densopt = densopt / densopt[0, :]
+    return densopt, numsopt
 
 
 def interaction_matrix(G, gw, wg, wc, bw, device="cpu"):
@@ -404,10 +386,6 @@ def interaction_matrix(G, gw, wg, wc, bw, device="cpu"):
 
     return leak
 
-
-import numpy as np
-
-
 def pareq(G, GB, w0, B):
     """
     Second-order parametric equalizing filter design with adjustable bandwidth gain.
@@ -449,7 +427,7 @@ def pareq(G, GB, w0, B):
 if __name__ == "__main__":
     fs = 44100  # sampling frequency
     rt = loadmat("rirs/two-stage-RT-values.mat")["rt_"][:, 0]
-    d_len = 0.1 * fs  # delay line length
+    d_len = 593  # delay line length
     n_bands = 31  # number of bands
     device = "cpu"
     ## ## ## GET THE TARGET MAGNITUDE RESPONSE AT DESIRED FREQS ## ## ##
@@ -474,7 +452,7 @@ if __name__ == "__main__":
 
     # step two - interpolate the shape of the target attenuation
 
-    n_freq = 2**9  # Number of frequency points
+    n_freq = fs//2+1  # Number of frequency points
     freq = torch.cat(
         (
             torch.logspace(
@@ -485,7 +463,7 @@ if __name__ == "__main__":
             torch.tensor([fs / 2]),
         )
     )  # Frequency points
-
+    freq = torch.fft.rfftfreq(n=fs, d=1/fs)
     ind = torch.zeros(n_bands, dtype=torch.long)  # Locations of the band frequencies
     for i in range(len(f_band)):
         ind[i] = torch.argmin(torch.abs(freq - f_band[i]))
@@ -510,32 +488,75 @@ if __name__ == "__main__":
             right=target_mag[ind[-1]].item(),
         )
     )
-
     ## ## ## DESIGN THE LOW SHELF FILTER ## ## ##
 
-    G_low = 10 ** (target_mag[0] / 20)  # low shelf gain
-    G_high = 10 ** (target_mag[-1] / 20)  # low shelf gain
+    # G_low = 10 ** (target_mag[0] / 20)  # low shelf gain
+    # G_high = 10 ** (target_mag[-1] / 20)  # low shelf gain
+    G_low = gdB_dl[0]
+    G_high = gdB_dl[-1]
     fc = torch.tensor(300, device=device) # crossover frequency in Hz
     [b, a] = low_shelf(fc, fs, G_low, G_high)
     b = b / a[0]
     a = a / a[0]
-    b = torch.cat((b, torch.zeros(1, device=device)), -1)
-    a = torch.cat((a, torch.zeros(1, device=device)), -1)
     exp_term = torch.exp(-1j * (2 * torch.pi * freq[:, None] / fs) * torch.arange(3, device=device))
     num = torch.sum(b * exp_term, dim=1)
     den = torch.sum(a * exp_term, dim=1)
     H_shelf = num / den
     G0 = 20 * torch.log10(torch.abs(H_shelf))
 
-    Gdb = target_mag - G0
+    # Gdb = target_mag - G0
+    Gdb = gdB_dl - G0[ind]
+    # densopt, numsopt = design_geq_liski(Gdb[ind], fs=torch.tensor(fs))
+    densopt, numsopt = design_geq_liski(Gdb, fs=torch.tensor(fs))
 
-    out = design_two_stage_geq(Gdb[ind], fs=torch.tensor(fs))
+    Hopttot = torch.ones(n_freq, dtype=complex, device=device)
+    exp_term = torch.exp(-1j * ( 2 * torch.pi * freq[:, None] / fs ) * torch.arange(3, device=device))
+    for k in range(31):
+        num = torch.sum(numsopt[:, k] * exp_term, dim=1)
+        den = torch.sum(densopt[:, k] * exp_term, dim=1)
+        Hopttot *= num / den
 
-    H_final = out[2] * H_shelf
+    H_final = Hopttot * H_shelf
 
+    [b, a] = low_shelf(fc, fs, gdB_dl[0], gdB_dl[-1])
+    b = b / a[0]
+    a = a / a[0]
+    exp_term = torch.exp(-1j * (2 * torch.pi * freq[:, None] / fs) * torch.arange(3, device=device))
+    num = torch.sum(b * exp_term, dim=1)
+    den = torch.sum(a * exp_term, dim=1)
+    H_shelf = num / den
+    G0 = 20 * torch.log10(torch.abs(H_shelf))
+
+    Gdb = gdB_dl - G0[ind]
+
+    densopt, numsopt = design_geq_liski(Gdb, fs=torch.tensor(fs))
+
+    Hopttot = torch.ones(n_freq, dtype=complex, device=device)
+    exp_term = torch.exp(-1j * ( 2 * torch.pi * freq[:, None] / fs ) * torch.arange(3, device=device))
+    for k in range(31):
+        num = torch.sum(numsopt[:, k] * exp_term, dim=1)
+        den = torch.sum(densopt[:, k] * exp_term, dim=1)
+        Hopttot *= num / den
+
+
+    H_final_2 = Hopttot * H_shelf
+
+    a_tot = torch.hstack((a.unsqueeze(-1), densopt))
+    b_tot = torch.hstack((b.unsqueeze(-1), numsopt))
+
+    A = torch.prod(torch.fft.rfft(a_tot, n=int(len(freq)*2-1), dim=0), dim=-1)
+    B = torch.prod(torch.fft.rfft(b_tot, n=int(len(freq)*2-1), dim=0), dim=-1)
+
+    H = B / A
+    
     import matplotlib.pyplot as plt
-    plt.plot(freq, 20 * torch.log10(torch.abs(H_final)))
+
+
+    # plt.plot(freq, 20 * torch.log10(torch.abs(H_final)))
+    # plt.plot(freq, 20 * torch.log10(torch.abs(H_final_2)))
+    plt.plot(freq, 20 * torch.log10(torch.abs(H)))
     plt.plot(f_band, gdB_dl, "ro")
     plt.xscale("log")
     plt.grid()
     plt.show()
+

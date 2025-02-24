@@ -4,8 +4,8 @@ import sympy as sp
 
 from collections import OrderedDict
 
-from flamo.processor import dsp, system
-from flamo.auxiliary.eq import design_geq
+from flamo.processor import dsp, system 
+from flamo.auxiliary.eq import design_geq, low_shelf, design_geq_liski
 
 def rt2slope(rt60: torch.Tensor, fs: int):
     r"""
@@ -358,3 +358,120 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
         """
         self.input_channels = len(self.delays)
         self.output_channels = len(self.delays)
+
+
+class parallelFDNTwoStageGEQ(dsp.parallelFilter):
+    r"""
+    Class for creating a set of parallel attenuation filters that are scaled 
+    according to the given delay lengths. The filter design is based on the 
+    two stage attenuation filer by Välimaki, Prawda, and Schlecht. This is meant 
+    to be used inside the feedback path of an FDN.
+    Uses 1/3 octave bands from 20 Hz to 20 kHz (31 bands).
+    
+    The parameters represent the reverberation time in seconds. 
+    The command gains are computed from the reverberation time as follows:
+
+    .. math::
+        \gamma = 10^{(60 \cdot \text{rt60} / 20)}
+        \gamma_i = \gamma^{d_i}
+    
+    where :math:`\gamma` is the command gain, :math:`\text{rt60}` is the reverberation time,
+    and :math:`d_i` is the delay length of the :math:`i`-th delay line.
+
+        **Arguments / Attributes**:
+            - **nfft** (int): Number of FFT points. Default is 2**11.
+            - **fs** (int): Sampling frequency. Default is 48000.
+            - **delays** (torch.Tensor): Tensor containing the delay lengths. Must be provided.
+            - **device** (optional): Device to perform computations on. Default is None.
+
+    Reference:
+        - J. Liski and V. Välimäki, “The quest for the best graphic equalizer,”
+        in Proc. DAFx, Edinburgh, UK, Sep. 2017, pp. 95-102.
+        - V. Välimäki, K. Prawda, and S. J. Schlecht, “Two-stage attenuation
+        filter for artificial reverberation,” IEEE Signal Process. Lett., Jan. 2024.
+    """
+    def __init__(
+        self,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        fc_low_shelf: float = 300.0,
+        delays: torch.Tensor =  None,
+        alias_decay_db: float = 0.0,
+        device=None
+    ):
+        assert (delays is not None), "Delays must be provided"
+        self.delays = delays
+        map = lambda x: torch.mul(rt2slope(x, fs).unsqueeze(-1), delays.unsqueeze(0))
+        self.fs = fs
+        self.fc_low_shelf = torch.tensor(fc_low_shelf, device = device)
+        self.f_band = 10**3 * (2.0 ** (torch.arange(-17, 14) / 3.0))
+        self.n_bands = len(self.f_band)
+        freqs = torch.fft.rfftfreq(nfft, 1/fs)
+        self.freq_ind = torch.zeros(self.n_bands, dtype=torch.long)  # Locations of the band frequencies
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=device))
+        for i in range(self.n_bands):
+            self.freq_ind[i] = torch.argmin(torch.abs(freqs - self.f_band[i]))
+
+        super().__init__(
+            size=(self.n_bands,),
+            nfft=nfft,
+            map=map,
+            alias_decay_db=alias_decay_db,
+            device=device
+        )
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        """
+        self.freq_response = lambda param: self.get_filters(self.map(param))[0]
+
+    def get_filters(self, param):
+        r"""
+        Computes the filter coefficients for the attenuation.
+        """
+        # TODO: this unfortunately is not good enough and lead to nan valued magnitude response. 
+        # one way is to follow the example at the bottom of eq.py to interpolate the target transfer function. 
+        # that however cannot be backpropagated 
+        b = torch.zeros((3, self.n_bands + 1, len(self.delays)), device=self.device)
+        a = torch.zeros((3, self.n_bands + 1, len(self.delays)), device=self.device)
+        
+        for n_i in range(len(self.delays)):
+            # compute the low shelf filter 
+            b[:, 0, n_i], a[:, 0, n_i] = low_shelf(
+                fc=self.fc_low_shelf,
+                fs=torch.tensor(self.fs),
+                GL=param[0, n_i],
+                GH=param[-1, n_i],
+                device=self.device
+            )
+            B_ls = torch.fft.rfft(b[:, 0, n_i], self.nfft, dim=0)
+            A_ls = torch.fft.rfft(a[:, 0, n_i], self.nfft, dim=0)
+            H_ls = B_ls / A_ls
+            geq_target_gain = param[:, n_i] - 20*torch.log10(torch.abs(H_ls[self.freq_ind]))
+            a[:, 1:, n_i], b[:, 1:, n_i] = design_geq_liski(
+                target_gain=geq_target_gain,
+                fs=self.fs,
+                device=self.device)
+
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        B = torch.fft.rfft(b, self.nfft, dim=0)
+        A = torch.fft.rfft(a, self.nfft, dim=0)
+        A[torch.real(A) < 1e-12] = A[torch.real(A) < 1e-12] + torch.tensor(1e-12)
+        A[torch.imag(A) < 1e-12] = A[torch.imag(A) < 1e-12] + torch.tensor(1e-12)
+        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        return H, B, A
+    
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = len(self.delays)
+        self.output_channels = len(self.delays)
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 1
+        ), 'The parameter should contain only the command gains'

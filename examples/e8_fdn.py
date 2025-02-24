@@ -7,13 +7,14 @@ import auraloss
 import soundfile as sf
 import matplotlib.pyplot as plt
 from collections import OrderedDict
+from scipy.io import loadmat 
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
 from flamo.optimize.loss import sparsity_loss
 from flamo.utils import save_audio
 from flamo.functional import signal_gallery, find_onset
-from flamo.auxiliary.reverb import parallelFDNAccurateGEQ
+from flamo.auxiliary.reverb import parallelFDNAccurateGEQ, parallelFDNTwoStageGEQ
 
 torch.manual_seed(130799)
 
@@ -319,6 +320,141 @@ def example_fdn_accurate_geq(args):
     simulated_rt_center_freqs = simulated_rt[center_freqs_idx]
     print(torch.mean((simulated_rt_center_freqs - target_rt) ** 2))
 
+def example_fdn_two_stage_attenuation(args):
+    """
+    Example function that demonstrates the construction of a Feedback Delay Network (FDN) model with frequency dependent decay.
+    It uses a graphic equalizer (GEQ) filter optimized to match a target reverberation time profile. Does not allow training.
+    Args:
+        args: A dictionary or object containing the necessary arguments for the function.
+    Returns:
+        None
+
+    References:
+        - Schlecht, S., Habets, E. (2017). Accurate reverberation time control in
+        feedback delay networks Proc. Int. Conf. Digital Audio Effects (DAFx)
+        adapted to python by: Dal Santo G.
+    """
+
+    # FDN parameters
+    N = 6  # number of delays
+    alias_decay_db = 0  # alias decay in dB
+    delay_lengths = torch.tensor([593, 743, 929, 1153, 1399, 1699])
+    args.samplerate = 44100
+    ## ---------------- CONSTRUCT FDN ---------------- ##
+
+    # Input and output gains
+    input_gain = dsp.Gain(
+        size=(N, 1),
+        nfft=args.nfft,
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+    )
+    output_gain = dsp.Gain(
+        size=(1, N),
+        nfft=args.nfft,
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+    )
+    # Feedback loop with delays
+    delays = dsp.parallelDelay(
+        size=(N,),
+        max_len=delay_lengths.max(),
+        nfft=args.nfft,
+        isint=True,
+        requires_grad=False,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+    )
+    delays.assign_value(delays.sample2s(delay_lengths))
+    # Feedback path with orthogonal matrix
+    mixing_matrix = dsp.Matrix(
+        size=(N, N),
+        nfft=args.nfft,
+        matrix_type="orthogonal",
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+    )
+    attenuation = parallelFDNTwoStageGEQ(
+        nfft=args.nfft,
+        fc_low_shelf=300.0,
+        fs=args.samplerate,
+        delays=delay_lengths,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+    )
+    target_rt = torch.tensor(loadmat("rirs/two-stage-RT-values.mat")["rt_"][:, 0])
+    feedback = system.Series(
+        OrderedDict({"mixing_matrix": mixing_matrix, "attenuation": attenuation})
+    )
+
+    # Recursion
+    feedback_loop = system.Recursion(fF=delays, fB=feedback)
+
+    # Full FDN
+    FDN = system.Series(
+        OrderedDict(
+            {
+                "input_gain": input_gain,
+                "feedback_loop": feedback_loop,
+                "output_gain": output_gain,
+            }
+        )
+    )
+
+    # Create the model with Shell
+    input_layer = dsp.FFT(args.nfft)
+    # Since time aliasing mitigation is enabled, we use the iFFTAntiAlias layer
+    # to undo the effect of the anti aliasing modulation introduced by the system's layers
+    output_layer = dsp.iFFTAntiAlias(
+        nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device
+    )
+    model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
+
+    # Get initial impulse response
+    with torch.no_grad():
+        ir = model.get_time_response(identity=False, fs=args.samplerate).squeeze()
+        save_audio(
+            os.path.join(args.train_dir, "ir.wav"),
+            ir / torch.max(torch.abs(ir)),
+            fs=args.samplerate,
+        )
+
+    # analyze the attenuation filter 
+    attenuation.assign_value(target_rt)
+    input_layer = dsp.FFT(args.nfft)
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+    attenuation_model = system.Shell(
+        core=attenuation, input_layer=input_layer, output_layer=output_layer
+    )
+    # get filter response and compare it with the target rt profile
+    filter_response = attenuation_model.get_freq_response()
+    freq_response_meth = attenuation.freq_response
+    freq_response = freq_response_meth(attenuation.param)
+    simulated_rt = (
+        -3 * delay_lengths[0]
+        / args.samplerate
+        / torch.log10(torch.abs(freq_response[:, 0]))
+    )
+    fig, ax1 = plt.subplots()
+    freq_axis = torch.linspace(0, args.samplerate / 2, args.nfft // 2 + 1)
+    ax1.plot(freq_axis, simulated_rt.detach().numpy(), label="Filter response")
+    ax1.plot(attenuation.f_band, target_rt, "o", label="Target RT")
+    ax1.set_title("Reverberation Time")
+    ax1.set_xlabel("Frequency")
+    ax1.set_ylabel("Time (s)")
+    ax1.set_xscale("log")
+    ax1.legend()
+    plt.savefig(os.path.join(args.train_dir, "filter_response.png"))
+
+    # compute the mean squared error between the simulated rt and the target rt
+    center_freqs_idx = [
+        torch.argmin(torch.abs(freq_axis - freq)).item() for freq in attenuation.f_band
+    ]
+    simulated_rt_center_freqs = simulated_rt[center_freqs_idx]
+    print(torch.mean((simulated_rt_center_freqs - target_rt) ** 2))
 
 if __name__ == "__main__":
 
@@ -376,4 +512,6 @@ if __name__ == "__main__":
         )
 
     # example_fdn(args)
-    example_fdn_accurate_geq(args)
+    # example_fdn_accurate_geq(args)
+    example_fdn_two_stage_attenuation(args)
+
