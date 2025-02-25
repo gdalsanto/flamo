@@ -339,7 +339,7 @@ def design_geq_liski(
         densopt[:, k] = den
     numsopt = numsopt / densopt[0, :]
     densopt = densopt / densopt[0, :]
-    return densopt, numsopt
+    return numsopt, densopt
 
 
 def interaction_matrix(G, gw, wg, wc, bw, device="cpu"):
@@ -507,7 +507,7 @@ if __name__ == "__main__":
     # Gdb = target_mag - G0
     Gdb = gdB_dl - G0[ind]
     # densopt, numsopt = design_geq_liski(Gdb[ind], fs=torch.tensor(fs))
-    densopt, numsopt = design_geq_liski(Gdb, fs=torch.tensor(fs))
+    numsopt, densopt = design_geq_liski(Gdb, fs=torch.tensor(fs))
 
     Hopttot = torch.ones(n_freq, dtype=complex, device=device)
     exp_term = torch.exp(-1j * ( 2 * torch.pi * freq[:, None] / fs ) * torch.arange(3, device=device))
@@ -517,29 +517,6 @@ if __name__ == "__main__":
         Hopttot *= num / den
 
     H_final = Hopttot * H_shelf
-
-    [b, a] = low_shelf(fc, fs, gdB_dl[0], gdB_dl[-1])
-    b = b / a[0]
-    a = a / a[0]
-    exp_term = torch.exp(-1j * (2 * torch.pi * freq[:, None] / fs) * torch.arange(3, device=device))
-    num = torch.sum(b * exp_term, dim=1)
-    den = torch.sum(a * exp_term, dim=1)
-    H_shelf = num / den
-    G0 = 20 * torch.log10(torch.abs(H_shelf))
-
-    Gdb = gdB_dl - G0[ind]
-
-    densopt, numsopt = design_geq_liski(Gdb, fs=torch.tensor(fs))
-
-    Hopttot = torch.ones(n_freq, dtype=complex, device=device)
-    exp_term = torch.exp(-1j * ( 2 * torch.pi * freq[:, None] / fs ) * torch.arange(3, device=device))
-    for k in range(31):
-        num = torch.sum(numsopt[:, k] * exp_term, dim=1)
-        den = torch.sum(densopt[:, k] * exp_term, dim=1)
-        Hopttot *= num / den
-
-
-    H_final_2 = Hopttot * H_shelf
 
     a_tot = torch.hstack((a.unsqueeze(-1), densopt))
     b_tot = torch.hstack((b.unsqueeze(-1), numsopt))

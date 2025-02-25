@@ -434,8 +434,8 @@ class parallelFDNTwoStageGEQ(dsp.parallelFilter):
         # TODO: this unfortunately is not good enough and lead to nan valued magnitude response. 
         # one way is to follow the example at the bottom of eq.py to interpolate the target transfer function. 
         # that however cannot be backpropagated 
-        b = torch.zeros((3, self.n_bands + 1, len(self.delays)), device=self.device)
-        a = torch.zeros((3, self.n_bands + 1, len(self.delays)), device=self.device)
+        b = torch.zeros((3, self.n_bands + 1, len(self.delays)), device=self.device, dtype=torch.float64)
+        a = torch.zeros((3, self.n_bands + 1, len(self.delays)), device=self.device, dtype=torch.float64)
         
         for n_i in range(len(self.delays)):
             # compute the low shelf filter 
@@ -446,23 +446,23 @@ class parallelFDNTwoStageGEQ(dsp.parallelFilter):
                 GH=param[-1, n_i],
                 device=self.device
             )
-            B_ls = torch.fft.rfft(b[:, 0, n_i], self.nfft, dim=0)
-            A_ls = torch.fft.rfft(a[:, 0, n_i], self.nfft, dim=0)
+            B_ls = torch.fft.rfft(b[:, 0, n_i], n=self.nfft, dim=0)
+            A_ls = torch.fft.rfft(a[:, 0, n_i], n=self.nfft, dim=0)
             H_ls = B_ls / A_ls
             geq_target_gain = param[:, n_i] - 20*torch.log10(torch.abs(H_ls[self.freq_ind]))
-            a[:, 1:, n_i], b[:, 1:, n_i] = design_geq_liski(
+            b[:, 1:, n_i], a[:, 1:, n_i] = design_geq_liski(
                 target_gain=geq_target_gain,
                 fs=self.fs,
                 device=self.device)
 
         b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
         a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
-        B = torch.fft.rfft(b, self.nfft, dim=0)
-        A = torch.fft.rfft(a, self.nfft, dim=0)
+        B = torch.fft.rfft(b, n=self.nfft, dim=0)
+        A = torch.fft.rfft(a, n=self.nfft, dim=0)
         A[torch.real(A) < 1e-12] = A[torch.real(A) < 1e-12] + torch.tensor(1e-12)
         A[torch.imag(A) < 1e-12] = A[torch.imag(A) < 1e-12] + torch.tensor(1e-12)
         H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        return H, B, A
+        return H.to(torch.float32), B, A
     
     def get_io(self):
         r"""
