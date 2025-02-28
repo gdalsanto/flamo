@@ -244,6 +244,7 @@ def example_fdn_accurate_geq(args):
     target_rt = torch.tensor(
         [0.25, 0.5, 0.5, 0.65, 0.7, 0.75, 0.8, 0.75, 0.65, 0.5, 0.25]
     )
+    attenuation.assign_value(target_rt)
 
     feedback = system.Series(
         OrderedDict({"mixing_matrix": mixing_matrix, "attenuation": attenuation})
@@ -282,7 +283,6 @@ def example_fdn_accurate_geq(args):
         )
 
     # analyze the attenuation filter 
-    attenuation.assign_value(target_rt)
     center_freqs = (
         [attenuation.shelving_crossover[0].item()]
         + attenuation.center_freq.tolist()
