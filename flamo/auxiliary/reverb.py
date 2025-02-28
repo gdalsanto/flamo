@@ -331,7 +331,7 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
         a = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
         b = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
         for n_i in range(len(self.delays)):
-                a[:, :, n_i], b[:, :, n_i] = design_geq(
+                b[:, :, n_i], a[:, :, n_i] = design_geq(
                     target_gain=param[:, n_i],
                     center_freq=self.center_freq,
                     shelving_crossover=self.shelving_crossover,                    
@@ -339,8 +339,8 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
                     device=self.device
                 )
          
-        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
-        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         A[A == 0+1j*0] = torch.tensor(1e-12)
@@ -351,6 +351,83 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
         assert (
             len(self.size) == 1
         ), 'The parameter should contain only the command gains'
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = len(self.delays)
+        self.output_channels = len(self.delays)
+
+class parallelOnePoleShelving(dsp.parallelFilter):
+    
+    def __init__(
+        self,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        rt_nyquist: float = 0.01,
+        delays: torch.Tensor =  None,
+        alias_decay_db: float = 0.0,
+        device: str = None,
+    ):
+        size = (2,)      # rt at DC and crossover frequency
+        assert (delays is not None), "Delays must be provided"
+        self.delays = delays
+        self.rt_nyquist = torch.tensor(rt_nyquist)
+        map = lambda x: self.map_param(x, fs)
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            alias_decay_db=alias_decay_db,
+            device=device
+        )
+        gamma = 10 ** (
+            -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
+        )
+        self.alias_envelope_dcy = gamma ** torch.arange(0, 2, 1, device=device)
+        self.fs = fs
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        """
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        b, a = param
+        b_aa = torch.einsum('p, pn -> pn', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pn -> pn', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        H = B / A
+    
+        return H, B, A 
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the filter parameters is valid.
+        """
+        assert (
+            len(self.size) == 1
+        ), "Filter must be 1D, for 2D filters use Filter module."
+
+    def map_param(self, param, fs):
+        rt_DC = param[0]
+        gain_DC = torch.mul(rt2slope(rt_DC, fs), self.delays.unsqueeze(0))
+        gain_Nyq = torch.mul(rt2slope(self.rt_nyquist, fs), self.delays.unsqueeze(0))
+        omega_c = torch.clamp(param[1], min=0, max=torch.pi*2/5)
+        t = torch.tan(omega_c)
+        k = 10**(gain_DC/20) / 10**(gain_Nyq/20)
+
+        a = torch.ones(2, len(self.delays), device=self.device)
+        b = torch.ones(2, len(self.delays), device=self.device)
+
+        a[0] = t / torch.sqrt(k) + 1
+        a[1] = t / torch.sqrt(k) - 1
+        b[0] = t * torch.sqrt(k) + 1
+        b[1] = t * torch.sqrt(k) - 1
+        return b * 10**(gain_Nyq/20), a
 
     def get_io(self):
         r"""
