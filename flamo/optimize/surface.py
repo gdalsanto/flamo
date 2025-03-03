@@ -65,6 +65,7 @@ class LossProfile:
         self.criteria = loss_config.criteria
         self.n_runs = loss_config.n_runs
         self.output_dir = loss_config.output_dir
+        self.register_steps()
 
     def compute_loss(self, input: torch.Tensor, target: torch.Tensor):
         r"""
@@ -74,12 +75,7 @@ class LossProfile:
         with torch.no_grad():
 
             # set steps for the parameter
-            steps = self.get_steps(
-                self.param_config.lower_bound,
-                self.param_config.upper_bound,
-                self.param_config.n_steps,
-                self.param_config.scale,
-            )
+            steps = self.steps
 
             for i_run in trange(self.n_runs, desc="Run"):
                 # perturb the given parameter
@@ -133,12 +129,7 @@ class LossProfile:
                 (len(self.criteria) + 2) // 3,
                 figsize=((len(self.criteria) + 2) // 3 * 5, 15),
             )
-        steps = self.get_steps(
-            self.param_config.lower_bound,
-            self.param_config.upper_bound,
-            self.param_config.n_steps,
-            self.param_config.scale,
-        )
+        steps = self.steps
         for i_crit in range(len(self.criteria)):
             mean_loss = loss[:, :, i_crit].mean(0)
             std_loss = loss[:, :, i_crit].std(0)
@@ -229,6 +220,14 @@ class LossProfile:
             raise ValueError("Scale must be either 'linear' or 'log'")
         return steps
 
+    def register_steps(self):
+        self.steps = self.get_steps(
+            self.param_config.lower_bound,
+            self.param_config.upper_bound,
+            self.param_config.n_steps,
+            self.param_config.scale,
+        )
+
     def set_raw_parameter(
         self,
         param_key: str,
@@ -278,6 +277,25 @@ class LossProfile:
         rand_param = torch.randn_like(ref_param) * std + mean
         return rand_param
 
+    def compute_accuracy(self, loss):
+        r"""
+        Compute the accuracy of the losses according to
+        Joseph Turian and Max Henry, “I'm sorry for your loss: Spectrally-based
+        audio distances are bad at pitch,” arXiv preprint arXiv:2012.04572, 2020.
+        """
+        steps = self.steps
+        # find the index in steps of the element closest to the target value
+        target_indx = np.abs(steps - self.param_config.target_value).argmin()
+        accuracy = np.empty(loss.shape)
+        for i_crit in range(len(self.criteria)):
+            for i_run in range(loss.shape[0]):
+                for i_step in range(loss.shape[1]):
+                    accuracy[i_run, i_step, i_crit] = int(
+                        loss[i_run, i_step, i_crit] > loss[i_run, target_indx, i_crit]
+                    )
+
+        return accuracy.mean(axis=0)
+
 
 class LossSurface(LossProfile):
     r"""
@@ -306,27 +324,28 @@ class LossSurface(LossProfile):
         ), "LossSurface supports only two optimizable parameters."
         self.param_config = loss_config.param_config
 
+    def register_steps(self):
+        self.steps_0 = self.get_steps(
+            self.loss_config.param_config[0].lower_bound,
+            self.loss_config.param_config[0].upper_bound,
+            self.loss_config.param_config[0].n_steps,
+            self.loss_config.param_config[0].scale,
+        )
+        self.steps_1 = self.get_steps(
+            self.loss_config.param_config[1].lower_bound,
+            self.loss_config.param_config[1].upper_bound,
+            self.loss_config.param_config[1].n_steps,
+            self.loss_config.param_config[1].scale,
+        )
+
     def compute_loss(self, input: torch.Tensor, target: torch.Tensor):
         r"""
         Compute the loss surface of the model.
         """
         core = self.net.get_core()
         with torch.no_grad():
-
-            # set steps for the parameter
-            steps_0 = self.get_steps(
-                self.param_config[0].lower_bound,
-                self.param_config[0].upper_bound,
-                self.param_config[0].n_steps,
-                self.param_config[0].scale,
-            )
-            steps_1 = self.get_steps(
-                self.param_config[1].lower_bound,
-                self.param_config[1].upper_bound,
-                self.param_config[1].n_steps,
-                self.param_config[1].scale,
-            )
-
+            steps_0 = self.steps_0
+            steps_1 = self.steps_1
             for i_run in trange(self.n_runs, desc="Run"):
                 # perturb the given parameter
                 if self.loss_config.perturb_param:
@@ -404,18 +423,8 @@ class LossSurface(LossProfile):
                 ),
                 subplot_kw={"projection": "3d"},
             )
-        steps_0 = self.get_steps(
-            self.param_config[0].lower_bound,
-            self.param_config[0].upper_bound,
-            self.param_config[0].n_steps,
-            self.param_config[0].scale,
-        )
-        steps_1 = self.get_steps(
-            self.param_config[1].lower_bound,
-            self.param_config[1].upper_bound,
-            self.param_config[1].n_steps,
-            self.param_config[1].scale,
-        )
+        steps_0 = self.steps_0
+        steps_1 = self.steps_1
         # create a meshgrid
         steps_0, steps_1 = np.meshgrid(steps_0, steps_1)
         title = ["mean", "std"]
@@ -567,3 +576,26 @@ class LossSurface(LossProfile):
             )
             plt.clf()
         return fig, ax
+
+    def compute_accuracy(self, loss):
+        r"""
+        Compute the accuracy of the losses according to
+        Joseph Turian and Max Henry, “I'm sorry for your loss: Spectrally-based
+        audio distances are bad at pitch,” arXiv preprint arXiv:2012.04572, 2020.
+        """
+        steps_0 = self.steps_0
+        steps_1 = self.steps_1
+        # find the index in steps of the element closest to the target value
+        target_indx_0 = np.abs(steps_0 - self.param_config[0].target_value).argmin()
+        target_indx_1 = np.abs(steps_0 - self.param_config[1].target_value).argmin()
+
+        accuracy = np.empty(loss.shape)
+        for i_crit in range(len(self.criteria)):
+            for i_run in range(loss.shape[0]):
+                for i_step_0 in range(len(steps_0)):
+                    for i_step_1 in range(len(steps_1)):
+                        accuracy[i_run, i_step_0, i_step_1, i_crit] = int(
+                            loss[i_run,  i_step_0, i_step_1, i_crit] > loss[i_run, target_indx_0, target_indx_1, i_crit]
+                        )
+
+        return accuracy.mean(axis=0)
