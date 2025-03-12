@@ -587,7 +587,7 @@ class LossSurface(LossProfile):
         steps_1 = self.steps_1
         # find the index in steps of the element closest to the target value
         target_indx_0 = np.abs(steps_0 - self.param_config[0].target_value).argmin()
-        target_indx_1 = np.abs(steps_0 - self.param_config[1].target_value).argmin()
+        target_indx_1 = np.abs(steps_1 - self.param_config[1].target_value).argmin()
 
         accuracy = np.empty(loss.shape)
         for i_crit in range(len(self.criteria)):
