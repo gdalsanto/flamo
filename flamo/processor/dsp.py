@@ -2391,14 +2391,24 @@ class Delay(DSP):
         Computes the frequency response of the delay module.
         """
         m = self.get_delays()
-        self.freq_response = lambda param: (self.gamma ** m(param)) * torch.exp(
-            -1j
-            * torch.einsum(
-                "fo, omn -> fmn",
-                self.omega,
-                m(param).unsqueeze(0),
+        if self.isint:
+            self.freq_response = lambda param: (self.gamma ** m(param)) * torch.exp(
+                -1j
+                * torch.einsum(
+                    "fo, omn -> fmn",
+                    self.omega,
+                    m(param).round().unsqueeze(0),
+                )
             )
-        )
+        else:
+            self.freq_response = lambda param: (self.gamma ** m(param)) * torch.exp(
+                -1j
+                * torch.einsum(
+                    "fo, omn -> fmn",
+                    self.omega,
+                    m(param).unsqueeze(0),
+                )
+            )
 
     def get_delays(self):
         r"""
@@ -2443,10 +2453,7 @@ class Delay(DSP):
         self.check_param_shape()
         self.get_io()
         if self.requires_grad:
-            if self.isint:
-                self.map = lambda x: nn.functional.softplus(x).round()
-            else:
-                self.map = lambda x: nn.functional.softplus(x)
+            self.map = lambda x: nn.functional.softplus(x)
         self.omega = (
             2
             * torch.pi
