@@ -56,7 +56,7 @@ class LossProfile:
 
     """
 
-    def __init__(self, net: Shell, loss_config: LossConfig):
+    def __init__(self, net: Shell, loss_config: LossConfig, device: str = "cpu"):
 
         super().__init__()
         self.net = net
@@ -65,6 +65,7 @@ class LossProfile:
         self.criteria = loss_config.criteria
         self.n_runs = loss_config.n_runs
         self.output_dir = loss_config.output_dir
+        self.device = device
         self.register_steps()
 
     def compute_loss(self, input: torch.Tensor, target: torch.Tensor):
@@ -98,8 +99,10 @@ class LossProfile:
                     if type(self.param_config.lower_bound) == list:
                         # interpolate between the lower and upper bound
                         new_value = (1 - steps[i_step]) * torch.tensor(
-                            self.param_config.lower_bound
-                        ) + steps[i_step] * torch.tensor(self.param_config.upper_bound)
+                            self.param_config.lower_bound, device=self.device
+                        ) + steps[i_step] * torch.tensor(
+                            self.param_config.upper_bound, device=self.device
+                        )
                     else:
                         new_value = steps[i_step]
                     self.set_raw_parameter(
@@ -212,8 +215,8 @@ class LossProfile:
             steps = torch.linspace(lower_bound, upper_bound, n_steps)
         elif scale == "log":
             steps = torch.logspace(
-                torch.log10(torch.tensor(lower_bound)),
-                torch.log10(torch.tensor(upper_bound)),
+                torch.log10(torch.tensor(lower_bound, device=self.device)),
+                torch.log10(torch.tensor(upper_bound, device=self.device)),
                 n_steps,
             )
         else:
@@ -315,9 +318,9 @@ class LossSurface(LossProfile):
         - **steps** (dict): Dictionary of steps between the lower and upper bound of the parameters.
     """
 
-    def __init__(self, net: Shell, loss_config: LossConfig):
+    def __init__(self, net: Shell, loss_config: LossConfig, device: str = "cpu"):
 
-        super().__init__(net, loss_config)
+        super().__init__(net, loss_config, device)
 
         assert (
             len(loss_config.param_config) == 2
@@ -370,9 +373,9 @@ class LossSurface(LossProfile):
                     if type(self.param_config[0].lower_bound) == list:
                         # interpolate between the lower and upper bound
                         new_value = (1 - steps_0[i_step_0]) * torch.tensor(
-                            self.param_config[0].lower_bound
+                            self.param_config[0].lower_bound, device=self.device
                         ) + steps_0[i_step_0] * torch.tensor(
-                            self.param_config[0].upper_bound
+                            self.param_config[0].upper_bound, device=self.device
                         )
                     else:
                         new_value = steps_0[i_step_0]
@@ -386,9 +389,9 @@ class LossSurface(LossProfile):
                         if type(self.param_config[1].lower_bound) == list:
                             # interpolate between the lower and upper bound
                             new_value = (1 - steps_1[i_step_1]) * torch.tensor(
-                                self.param_config[1].lower_bound
+                                self.param_config[1].lower_bound, device=self.device
                             ) + steps_1[i_step_1] * torch.tensor(
-                                self.param_config[1].upper_bound
+                                self.param_config[1].upper_bound, device=self.device
                             )
                         else:
                             new_value = steps_1[i_step_1]
@@ -595,7 +598,8 @@ class LossSurface(LossProfile):
                 for i_step_0 in range(len(steps_0)):
                     for i_step_1 in range(len(steps_1)):
                         accuracy[i_run, i_step_0, i_step_1, i_crit] = int(
-                            loss[i_run,  i_step_0, i_step_1, i_crit] > loss[i_run, target_indx_0, target_indx_1, i_crit]
+                            loss[i_run, i_step_0, i_step_1, i_crit]
+                            > loss[i_run, target_indx_0, target_indx_1, i_crit]
                         )
 
         return accuracy.mean(axis=0)
