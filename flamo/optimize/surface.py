@@ -115,7 +115,7 @@ class LossProfile:
                     for i_crit in range(len(self.criteria)):
                         pred = self.net(input)
                         loss[i_run, i_step, i_crit] = (
-                            self.criteria[i_crit](pred, target).detach().numpy()
+                            self.criteria[i_crit](pred, target).cpu().detach().numpy()
                         )
 
         return loss
@@ -404,7 +404,7 @@ class LossSurface(LossProfile):
                         for i_crit in range(len(self.criteria)):
                             pred = self.net(input)
                             current_loss = (
-                                self.criteria[i_crit](pred, target).detach().numpy()
+                                self.criteria[i_crit](pred, target).cpu().detach().numpy()
                             )
                             loss[i_run, i_step_0, i_step_1, i_crit] = current_loss
 
