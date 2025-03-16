@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from tqdm import trange
@@ -565,7 +566,7 @@ class LossSurface(LossProfile):
 
                     ax[ax_i].view_init(90, -90)
 
-            for i_ax in range(1, 1 + ax.shape[0] * ax.shape[1] - len(self.criteria)):
+            for i_ax in range(1, 1 + math.prod(list(ax.shape)) - len(self.criteria)):
                 fig.delaxes(ax.flatten()[-i_ax])
             plt.tight_layout()
             fig.colorbar(
