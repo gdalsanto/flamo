@@ -1186,6 +1186,11 @@ class Biquad(Filter):
         The method uses the filter type specified in :attr:`filter_type` to determine
         which filter to apply. It applies a anti time-aliasing envelope decay to the filter coefficients.
         Zero values in the denominator polynomial coefficients are replaced with a small constant to avoid division by zero.
+
+        NOTE: To avoid NaN or Inf values in the frequency response, the operations 
+        performed in the frequency domain are done in double precision. The original 
+        data type is restored at the end of the computation.
+
         """
         match self.filter_type:
             case "lowpass":
@@ -1210,18 +1215,19 @@ class Biquad(Filter):
                     fs=self.fs,
                     device=self.device,
                 )
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        A[A == 0 + 1j * 0] = torch.tensor(1e-12)
-        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
         if torch.isnan(H).any():
             print(
                 "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
             )
-        return H, B, A
-
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
+        
     def get_map(self):
         r"""
         Get the mapping function :attr:`map` to parameter values that ensure stability.
@@ -1251,10 +1257,10 @@ class Biquad(Filter):
                         ),
                         dim=1,
                     ),
-                    min=torch.tensor([0, 0, -60], device=self.device)
+                    min=torch.tensor([0 + torch.finfo(torch.float).eps, 0 + torch.finfo(torch.float).eps, -60], device=self.device)
                     .view(-1, 1, 1)
                     .expand_as(x),
-                    max=torch.tensor([1, 1, 60], device=self.device)
+                    max=torch.tensor([1 - torch.finfo(torch.float).eps, 1 - torch.finfo(torch.float).eps, 60], device=self.device)
                     .view(-1, 1, 1)
                     .expand_as(x),
                 )
@@ -1263,7 +1269,7 @@ class Biquad(Filter):
         r"""
         Initialize the filter parameters.
         """
-        torch.nn.init.uniform_(self.param[:, 0, :], a=0, b=1)
+        torch.nn.init.uniform_(self.param[:, 0, :], a=0, b=0.5)
         if self.filter_type == "bandpass":
             torch.nn.init.uniform_(
                 self.param[:, 1, :], a=self.param[:, 0, :, :].max().item(), b=1
@@ -1372,10 +1378,10 @@ class parallelBiquad(Biquad):
                         ),
                         dim=1,
                     ),
-                    min=torch.tensor([0, 0, -60], device=self.device)
+                    min=torch.tensor([0 + torch.finfo(torch.float).eps, 0 + torch.finfo(torch.float).eps, -60], device=self.device)
                     .view(-1, 1)
                     .expand_as(x),
-                    max=torch.tensor([1, 1, 60], device=self.device)
+                    max=torch.tensor([1 - torch.finfo(torch.float).eps, 1 - torch.finfo(torch.float).eps, 60], device=self.device)
                     .view(-1, 1)
                     .expand_as(x),
                 )
@@ -1434,17 +1440,18 @@ class parallelBiquad(Biquad):
                     fs=self.fs,
                     device=self.device,
                 )
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        A[A == 0 + 1j * 0] = torch.tensor(1e-12)
-        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
         if torch.isnan(H).any():
             print(
                 "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
             )
-        return H, B, A
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -1479,6 +1486,10 @@ class SVF(Filter):
     Ellipsis :math:`(...)` represents additional dimensions (not tested).    
 
     SVF parameters are used to express biquad filters as follows:
+
+    NOTE: To avoid NaN or Inf values in the frequency response, the operations 
+    performed in the frequency domain are done in double precision. The original 
+    data type is restored at the end of the computation.
 
     .. math::
 
@@ -1602,13 +1613,18 @@ class SVF(Filter):
         a[2] = (f**2) - 2 * R * f + 1
 
         # apply anti-aliasing
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        A[A == 0 + 1j * 0] = torch.tensor(1e-12)
-        H = torch.prod(B, dim=1) / torch.prod(A, dim=1)
-        return H, B, A
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        if torch.isnan(H).any():
+            print(
+                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
+            )
+        H_type = torch.complex128 if f.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
 
     def param2freq(self, param):
         r"""
@@ -1652,6 +1668,10 @@ class SVF(Filter):
 
         where :math:`G` is the gain parameter mapped from the raw parameters as
         :math:`G = 10^{-\text{softplus}(x)}`.
+
+        NOTE: To avoid NaN or Inf values in the frequency response, the operations 
+        performed in the frequency domain are done in double precision. The original 
+        data type is restored at the end of the computation.
 
             **Arguments**:
                 - **param** (torch.Tensor): The raw parameters.
@@ -1815,12 +1835,18 @@ class parallelSVF(SVF):
         a[2] = (f**2) - 2 * R * f + 1
 
         # apply anti-aliasing
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        return H, B, A
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        if torch.isnan(H).any():
+            print(
+                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
+            )
+        H_type = torch.complex128 if f.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -1852,6 +1878,10 @@ class GEQ(Filter):
     :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
     The :attr:`param` attribute represent the command gains of each band and of the two shelving filters at DC and Nyquist. The first dimension of the :attr:`param` tensor corresponds to the number of command gains/filters :math:`K`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).
+
+    NOTE: To avoid NaN or Inf values in the frequency response, the operations 
+    performed in the frequency domain are done in double precision. The original 
+    data type is restored at the end of the computation.
 
         **Arguments / Attributes**:
             - **size** (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
@@ -1948,13 +1978,18 @@ class GEQ(Filter):
                     device=self.device,
                 )
 
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        A[A == 0 + 1j * 0] = torch.tensor(1e-12)
-        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        return H, B, A
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        if torch.isnan(H).any():
+            print(
+                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
+            )
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
 
     def initialize_class(self):
         self.check_param_shape()
@@ -2033,13 +2068,18 @@ class parallelGEQ(GEQ):
                 device=self.device,
             )
 
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        A[A == 0 + 1j * 0] = torch.tensor(1e-12)
-        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        return H, B, A
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        if torch.isnan(H).any():
+            print(
+                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
+            )
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A  
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -2069,7 +2109,10 @@ class AccurateGEQ(Filter):
     :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
     The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).   
-    NOTE: It is not differentiable 
+    NOTE I: It is not differentiable 
+    NOTE II: To avoid NaN or Inf values in the frequency response, the operations 
+    performed in the frequency domain are done in double precision. The original 
+    data type is restored at the end of the computation.
 
         **Args**:
             - size (tuple, optional): The size of the raw filter parameters. Default: (1, 1).
@@ -2157,13 +2200,18 @@ class AccurateGEQ(Filter):
                     device=self.device
                 )
          
-        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
-        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
+        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        A[A == 0+1j*0] = torch.tensor(1e-12)
-        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        return H, B, A 
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        if torch.isnan(H).any():
+            print(
+                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
+            )
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
 
     def initialize_class(self):
         self.check_param_shape()
@@ -2238,13 +2286,18 @@ class parallelAccurateGEQ(AccurateGEQ):
                     device=self.device
                 )
          
-        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
-        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        A[A == 0+1j*0] = torch.tensor(1e-12)
-        H = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        return H, B, A
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        if torch.isnan(H).any():
+            print(
+                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
+            )
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
