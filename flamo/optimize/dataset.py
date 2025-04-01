@@ -70,9 +70,9 @@ class DatasetColorless(Dataset):
         expand: int = 1000,
         device: str = "cpu",
     ):
-        input = torch.zeros(input_shape)
+        input = torch.zeros(input_shape, device=device)
         input[:, 0, :] = 1
-        target = torch.ones(target_shape)
+        target = torch.ones(target_shape, device=device)
         super().__init__(input=input, target=target, expand=expand, device=device)
 
     def __getitem__(self, index):

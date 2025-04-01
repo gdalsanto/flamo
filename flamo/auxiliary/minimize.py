@@ -53,7 +53,7 @@ def minimize_LBFGS(
     Returns:
         torch.nn.Parameter: The optimized result.
     """
-    initial_guess = nn.Parameter(torch.ones(num_freq + 1))
+    initial_guess = nn.Parameter(torch.ones(num_freq + 1, device=G.device))
     assert (
         len(lower_bound) == len(upper_bound) == len(initial_guess)
     ), "The number of bounds must be equal to the number of gains."

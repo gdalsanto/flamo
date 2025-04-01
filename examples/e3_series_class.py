@@ -257,7 +257,7 @@ def example_series_training(args):
     # Target
     target_gains = [0.5, -1.0]
     target_delays = filter2.s2sample(filter2.param)
-    target = torch.zeros(args.nfft, out_ch)
+    target = torch.zeros(args.nfft, out_ch, device=args.device)
     for i in range(out_ch):
         for j in range(in_ch):
             target[int(torch.round(target_delays[i, j]).item()), i] = target_gains[j]

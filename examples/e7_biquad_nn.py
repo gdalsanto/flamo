@@ -36,7 +36,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __init__(self, args, in_ch, out_ch, num, n_sections):
         # Create the input to the ddsp
-        input_biquad = torch.zeros((1, args.nfft, in_ch))
+        input_biquad = torch.zeros((1, args.nfft, in_ch), device=args.device)
         input_biquad[:, 0, :] = 1
         input_biquad = input_biquad.expand(
             tuple([num] + [d for d in input_biquad.shape[1:]])
