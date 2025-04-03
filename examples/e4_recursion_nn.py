@@ -254,7 +254,7 @@ def example_comb_nn(args):
     The system is multichannel. An MLP hypeconditions the parameters of the biquads, namely the cutoff frequency and the gain.
     We want the system to be stable, thus the gain of the biquad filters should be smaller than 0dB.
     To achieve that we need to overwrite the  get_map method of the Biquad class (check LossyBiquad class above).
-    NOTE: the model and the parameterizations should be fine tuned for better results.
+    NOTE: the model and the parameterizations should be fine tuned for better results. This example serves just as a demo of the API.
     Args:
         args: A dictionary or object containing the necessary arguments for the function.
     Returns:
