@@ -1330,7 +1330,7 @@ class parallelBiquad(Biquad):
         filter_type: str = "lowpass",
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad: bool = True,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
     ):
@@ -1543,7 +1543,7 @@ class SVF(Filter):
         filter_type: str = None,
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad: bool = True,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
     ):
@@ -1923,7 +1923,7 @@ class GEQ(Filter):
         nfft: int = 2**11,
         fs: int = 48000,
         map: callable = lambda x: 20 * torch.log10(x),
-        requires_grad: bool = True,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
     ):
@@ -2033,7 +2033,7 @@ class parallelGEQ(GEQ):
         nfft: int = 2**11,
         fs: int = 48000,
         map: callable = lambda x: 20 * torch.log10(x),
-        requires_grad: bool = True,
+        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
     ):
