@@ -31,13 +31,13 @@ Optimization - in `flamo.optimize`:
 
 ### 🛠️ Installation
 To install it via pip, on a new python virtual environment `flamo-env` 
-```
+```shell
 python3.10 -m venv .flamo-env
 source .flamo-env/bin/activate
 pip install flamo
 ```
 If you are using conda, you might need to install `libsndfile` manually
-```
+```shell
 conda create -n flamo-env python=3.10
 conda activate flamo-env
 pip install flamo
@@ -45,7 +45,7 @@ conda install -c conda-forge libsndfile
 ```
 
 For local installation: clone and install dependencies on a new pyton virtual environment `flamo-env` 
-```
+```shell
 git clone https://github.com/gdalsanto/flamo
 cd flamo
 python3.10 -m venv .flamo-env
@@ -63,18 +63,17 @@ We included a few examples in [`./examples`](https://github.com/gdalsanto/flamo/
 The following example demonstrates how to optimize the parameters of Biquad filters to match a target magnitude response. This is just a toy example; you can create and optimize much more complex systems by cascading modules either serially or recursively. 
 
 Import modules 
-```ruby
+```python
 import torch
 import torch.nn as nn
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
 from flamo.functional import signal_gallery, highpass_filter
-
 ```
 Define parameters and target response with randomized cutoff frequency and gains
 
-```ruby
+```python
 in_ch, out_ch = 1, 2    # input and output channels
 n_sections = 2  # number of cascaded biquad sections
 fs = 48000      # sampling frequency
@@ -87,12 +86,11 @@ b, a = highpass_filter(
 B = torch.fft.rfft(b, nfft, dim=0)
 A = torch.fft.rfft(a, nfft, dim=0)
 target_filter = torch.prod(B, dim=1) / torch.prod(A, dim=1)
-
 ```
 
 Define an instance of learnable Biquads
 
-```ruby
+```python
 filt = dsp.Biquad(
     size=(out_ch, in_ch), 
     n_sections=n_sections,
@@ -108,17 +106,16 @@ Use the `Shell` class to add input and output layers and to get the magnitude re
 Optimization is done in the frequency domain. The input will be an impulse in the time domain, thus the input layer should perform the Fourier transform.
 The target is the magnitude response, so the output layer takes the absolute value of the filter's output.  
 
-```ruby
+```python
 input_layer = dsp.FFT(nfft)
 output_layer = dsp.Transform(transform=lambda x : torch.abs(x))
 model = system.Shell(core=filt, input_layer=input_layer, output_layer=output_layer)    
 estimation_init = model.get_freq_response()
-
 ````
 
 Set up optimization framework and launch it. The `Trainer` class is used to contain the model, training parameters, and training/valid steps in one class. 
 
-```ruby
+```python
 input = signal_gallery(1, n_samples=nfft, n=in_ch, signal_type='impulse', fs=fs)
 target = torch.einsum('...ji,...i->...j', target_filter, input_layer(input))
 
@@ -136,7 +133,7 @@ trainer.train(train_loader, valid_loader)
 ```
 end get the resulting response after optimization! 
 
-```ruby
+```python
 estimation = model.get_freq_response()
 ```
 
