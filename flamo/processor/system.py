@@ -364,7 +364,7 @@ class Recursion(nn.Module):
         # Identity matrix for the forward computation
         self.I = self.__generate_identity().to(device=self.alias_decay_db.device)
 
-    def forward(self, X):
+    def forward(self,  X: torch.Tensor, ext_param: dict = None):
         r"""
         Applies the closed-loop transfer function to the input tensor X.
 
@@ -374,14 +374,24 @@ class Recursion(nn.Module):
             **Returns**:
                 torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
         """
-        B = self.feedforward(X)
+        ext_param_fb = None
+        ext_param_ff = None
+        if ext_param is not None:
+            for key, param in ext_param.items():
+                # check if the key is in param_dict
+                if 'feedback' in key:
+                    ext_param_fb = param
+                elif 'feedforward' in key:
+                    ext_param_ff = param
+
+        B = self.feedforward(X, ext_param_ff)
 
         # Expand identity matrix to batch size
         expand_dim = [X.shape[0]] + [d for d in self.I.shape]
         I = self.I.expand(tuple(expand_dim))
 
-        HH = self.feedback(I)
-        A = I - self.feedforward(HH)
+        HH = self.feedback(I, ext_param_fb)
+        A = I - self.feedforward(HH, ext_param_ff)
         return torch.linalg.solve(A, B)
 
     def __generate_identity(self) -> torch.Tensor:
