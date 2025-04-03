@@ -20,10 +20,10 @@ class dBMSELoss(nn.Module):
     def __init__(self):
         super(dBMSELoss, self).__init__()
 
-    def forward(self, input, target):
+    def forward(self, pred, target):
         # Compute the mean squared error in dB scale
         loss = torch.mean(
-            (20 * torch.log10(torch.abs(input)) - 20 * torch.log10(torch.abs(target)))
+            (torch.abs(pred) - torch.abs(target))
             ** 2
         )
         return loss
@@ -45,7 +45,8 @@ class Dataset(torch.utils.data.Dataset):
 
         # Create many instances of biquad filters as target
         target = torch.ones((num, args.nfft // 2 + 1, out_ch)) + 1j * torch.zeros(
-            (num, args.nfft // 2 + 1, out_ch)
+            (num, args.nfft // 2 + 1, out_ch),
+            device=args.device,
         )
         input_layer = dsp.FFT(args.nfft)
         imp = signal_gallery(
@@ -142,7 +143,7 @@ class nnBiquad(nn.Module):
 
         # Reshape the output to (3, n_sections, in_channels, out_channels)
         x = x.view(-1, self.n_sect, self.n_param, self.out_ch, self.in_ch)
-        x[:, 0, :, :] = torch.sigmoid(x[:, :, 0, :, :])
+        x[:, :, 0, :, :] = torch.sigmoid(x[:, :, 0, :, :] * 0.25)
 
         # As of now, this is the only way to process batches larger than 1:
         y = []
@@ -159,7 +160,7 @@ def example_biquad_nn(args):
     """
     Example function that demonstrates the training of biquad coefficients via MLPs.
     This example shows how to use flamo's modules within a neural network model.
-    NOTE: the model and the paramaeterizasions should be fine tuned for better results.
+    NOTE: the model and the parameterizations should be fine tuned for better results. This example serves just as a demo of the API.
     Args:
         args: A dictionary or object containing the necessary arguments for the function.
     Returns:
@@ -201,17 +202,20 @@ def generate_biquad_filter(args, in_ch, out_ch, n_sections):
     Returns:
         target_filter: Generated biquad filter coefficients.
     """
-    b, a = highpass_filter(
-        fc=torch.tensor(args.samplerate // 2)
-        * torch.rand(size=(n_sections, out_ch, in_ch)),
-        gain=torch.tensor(-1)
-        + (torch.tensor(2)) * torch.rand(size=(n_sections, out_ch, in_ch)),
-        fs=args.samplerate,
+    target_filter = torch.zeros(args.nfft // 2 + 1, out_ch, in_ch) / torch.zeros(
+        args.nfft // 2 + 1, out_ch, in_ch
     )
-    B = torch.fft.rfft(b, args.nfft, dim=0)
-    A = torch.fft.rfft(a, args.nfft, dim=0)
-    target_filter = torch.prod(B, dim=1) / torch.prod(A, dim=1)
-    target_filter[target_filter == 0 + 1j * 0] = torch.tensor(1e-12)
+    while torch.isnan(torch.abs(target_filter)).any():
+        b, a = highpass_filter(
+            fc=torch.tensor(args.samplerate // 2)
+            * torch.rand(size=(n_sections, out_ch, in_ch)),
+            gain=torch.tensor(-1)
+            + (torch.tensor(2)) * torch.rand(size=(n_sections, out_ch, in_ch)),
+            fs=args.samplerate,
+        )
+        B = torch.fft.rfft(b.to(torch.double), args.nfft, dim=0)
+        A = torch.fft.rfft(a.to(torch.double), args.nfft, dim=0)
+        target_filter = torch.prod(B, dim=1) / torch.prod(A, dim=1)
     return target_filter
 
 
@@ -231,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_epochs", type=int, default=100, help="maximum number of epochs"
     )
-    parser.add_argument("--lr", type=float, default=2e-3, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument(
         "--train_dir", type=str, help="directory to save training results"
     )
