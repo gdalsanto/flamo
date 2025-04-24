@@ -353,6 +353,18 @@ class LossSurface(LossProfile):
         r"""
         Compute the loss surface of the model.
         """
+        # first of compute the minimum loss for the given parameters
+        # this assumes that the model is initialized with the target parameters
+        for i_crit in range(len(self.criteria)):
+            pred = self.net(input)
+            current_loss = (
+                self.criteria[i_crit](pred, target)
+                .cpu()
+                .detach()
+                .numpy()
+            )
+            print(f"Loss for the criterion {self.criteria[i_crit].name}: {current_loss}")
+
         core = self.net.get_core()
         with torch.no_grad():
             steps_0 = self.steps_0
