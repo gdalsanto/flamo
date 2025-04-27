@@ -197,12 +197,15 @@ class LossProfile:
                 if criterion_name:
                     ax[ax_i].set_title(criterion_name)
         # delay empty axes
-        for i_ax in range(i_crit + 1, math.prod(list(ax.shape))):
-            if (len(self.criteria) + 2) // 3 == 1:
-                ax_i = (i_ax % 3,)
-            else:
-                ax_i = (i_ax % 3, i_ax // 3)
-            fig.delaxes(ax[ax_i])
+        try:
+            for i_ax in range(i_crit + 1,math.prod(list(ax.shape))):
+                if (len(self.criteria) + 2) // 3 == 1:
+                    ax_i = (i_ax % 3,)
+                else:
+                    ax_i = (i_ax % 3, i_ax // 3)
+                fig.delaxes(ax[ax_i])
+        except:
+            pass
         plt.tight_layout()
         plt.savefig(f"{self.output_dir}/{self.param_config.key}.png")
         return fig, ax
@@ -587,13 +590,15 @@ class LossSurface(LossProfile):
                         ax[ax_i].set_title(criterion_name)
 
                     ax[ax_i].view_init(90, -90)
-
-            for i_ax in range(i_crit + 1, math.prod(list(ax.shape))):
-                if (len(self.criteria) + 2) // 3 == 1:
-                    ax_i = (i_ax % 3,)
-                else:
-                    ax_i = (i_ax % 3, i_ax // 3)
-                fig.delaxes(ax[ax_i])
+            try:
+                for i_ax in range(i_crit + 1, math.prod(list(ax.shape))):
+                    if (len(self.criteria) + 2) // 3 == 1:
+                        ax_i = (i_ax % 3,)
+                    else:
+                        ax_i = (i_ax % 3, i_ax // 3)
+                    fig.delaxes(ax[ax_i])
+            except:
+                pass
             plt.tight_layout()
             fig.colorbar(
                 cm.ScalarMappable(cmap=cm.PuBu),
