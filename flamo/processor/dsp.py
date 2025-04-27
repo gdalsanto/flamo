@@ -1221,10 +1221,6 @@ class Biquad(Filter):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        if torch.isnan(H).any():
-            print(
-                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
-            )
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
         
@@ -1446,10 +1442,6 @@ class parallelBiquad(Biquad):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        if torch.isnan(H).any():
-            print(
-                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
-            )
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
 
@@ -1619,10 +1611,6 @@ class SVF(Filter):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        if torch.isnan(H).any():
-            print(
-                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
-            )
         H_type = torch.complex128 if f.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
 
@@ -1841,10 +1829,6 @@ class parallelSVF(SVF):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        if torch.isnan(H).any():
-            print(
-                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
-            )
         H_type = torch.complex128 if f.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
 
@@ -1984,10 +1968,6 @@ class GEQ(Filter):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        if torch.isnan(H).any():
-            print(
-                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
-            )
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
 
@@ -2074,10 +2054,6 @@ class parallelGEQ(GEQ):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        if torch.isnan(H).any():
-            print(
-                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
-            )
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A  
 
@@ -2206,10 +2182,6 @@ class AccurateGEQ(Filter):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        if torch.isnan(H).any():
-            print(
-                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
-            )
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
 
@@ -2292,10 +2264,6 @@ class parallelAccurateGEQ(AccurateGEQ):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        if torch.isnan(H).any():
-            print(
-                "Warning: NaN values in the frequency response. This is a common issue with high order, we are working on it. But please rise an issue on github if you encounter it. One thing that can help is to reduce the learning rate."
-            )
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
 
