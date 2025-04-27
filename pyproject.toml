@@ -32,6 +32,8 @@ dependencies = [
     "tqdm",
     "matplotlib",
     "pydantic",
+    "nnAudio",
+    "pyfar",
 ]
 
 [project.urls]
