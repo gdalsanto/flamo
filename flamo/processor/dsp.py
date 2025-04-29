@@ -2069,6 +2069,255 @@ class parallelGEQ(GEQ):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
+class PEQ(Filter):
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        n_bands: int = 10,
+        f_min: float = 20,
+        f_max: float = 20000,
+        sample_rate: int = 48000,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map: callable = lambda x: x,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
+    ):
+        self.fs = fs
+        self.n_bands = n_bands
+        self.sample_rate = sample_rate
+        gamma = 10 ** (
+            -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
+        )
+        k = torch.arange(1, self.n_bands + 1, dtype=torch.float32)
+        self.center_freq_bias = f_min * (f_max / f_min) ** ((k - 1) / (self.n_bands - 1))
+        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device)
+        super().__init__(
+            size=(self.n_bands, 3, *size),
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device,
+        )
+
+    def init_param(self):
+        torch.nn.init.uniform_(self.param)
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 4
+        ), "Filter must be 3D, for 2D (parallel) filters use ParallelPEQ module."
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        """
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
+        """
+        param = self.map_eq(param)
+        a = torch.zeros((self.n_bands, 3, *self.size[2:]), device=self.device)
+        b = torch.zeros((self.n_bands, 3, *self.size[2:]), device=self.device)
+        for m_i in range(self.size[-2]):
+            for n_i in range(self.size[-1]):
+                f = param[0, :, m_i, n_i] 
+                R = param[1, :, m_i, n_i]
+                G = param[2, :, m_i, n_i]
+                # low shelf filter 
+                a[0, :, m_i, n_i], b[0, :, m_i, n_i] = self.compute_biquad_coeff(
+                    f=f[0],
+                    R=R[0],
+                    mLP=G[0],
+                    mBP=2 * R[0] * torch.sqrt(G[0]), 
+                    mHP=torch.ones_like(G[0]), 
+                )
+                # high shelf filter 
+                a[-1, :, m_i, n_i], b[-1, :, m_i, n_i] = self.compute_biquad_coeff(
+                    f=f[-1],
+                    R=R[-1],
+                    mLP=torch.ones_like(G[0]),
+                    mBP=2 * R[-1] * torch.sqrt(G[0]), 
+                    mHP=G[0],
+                )
+                # peak filter 
+                a[1:-1, :, m_i, n_i], b[1:-1, :, m_i, n_i] = self.compute_biquad_coeff(
+                    f=f[1:-1],
+                    R=R[1:-1],
+                    mLP=torch.ones_like(G[1:-1]),
+                    mBP=2 * R[1:-1] * torch.sqrt(G[1:-1]), 
+                    mHP=torch.ones_like(G[1:-1]),
+                )
+        b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        B = torch.fft.rfft(b_aa, self.nfft, dim=1)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=1)
+        H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
+        H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
+
+    def compute_biquad_coeff(self, f, R, mLP, mBP, mHP):
+        beta = torch.zeros(*f.shape, 3, device=self.device)     
+        alpha = torch.zeros(*f.shape, 3, device=self.device)  
+        beta[..., 0] = (f**2) * mLP + f * mBP + mHP
+        beta[..., 1] = 2*(f**2) * mLP - 2 * mHP
+        beta[..., 2] = (f**2) * mLP - f * mBP + mHP
+        alpha[..., 0] = f**2 + 2*R*f + 1
+        alpha[..., 1] = 2* (f**2) - 2
+        alpha[..., 2] = f**2 - 2*R*f + 1  
+        return beta, alpha
+
+    def initialize_class(self):
+        self.check_param_shape()
+        self.get_io()
+        self.freq_response = to_complex(
+            torch.empty((self.nfft // 2 + 1, *self.size[2:]))
+        )
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+    def map_eq(self, param):
+        r"""
+        Mapping function for the raw parameters to the SVF filter coefficients.
+        """
+        bias = torch.log(2 * self.center_freq_bias / self.sample_rate / (1 - 2 * self.center_freq_bias / self.sample_rate))
+        f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1).unsqueeze(-1) ) * 0.5) 
+
+        R = param[:, 1, ...]
+        G = param[:, 2, ...]
+
+        param = torch.cat(
+            (
+                f.unsqueeze(0),
+                R.unsqueeze(0),
+                G.unsqueeze(0),
+            ),
+            dim=0,
+        )
+        return param
+    
+class parallelPEQ(PEQ):
+    r"""
+    Parallel counterpart of the :class:`PEQ` class
+    For information about **attributes** and **methods** see :class:`flamo.processor.dsp.PEQ`.
+    """
+    def __init__(
+        self,
+        size: tuple = (1, ),
+        n_bands: int = 10,
+        f_min: float = 20,
+        f_max: float = 20000,
+        sample_rate: int = 48000,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map: callable = lambda x: x,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
+    ):
+        super().__init__(
+            size=size,
+            n_bands=n_bands,
+            f_min=f_min,
+            f_max=f_max,
+            sample_rate=sample_rate,
+            nfft=nfft,
+            fs=fs,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device,
+        )
+
+    def init_param(self):
+        torch.nn.init.uniform_(self.param)
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 3
+        ), "Filter must be 2D in the parallel configuration, for 3D filters use PEQ module."
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
+        """
+        param = self.map_eq(param)
+        a = torch.zeros((self.n_bands, 3, *self.size[2:]), device=self.device)
+        b = torch.zeros((self.n_bands, 3, *self.size[2:]), device=self.device)
+        for n_i in range(self.size[-1]):
+            f = param[0, :, n_i] 
+            R = param[1, :, n_i]
+            G = param[2, :, n_i]
+            # low shelf filter 
+            a[0, :, n_i], b[0, :, n_i] = self.compute_biquad_coeff(
+                f=f[0],
+                R=R[0],
+                mLP=G[0],
+                mBP=2 * R[0] * torch.sqrt(G[0]), 
+                mHP=torch.ones_like(G[0]), 
+            )
+            # high shelf filter 
+            a[-1, :, n_i], b[-1, :, n_i] = self.compute_biquad_coeff(
+                f=f[-1],
+                R=R[-1],
+                mLP=torch.ones_like(G[0]),
+                mBP=2 * R[-1] * torch.sqrt(G[0]), 
+                mHP=G[0],
+            )
+            # peak filter 
+            a[1:-1, :, n_i], b[1:-1, :, n_i] = self.compute_biquad_coeff(
+                f=f[1:-1],
+                R=R[1:-1],
+                mLP=torch.ones_like(G[1:-1]),
+                mBP=2 * R[1:-1] * torch.sqrt(G[1:-1]), 
+                mHP=torch.ones_like(G[1:-1]),
+            )
+        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        B = torch.fft.rfft(b_aa, self.nfft, dim=1)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=1)
+        H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
+        H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
+    
+    def map_eq(self, param):
+        r"""
+        Mapping function for the raw parameters to the SVF filter coefficients.
+        """
+        bias = torch.log(2 * self.center_freq_bias / self.sample_rate / (1 - 2 * self.center_freq_bias / self.sample_rate))
+        f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1) ) * 0.5) 
+
+        R = param[:, 1, ...]
+        G = param[:, 2, ...]
+
+        param = torch.cat(
+            (
+                f.unsqueeze(0),
+                R.unsqueeze(0),
+                G.unsqueeze(0),
+            ),
+            dim=0,
+        )
+        return param
+    
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
+        )
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
+        
 class AccurateGEQ(Filter):
     r"""
     Graphic Equilizer filter. Inherits from the :class:`Filter` class.
