@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import sympy as sp
+from typing import Optional
 
 from collections import OrderedDict
 
@@ -359,7 +360,7 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
         self.input_channels = len(self.delays)
         self.output_channels = len(self.delays)
 
-class parallelOnePoleShelving(dsp.parallelFilter):
+class parallelFirstOrderShelving(dsp.parallelFilter):
     
     def __init__(
         self,
