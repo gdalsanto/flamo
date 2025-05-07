@@ -436,3 +436,79 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         """
         self.input_channels = len(self.delays)
         self.output_channels = len(self.delays)
+
+
+class parallelPEQ4FDN(dsp.parallelPEQ):
+    
+    def __init__(
+        self,
+        size: tuple = (1, ),
+        n_bands: int = 10,
+        f_min: float = 20,
+        f_max: float = 20000,
+        sample_rate: int = 48000,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        delays: torch.Tensor = None,
+        map: callable = lambda x: x,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
+    ):
+        self.delays = delays
+        super().__init__(
+            size=size,
+            n_bands=n_bands,
+            f_min=f_min,
+            f_max=f_max,
+            sample_rate=sample_rate,
+            nfft=nfft,
+            fs=fs,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device,
+        )
+        
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
+        """
+        param = self.map_eq(param)
+        a = torch.zeros((self.n_bands, 3, 1), device=self.device)
+        b = torch.zeros((self.n_bands, 3, 1), device=self.device)
+        f = param[0, :, 0] 
+        R = param[1, :, 0]
+        G = param[2, :, 0]
+        # low shelf filter 
+        a[0, :, 0], b[0, :, 0] = self.compute_biquad_coeff(
+            f=f[0],
+            R=R[0],
+            mLP=G[0],
+            mBP=2 * R[0] * torch.sqrt(G[0]), 
+            mHP=torch.ones_like(G[0]), 
+        )
+        # high shelf filter 
+        a[-1, :, 0], b[-1, :, 0] = self.compute_biquad_coeff(
+            f=f[-1],
+            R=R[-1],
+            mLP=torch.ones_like(G[0]),
+            mBP=2 * R[-1] * torch.sqrt(G[0]), 
+            mHP=G[0],
+        )
+        # peak filter 
+        a[1:-1, :, 0], b[1:-1, :, 0] = self.compute_biquad_coeff(
+            f=f[1:-1],
+            R=R[1:-1],
+            mLP=torch.ones_like(G[1:-1]),
+            mBP=2 * R[1:-1] * torch.sqrt(G[1:-1]), 
+            mHP=torch.ones_like(G[1:-1]),
+        )
+        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        B = torch.fft.rfft(b_aa, self.nfft, dim=1)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=1)
+        H_temp = (torch.prod(B, dim=0) / (torch.prod(A, dim=0)))
+        H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
