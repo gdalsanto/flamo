@@ -7,7 +7,10 @@ from collections import OrderedDict
 
 from flamo.processor import dsp, system
 from flamo.auxiliary.eq import design_geq
-
+from flamo.functional import (
+    prop_peak_filter,
+    prop_shelving_filter,
+)
 def rt2slope(rt60: torch.Tensor, fs: int):
     r"""
     Convert time in seconds of 60 dB decay to energy decay slope.
@@ -429,6 +432,82 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         b[0] = t * torch.sqrt(k) + 1
         b[1] = t * torch.sqrt(k) - 1
         return b * 10**(gain_Nyq/20), a
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = len(self.delays)
+        self.output_channels = len(self.delays)
+
+class parallelPropFirstOrderShelving(dsp.parallelFilter):
+    
+    def __init__(
+        self,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        rt_nyquist: float = 0.01,
+        delays: torch.Tensor =  None,
+        alias_decay_db: float = 0.0,
+        requires_grad: bool = True,
+        device: str = None,
+    ):
+        size = (2,)      # rt at DC and crossover frequency
+        assert (delays is not None), "Delays must be provided"
+        self.delays = delays
+        map = lambda x: self.map_param(x, fs)
+        self.rt_nyquist = torch.tensor(rt_nyquist)
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            alias_decay_db=alias_decay_db,
+            requires_grad=requires_grad,
+            device=device
+        )
+        gamma = 10 ** (
+            -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
+        )
+        self.alias_envelope_dcy = gamma ** torch.arange(0, 2, 1, device=device)
+        self.fs = fs
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the filter.
+        """
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param):
+        b, a = param
+        b = b * ( 10** ( self.gain_DC / 20))
+        b_aa = torch.einsum('p, pn -> pn', self.alias_envelope_dcy, b.unsqueeze(-1))
+        a_aa = torch.einsum('p, pn -> pn', self.alias_envelope_dcy, a.unsqueeze(-1))
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        H = B / A
+    
+        return H ** self.delays, B, A 
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the filter parameters is valid.
+        """
+        assert (
+            len(self.size) == 1
+        ), "Filter must be 1D, for 2D filters use Filter module."
+
+    def map_param(self, param, fs):
+        rt = param[0]
+        self.gain_DC = rt2slope(rt, fs)
+        gain_Ny = rt2slope(self.rt_nyquist, fs)
+        b, a = prop_shelving_filter(
+            fc=param[1],
+            gain=gain_Ny,
+            fs=fs,
+            type="high",
+            device=self.device,
+        )       
+        return b, a
 
     def get_io(self):
         r"""
