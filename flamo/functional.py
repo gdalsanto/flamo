@@ -554,6 +554,131 @@ def peak_filter(
     return b, a
 
 
+def prop_shelving_filter(
+    fc: torch.Tensor,
+    gain: torch.Tensor,
+    type: str = "low",
+    fs: int = 48000,
+    device="cpu",
+):
+    r"""
+    Proportional first order Shelving filter coefficients.
+    Maps the cutoff frequencies and gain to the :math:`\mathbf{b}` and :math:`\mathbf{a}` first order coefficients.
+
+    .. math::
+        H(z) = \frac{b_0 + b_1 z^{-1}}{a_0 + a_1 z^{-1}}
+
+        t = \text{tan}(\pi f_c / f_s),\;\; k = 10^{g_{\textrm{dB}}/20}
+
+    for low shelving filter:
+
+    .. math::
+        b_0 = t \sqrt{k} + 1,\;\; b_1 =  t \sqrt{k} - 1
+
+        a_0 = t / \sqrt{k} + 1,\;\; a_1 =t / \sqrt{k} - 1
+
+    for high shelving filter:
+
+    .. math::
+        b_0 = k * (t \sqrt{1/k} + 1),\;\; b_1 =  k * (t \sqrt{1/k} - 1)
+
+        a_0 = t / \sqrt{1/k} + 1,\;\; a_1 =t / \sqrt{1/k} - 1
+
+    where :math:`f_c` is the cutoff frequency, :math:`f_s` is the sampling frequency, and :math:`g_{\textrm{dB}}` is the gain in dB.
+
+        **Arguments**:
+            - **fc** (torch.Tensor): The cutoff frequency of the filter in Hz.
+            - **gain** (torch.Tensor): The gain in dB of the filter.
+            - **type** (str, optional): The type of shelving filter. Can be 'low' or 'high'. Default: 'low'.
+            - **fs** (int, optional): The sampling frequency of the signal in Hz.
+            - **device** (torch.device | str, optional): The device of constructed tensors. Default: None.
+
+        **Returns**:
+            - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
+            - **a** (torch.Tensor): The denominator coefficients of the filter transfer function.
+
+    Reference:
+    - Jot, J. M. (2015, October). Proportional parametric equalizers—Application to digital reverberation and environmental audio processing. In Proceedings of the 139th Convention of the Audio Engineering Society, New York, NY, USA (Vol. 29).
+    """
+
+    t = torch.tan(torch.pi * fc / fs)
+    k = 10 ** (gain / 20)
+
+    a = torch.zeros((2, *fc.shape), device=device)
+    b = torch.zeros_like(a)
+
+    if type == "low":
+        b[0] = t * torch.sqrt(k) + 1
+        b[1] = t * torch.sqrt(k) - 1
+        a[0] = t / torch.sqrt(k) + 1
+        a[1] = t / torch.sqrt(k) - 1
+    elif type == "high":
+        k = 1 / k
+        b[0] = (t * torch.sqrt(k) + 1) / k
+        b[1] = (t * torch.sqrt(k) - 1) / k
+        a[0] = t / torch.sqrt(k) + 1
+        a[1] = t / torch.sqrt(k) - 1
+
+    return b, a
+
+
+def prop_peak_filter(
+    fc: torch.Tensor,
+    bw: torch.Tensor,
+    gain: torch.Tensor,
+    fs: int = 48000,
+    device="cpu",
+):
+    r"""
+    Proportional Peak (Presence) filter coefficients.
+    Maps the cutoff frequencies and gain to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
+
+    .. math::
+        H(z) = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{a_0 + a_1 z^{-1} + a_2 z^{-2}}
+
+        t = \text{tan}(\pi BW / f_s),\;\; c = \text{cos}(2 \pi f_c / f_s),\;\;k = 10^{g_{\textrm{dB}}/20}
+
+    Biquad coefficients:
+
+    .. math::
+        b_0 = 1 + t \sqrt{k} ,\;\; b_1 = -2 c,\;\; b_2 = 1 - t \sqrt{k}
+
+        a_0 = 1 + t / \sqrt{k},\;\; a_1 = - 2 c ,\;\; 1 - t / \sqrt{k}
+
+    where :math:`f_c` is the cutoff frequency, :math:`f_s` is the sampling frequency, and :math:`g_{\textrm{dB}}` is the gain in dB.
+
+        **Arguments**:
+            - **fc** (torch.Tensor): The cutoff frequency of the filter in Hz.
+            - **bw** (torch.Tensor): The bandwidth of the filter in Hz.
+            - **gain** (torch.Tensor): The gain in dB of the filter.
+            - **fs** (int, optional): The sampling frequency of the signal in Hz.
+            - **device** (torch.device | str, optional): The device of constructed tensors. Default: None.
+
+        **Returns**:
+            - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
+            - **a** (torch.Tensor): The denominator coefficients of the filter transfer function.
+
+    Reference:
+    - Jot, J. M. (2015, October). Proportional parametric equalizers—Application to digital reverberation and environmental audio processing. In Proceedings of the 139th Convention of the Audio Engineering Society, New York, NY, USA (Vol. 29).
+    """
+
+    t = torch.tan(torch.pi * bw / fs)
+    c = torch.cos(2 * np.pi * fc / fs)
+    k = 10 ** (gain / 20)
+
+    a = torch.zeros((3, *fc.shape), device=device)
+    b = torch.zeros_like(a)
+
+    b[0] = 1 + torch.sqrt(k) * t
+    b[1] = -2 * c
+    b[2] = 1 - torch.sqrt(k) * t
+    a[0] = 1 + t / torch.sqrt(k)
+    a[1] = -2 * c
+    a[2] = 1 - t / torch.sqrt(k)
+
+    return b, a
+
+
 def sosfreqz(sos: torch.Tensor, nfft: int = 512):
     r"""
     Compute the complex frequency response via FFT of cascade of second order filter sections (SOS).
