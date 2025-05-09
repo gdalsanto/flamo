@@ -2070,6 +2070,9 @@ class parallelGEQ(GEQ):
         self.output_channels = self.size[-1]
 
 class PEQ(Filter):
+    r"""
+    TODO
+    """
     def __init__(
         self,
         size: tuple = (1, 1),
