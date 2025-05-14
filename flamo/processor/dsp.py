@@ -775,7 +775,7 @@ class Filter(DSP):
         """
         if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
             raise ValueError(
-                f"parameter shape = {self.freq_response.shape} not compatible with input signal of shape = ({x.shape})."
+                f"parameter shape not compatible with input signal of shape = ({x.shape})."
             )
 
     def check_param_shape(self):
@@ -2079,17 +2079,17 @@ class PEQ(Filter):
         n_bands: int = 10,
         f_min: float = 20,
         f_max: float = 20000,
-        sample_rate: int = 48000,
-        nfft: int = 2**11,
+        design: str = "biquad",
         fs: int = 48000,
+        nfft: int = 2**11,
         map: callable = lambda x: x,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
     ):
-        self.fs = fs
         self.n_bands = n_bands
-        self.sample_rate = sample_rate
+        self.design = design
+        self.fs = fs
         gamma = 10 ** (
             -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
         )
@@ -2135,25 +2135,22 @@ class PEQ(Filter):
                 a[0, :, m_i, n_i], b[0, :, m_i, n_i] = self.compute_biquad_coeff(
                     f=f[0],
                     R=R[0],
-                    mLP=G[0],
-                    mBP=2 * R[0] * torch.sqrt(G[0]), 
-                    mHP=torch.ones_like(G[0]), 
+                    G=G[0],
+                    type='lowshelf',
                 )
                 # high shelf filter 
                 a[-1, :, m_i, n_i], b[-1, :, m_i, n_i] = self.compute_biquad_coeff(
                     f=f[-1],
                     R=R[-1],
-                    mLP=torch.ones_like(G[0]),
-                    mBP=2 * R[-1] * torch.sqrt(G[0]), 
-                    mHP=G[0],
+                    G=G[-1],
+                    type='highshelf',
                 )
                 # peak filter 
                 a[1:-1, :, m_i, n_i], b[1:-1, :, m_i, n_i] = self.compute_biquad_coeff(
                     f=f[1:-1],
                     R=R[1:-1],
-                    mLP=torch.ones_like(G[1:-1]),
-                    mBP=2 * R[1:-1] * torch.sqrt(G[1:-1]), 
-                    mHP=torch.ones_like(G[1:-1]),
+                    G=G[1:-1],
+                    type='peaking',
                 )
         b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
@@ -2164,17 +2161,59 @@ class PEQ(Filter):
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
 
-    def compute_biquad_coeff(self, f, R, mLP, mBP, mHP):
-        beta = torch.zeros(*f.shape, 3, device=self.device)     
-        alpha = torch.zeros(*f.shape, 3, device=self.device)  
-        beta[..., 0] = (f**2) * mLP + f * mBP + mHP
-        beta[..., 1] = 2*(f**2) * mLP - 2 * mHP
-        beta[..., 2] = (f**2) * mLP - f * mBP + mHP
-        alpha[..., 0] = f**2 + 2*R*f + 1
-        alpha[..., 1] = 2* (f**2) - 2
-        alpha[..., 2] = f**2 - 2*R*f + 1  
-        return beta, alpha
+    def compute_biquad_coeff(self, f, R, G, type='peaking'):
+        # f : freq, R : resonance, G : gain
+        b = torch.zeros(*f.shape, 3, device=self.device)     
+        a = torch.zeros(*f.shape, 3, device=self.device)  
 
+        if self.design == 'svf':
+            if type == 'peaking':
+                mLP = torch.ones_like(G)
+                mBP = 2 * R * torch.sqrt(G)
+                mHP = torch.ones_like(G)
+            elif type == 'lowshelf':
+                mLP = G
+                mBP = 2 * R * torch.sqrt(G)
+                mHP = torch.ones_like(G)
+            elif type == 'highshelf':
+                mLP = torch.ones_like(G)
+                mBP = 2 * R * torch.sqrt(G)
+                mHP = G
+            b[..., 0] = (f**2) * mLP + f * mBP + mHP
+            b[..., 1] = 2*(f**2) * mLP - 2 * mHP
+            b[..., 2] = (f**2) * mLP - f * mBP + mHP
+            a[..., 0] = f**2 + 2*R*f + 1
+            a[..., 1] = 2* (f**2) - 2
+            a[..., 2] = f**2 - 2*R*f + 1  
+        elif self.design == 'biquad':
+            w0 = 2 * torch.pi * f / 2
+            G = 10 ** (G / 40)
+            if type == 'peaking':
+                alpha = torch.sin(w0) / (2 * R)
+                b[..., 0] = 1 + alpha * G
+                b[..., 1] = -2 * torch.cos(w0)
+                b[..., 2] = 1 - alpha * G
+                a[..., 0] = 1 + alpha / G
+                a[..., 1] = -2 * torch.cos(w0)
+                a[..., 2] = 1 - alpha / G
+            elif type == 'lowshelf':
+                alpha = torch.sin(w0) * torch.sqrt((G**2 + 1) * (1/R - 1) + 2*G)
+                b[..., 0] = G * ((G + 1) - (G - 1) * torch.cos(w0) + alpha)
+                b[..., 1] = 2 * G * ((G - 1) - (G + 1) * torch.cos(w0))
+                b[..., 2] = G * ((G + 1) - (G - 1) * torch.cos(w0) - alpha)
+                a[..., 0] = (G + 1) + (G - 1) * torch.cos(w0) + alpha
+                a[..., 1] = -2 * ((G - 1) + (G + 1) * torch.cos(w0))
+                a[..., 2] = (G + 1) + (G - 1) * torch.cos(w0) - alpha
+            elif type == 'highshelf':
+                alpha = torch.sin(w0) * torch.sqrt((G**2 + 1) * (1/R - 1) + 2*G)
+                b[..., 0] = G * ((G + 1) + (G - 1) * torch.cos(w0) + alpha)
+                b[..., 1] = -2 * G * ((G - 1) + (G + 1) * torch.cos(w0))
+                b[..., 2] = G * ((G + 1) + (G - 1) * torch.cos(w0) - alpha)
+                a[..., 0] = (G + 1) - (G - 1) * torch.cos(w0) + alpha
+                a[..., 1] = 2 * ((G - 1) - (G + 1) * torch.cos(w0))
+                a[..., 2] = (G + 1) - (G - 1) * torch.cos(w0) - alpha
+
+        return a, b
     def initialize_class(self):
         self.check_param_shape()
         self.get_io()
@@ -2188,8 +2227,11 @@ class PEQ(Filter):
         r"""
         Mapping function for the raw parameters to the SVF filter coefficients.
         """
-        bias = torch.log(2 * self.center_freq_bias / self.sample_rate / (1 - 2 * self.center_freq_bias / self.sample_rate))
-        f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1).unsqueeze(-1) ) * 0.5) 
+        if self.design == 'biquad':
+            f = torch.sigmoid(param[:, 0, ...]) 
+        elif self.design == 'svf':
+            bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs))
+            f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1).unsqueeze(-1) ) * 0.5) 
 
         R = param[:, 1, ...]
         G = param[:, 2, ...]
@@ -2215,7 +2257,7 @@ class parallelPEQ(PEQ):
         n_bands: int = 10,
         f_min: float = 20,
         f_max: float = 20000,
-        sample_rate: int = 48000,
+        design: str = "biquad",
         nfft: int = 2**11,
         fs: int = 48000,
         map: callable = lambda x: x,
@@ -2228,7 +2270,7 @@ class parallelPEQ(PEQ):
             n_bands=n_bands,
             f_min=f_min,
             f_max=f_max,
-            sample_rate=sample_rate,
+            design=design,
             nfft=nfft,
             fs=fs,
             map=map,
@@ -2260,25 +2302,22 @@ class parallelPEQ(PEQ):
             a[0, :, n_i], b[0, :, n_i] = self.compute_biquad_coeff(
                 f=f[0],
                 R=R[0],
-                mLP=G[0],
-                mBP=2 * R[0] * torch.sqrt(G[0]), 
-                mHP=torch.ones_like(G[0]), 
+                G=G[0],
+                type='lowshelf'
             )
             # high shelf filter 
             a[-1, :, n_i], b[-1, :, n_i] = self.compute_biquad_coeff(
                 f=f[-1],
                 R=R[-1],
-                mLP=torch.ones_like(G[0]),
-                mBP=2 * R[-1] * torch.sqrt(G[0]), 
-                mHP=G[0],
+                G=G[-1],
+                type='highshelf'
             )
             # peak filter 
             a[1:-1, :, n_i], b[1:-1, :, n_i] = self.compute_biquad_coeff(
                 f=f[1:-1],
                 R=R[1:-1],
-                mLP=torch.ones_like(G[1:-1]),
-                mBP=2 * R[1:-1] * torch.sqrt(G[1:-1]), 
-                mHP=torch.ones_like(G[1:-1]),
+                G=G[1:-1],
+                type='peaking'
             )
         b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
@@ -2289,12 +2328,16 @@ class parallelPEQ(PEQ):
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
     
+
     def map_eq(self, param):
         r"""
         Mapping function for the raw parameters to the SVF filter coefficients.
         """
-        bias = torch.log(2 * self.center_freq_bias / self.sample_rate / (1 - 2 * self.center_freq_bias / self.sample_rate))
-        f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1) ) * 0.5) 
+        if self.design == 'biquad':
+            f = torch.sigmoid(param[:, 0, ...]) 
+        elif self.design == 'svf':
+            bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs))
+            f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1) ) * 0.5) 
 
         R = param[:, 1, ...]
         G = param[:, 2, ...]
