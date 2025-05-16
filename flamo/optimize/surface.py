@@ -5,6 +5,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from tqdm import trange
+from scipy.io import savemat
 from flamo.processor.system import Shell
 from pydantic import BaseModel
 from typing import List, Callable, Optional
@@ -118,6 +119,12 @@ class LossProfile:
                         loss[i_run, i_step, i_crit] = (
                             self.criteria[i_crit](pred, target).cpu().detach().numpy()
                         )
+            # Save the partial loss for the current run
+            partial_loss = loss[i_run, :, :]
+            savemat(
+                f"{self.output_dir}/partial_loss_run_{i_run + 1}.mat",
+                {"loss": partial_loss, "steps": steps.cpu().numpy()},
+            )
 
         return loss
 
@@ -433,7 +440,12 @@ class LossSurface(LossProfile):
                                 .numpy()
                             )
                             loss[i_run, i_step_0, i_step_1, i_crit] = current_loss
-
+                # Save the partial loss for the current run
+                partial_loss = loss[i_run, ...]
+                savemat(
+                    f"{self.output_dir}/partial_loss_run_{i_run + 1}.mat",
+                    {"loss": partial_loss, "steps_0": steps_0.cpu().numpy(), "steps_1": steps_1.cpu().numpy()},
+                )
         return loss
 
     def plot_loss(self, loss: np.array):
