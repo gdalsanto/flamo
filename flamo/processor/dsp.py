@@ -2152,8 +2152,8 @@ class PEQ(Filter):
                     G=G[1:-1],
                     type='peaking',
                 )
-        b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
-        a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=1)
         A = torch.fft.rfft(a_aa, self.nfft, dim=1)
         H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
@@ -2186,8 +2186,9 @@ class PEQ(Filter):
             a[..., 1] = 2* (f**2) - 2
             a[..., 2] = f**2 - 2*R*f + 1  
         elif self.design == 'biquad':
-            w0 = 2 * torch.pi * f / 2
+            w0 = torch.pi * f 
             G = 10 ** (G / 40)
+            R = 1 / R
             if type == 'peaking':
                 alpha = torch.sin(w0) / (2 * R)
                 b[..., 0] = 1 + alpha * G
@@ -2319,8 +2320,8 @@ class parallelPEQ(PEQ):
                 G=G[1:-1],
                 type='peaking'
             )
-        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
-        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=1)
         A = torch.fft.rfft(a_aa, self.nfft, dim=1)
         H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
@@ -2334,7 +2335,8 @@ class parallelPEQ(PEQ):
         Mapping function for the raw parameters to the SVF filter coefficients.
         """
         if self.design == 'biquad':
-            f = torch.sigmoid(param[:, 0, ...]) 
+            bias = self.center_freq_bias / self.fs 
+            f = torch.sigmoid(param[:, 0, ...]+ bias.unsqueeze(-1))  
         elif self.design == 'svf':
             bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs))
             f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1) ) * 0.5) 
