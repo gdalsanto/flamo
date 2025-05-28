@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
-from flamo.auxiliary.eq import design_geq, eq_freqs
+from flamo.auxiliary.eq import accurate_geq, eq_freqs
 from flamo.functional import signal_gallery
 
-torch.manual_seed(130709)
+torch.manual_seed(130710)
 
 
 def example_geq(args):
@@ -33,7 +33,7 @@ def example_geq(args):
     )
     for m_i in range(out_ch):
         for n_i in range(in_ch):
-            b[:, :, m_i, n_i], a[:, :, m_i, n_i] = design_geq(
+            b[:, :, m_i, n_i], a[:, :, m_i, n_i] = accurate_geq(
                 20 * torch.log10(target_gains[:, m_i, n_i]),
                 center_freq=center_freq,
                 shelving_crossover=shelving_crossover,
@@ -142,7 +142,7 @@ def example_parallel_geq(args):
         (3, len(center_freq) + 3, ch)
     )
     for n in range(ch):
-        b[:, :, n], a[:, :, n] = design_geq(
+        b[:, :, n], a[:, :, n] = accurate_geq(
             20 * torch.log10(target_gains[:, n]),
             center_freq=center_freq,
             shelving_crossover=shelving_crossover,
@@ -153,7 +153,7 @@ def example_parallel_geq(args):
     A[A == 0 + 1j * 0] = torch.tensor(1e-12)
     target_filter = (
         torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-    ).detach()  # there's an optimizations tep inside design_geq -> detach required
+    ).detach()  # there's an optimizations tep inside accurate_geq -> detach required
     ## ---------------- CONSTRUCT GEQ ---------------- ##
 
     # create another instance of the model
@@ -247,7 +247,7 @@ def example_accurate_geq(args):
     b, a = torch.empty((3, len(center_freq) + 3, out_ch, in_ch)), torch.empty((3, len(center_freq) + 3, out_ch, in_ch))
     for m_i in range(out_ch):
         for n_i in range(in_ch):
-            b[:, :, m_i, n_i], a[:, :, m_i, n_i] = design_geq( 
+            b[:, :, m_i, n_i], a[:, :, m_i, n_i] = accurate_geq( 
                 20*torch.log10(target_gains[:, m_i, n_i]),
                 center_freq=center_freq,
                 shelving_crossover=shelving_crossover,
@@ -256,7 +256,7 @@ def example_accurate_geq(args):
     B = torch.fft.rfft(b, args.nfft, dim=0)
     A = torch.fft.rfft(a, args.nfft, dim=0)
     A[A == 0+1j*0] = torch.tensor(1e-12)
-    target_filter = (torch.prod(B, dim=1) / (torch.prod(A, dim=1))).detach()    # there's an optimizations tep inside design_geq -> detach required 
+    target_filter = (torch.prod(B, dim=1) / (torch.prod(A, dim=1))).detach()    # there's an optimizations tep inside accurate_geq -> detach required 
     ## ---------------- CONSTRUCT GEQ ---------------- ##
 
     # create another instance of the model 
@@ -313,7 +313,7 @@ def example_accurate_parallel_geq(args):
     target_gains = 10**(-12/20) + (10**(12/20)-10**(-12/20))*torch.rand(size=(len(center_freq) + 2, ch))
     b, a = torch.empty((3, len(center_freq) + 3, ch)), torch.empty((3, len(center_freq) + 3, ch))
     for n in range(ch):
-        b[:, :, n], a[:, :, n] = design_geq( 
+        b[:, :, n], a[:, :, n] = accurate_geq( 
             20*torch.log10(target_gains[:, n]),
             center_freq=center_freq,
             shelving_crossover=shelving_crossover,
@@ -322,7 +322,7 @@ def example_accurate_parallel_geq(args):
     B = torch.fft.rfft(b, args.nfft, dim=0)
     A = torch.fft.rfft(a, args.nfft, dim=0)
     A[A == 0+1j*0] = torch.tensor(1e-12)
-    target_filter = (torch.prod(B, dim=1) / (torch.prod(A, dim=1))).detach()    # there's an optimizations tep inside design_geq -> detach required 
+    target_filter = (torch.prod(B, dim=1) / (torch.prod(A, dim=1))).detach()    # there's an optimizations tep inside accurate_geq -> detach required 
     ## ---------------- CONSTRUCT GEQ ---------------- ##
 
     # create another instance of the model 
