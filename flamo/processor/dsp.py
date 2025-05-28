@@ -12,7 +12,7 @@ from flamo.functional import (
 from flamo.auxiliary.eq import (
     eq_freqs,
     geq, 
-    design_geq)
+    accurate_geq)
 from flamo.auxiliary.scattering import (
     ScatteringMapping)
 # ============================= TRANSFORMS ================================
@@ -2090,6 +2090,8 @@ class PEQ(Filter):
         self.n_bands = n_bands
         self.design = design
         self.fs = fs
+        self.f_min = f_min
+        self.f_max = f_max
         gamma = 10 ** (
             -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
         )
@@ -2162,11 +2164,12 @@ class PEQ(Filter):
         return H.to(H_type), B, A
 
     def compute_biquad_coeff(self, f, R, G, type='peaking'):
-        # f : freq, R : resonance, G : gain
+        # f : freq, R : resonance, G : gain in dB
         b = torch.zeros(*f.shape, 3, device=self.device)     
         a = torch.zeros(*f.shape, 3, device=self.device)  
 
         if self.design == 'svf':
+            G = 10 ** (G / 20)
             if type == 'peaking':
                 mLP = torch.ones_like(G)
                 mBP = 2 * R * torch.sqrt(G)
@@ -2186,33 +2189,31 @@ class PEQ(Filter):
             a[..., 1] = 2* (f**2) - 2
             a[..., 2] = f**2 - 2*R*f + 1  
         elif self.design == 'biquad':
-            w0 = torch.pi * f 
             G = 10 ** (G / 40)
-            R = 1 / R
             if type == 'peaking':
-                alpha = torch.sin(w0) / (2 * R)
+                alpha = torch.sin(f) / (2 * R)
                 b[..., 0] = 1 + alpha * G
-                b[..., 1] = -2 * torch.cos(w0)
+                b[..., 1] = -2 * torch.cos(f)
                 b[..., 2] = 1 - alpha * G
                 a[..., 0] = 1 + alpha / G
-                a[..., 1] = -2 * torch.cos(w0)
+                a[..., 1] = -2 * torch.cos(f)
                 a[..., 2] = 1 - alpha / G
             elif type == 'lowshelf':
-                alpha = torch.sin(w0) * torch.sqrt((G**2 + 1) * (1/R - 1) + 2*G)
-                b[..., 0] = G * ((G + 1) - (G - 1) * torch.cos(w0) + alpha)
-                b[..., 1] = 2 * G * ((G - 1) - (G + 1) * torch.cos(w0))
-                b[..., 2] = G * ((G + 1) - (G - 1) * torch.cos(w0) - alpha)
-                a[..., 0] = (G + 1) + (G - 1) * torch.cos(w0) + alpha
-                a[..., 1] = -2 * ((G - 1) + (G + 1) * torch.cos(w0))
-                a[..., 2] = (G + 1) + (G - 1) * torch.cos(w0) - alpha
+                alpha = torch.sin(f) * torch.sqrt((G**2 + 1) * (1/R - 1) + 2*G)
+                b[..., 0] = G * ((G + 1) - (G - 1) * torch.cos(f) + alpha)
+                b[..., 1] = 2 * G * ((G - 1) - (G + 1) * torch.cos(f))
+                b[..., 2] = G * ((G + 1) - (G - 1) * torch.cos(f) - alpha)
+                a[..., 0] = (G + 1) + (G - 1) * torch.cos(f) + alpha
+                a[..., 1] = -2 * ((G - 1) + (G + 1) * torch.cos(f))
+                a[..., 2] = (G + 1) + (G - 1) * torch.cos(f) - alpha
             elif type == 'highshelf':
-                alpha = torch.sin(w0) * torch.sqrt((G**2 + 1) * (1/R - 1) + 2*G)
-                b[..., 0] = G * ((G + 1) + (G - 1) * torch.cos(w0) + alpha)
-                b[..., 1] = -2 * G * ((G - 1) + (G + 1) * torch.cos(w0))
-                b[..., 2] = G * ((G + 1) + (G - 1) * torch.cos(w0) - alpha)
-                a[..., 0] = (G + 1) - (G - 1) * torch.cos(w0) + alpha
-                a[..., 1] = 2 * ((G - 1) - (G + 1) * torch.cos(w0))
-                a[..., 2] = (G + 1) - (G - 1) * torch.cos(w0) - alpha
+                alpha = torch.sin(f) * torch.sqrt((G**2 + 1) * (1/R - 1) + 2*G)
+                b[..., 0] = G * ((G + 1) + (G - 1) * torch.cos(f) + alpha)
+                b[..., 1] = -2 * G * ((G - 1) + (G + 1) * torch.cos(f))
+                b[..., 2] = G * ((G + 1) + (G - 1) * torch.cos(f) - alpha)
+                a[..., 0] = (G + 1) - (G - 1) * torch.cos(f) + alpha
+                a[..., 1] = 2 * ((G - 1) - (G + 1) * torch.cos(f))
+                a[..., 2] = (G + 1) - (G - 1) * torch.cos(f) - alpha
 
         return a, b
     def initialize_class(self):
@@ -2228,14 +2229,18 @@ class PEQ(Filter):
         r"""
         Mapping function for the raw parameters to the SVF filter coefficients.
         """
+        R = param[:, 1, ...]
+        G = param[:, 2, ...]
+        
         if self.design == 'biquad':
-            f = torch.sigmoid(param[:, 0, ...]) 
+            bias = self.center_freq_bias / self.fs * 2 * torch.pi
+            min_f = 2 * torch.pi * self.f_min / self.fs
+            max_f = 2 * torch.pi * self.f_max / self.fs
+            f = torch.clamp(torch.sigmoid(param[:, 0, ...]) + bias.unsqueeze(-1).unsqueeze(-1), min=min_f, max=max_f) 
         elif self.design == 'svf':
             bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs))
             f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1).unsqueeze(-1) ) * 0.5) 
 
-        R = param[:, 1, ...]
-        G = param[:, 2, ...]
 
         param = torch.cat(
             (
@@ -2334,15 +2339,17 @@ class parallelPEQ(PEQ):
         r"""
         Mapping function for the raw parameters to the SVF filter coefficients.
         """
+        R = param[:, 1, ...]
+        G = param[:, 2, ...]
+
         if self.design == 'biquad':
-            bias = self.center_freq_bias / self.fs 
-            f = torch.sigmoid(param[:, 0, ...]+ bias.unsqueeze(-1))  
+            bias = self.center_freq_bias / self.fs * 2 * torch.pi
+            min_f = 2 * torch.pi * self.f_min / self.fs
+            max_f = 2 * torch.pi * self.f_max / self.fs
+            f = torch.clamp(torch.sigmoid(param[:, 0, ...]) + bias.unsqueeze(-1), min=min_f, max=max_f) 
         elif self.design == 'svf':
             bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs))
             f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1) ) * 0.5) 
-
-        R = param[:, 1, ...]
-        G = param[:, 2, ...]
 
         param = torch.cat(
             (
@@ -2465,7 +2472,7 @@ class AccurateGEQ(Filter):
         b = torch.zeros((3, self.size[0]+1, *self.size[1:]), device=self.device)
         for m_i in range(self.size[-2]):
             for n_i in range(self.size[-1]):
-                a[:, :, m_i, n_i], b[:, :, m_i, n_i] = design_geq(
+                a[:, :, m_i, n_i], b[:, :, m_i, n_i] = accurate_geq(
                     target_gain=param[:, m_i, n_i],
                     center_freq=self.center_freq,
                     shelving_crossover=self.shelving_crossover,                    
@@ -2547,7 +2554,7 @@ class parallelAccurateGEQ(AccurateGEQ):
         a = torch.zeros((3, self.size[0]+1, self.size[1]), device=self.device)
         b = torch.zeros((3, self.size[0]+1, self.size[1]), device=self.device)
         for n_i in range(self.size[-1]):
-                a[:, :, n_i], b[:, :, n_i] = design_geq(
+                a[:, :, n_i], b[:, :, n_i] = accurate_geq(
                     target_gain=param[:, n_i],
                     center_freq=self.center_freq,
                     shelving_crossover=self.shelving_crossover,                    
