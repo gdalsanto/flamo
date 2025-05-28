@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
-from flamo.auxiliary.eq import design_geq, eq_freqs
+from flamo.auxiliary.eq import accurate_geq, eq_freqs
 from flamo.functional import signal_gallery
 
-torch.manual_seed(130709)
+torch.manual_seed(130710)
 
 
 def example_peq(args):
@@ -31,7 +31,7 @@ def example_peq(args):
         nfft=args.nfft,
         fs=args.samplerate,
         requires_grad=True,
-        alias_decay_db=30,
+        alias_decay_db=0,
         device=args.device,
     )
     # Create the model with Shell
@@ -47,7 +47,7 @@ def example_peq(args):
         nfft=args.nfft,
         fs=args.samplerate,
         requires_grad=True,
-        alias_decay_db=30,
+        alias_decay_db=0,
         device=args.device,
     )
     # Create the model with Shell
@@ -132,7 +132,7 @@ def example_parallel_peq(args):
         nfft=args.nfft,
         fs=args.samplerate,
         requires_grad=True,
-        alias_decay_db=30,
+        alias_decay_db=0,
         device=args.device,
     )
     # Create the model with Shell
@@ -148,7 +148,7 @@ def example_parallel_peq(args):
         nfft=args.nfft,
         fs=args.samplerate,
         requires_grad=True,
-        alias_decay_db=30,
+        alias_decay_db=0,
         device=args.device,
     )
     # Create the model with Shell
@@ -231,7 +231,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_epochs", type=int, default=25, help="maximum number of epochs"
     )
-    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
     parser.add_argument(
         "--train_dir", type=str, help="directory to save training results"
     )
