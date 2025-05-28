@@ -108,7 +108,7 @@ def geq(
     return sos[:3], sos[3:]
 
 
-def design_geq(
+def accurate_geq(
     target_gain: torch.Tensor,
     center_freq: torch.Tensor,
     shelving_crossover: torch.Tensor,
@@ -127,6 +127,9 @@ def design_geq(
 
         **Returns**:
             - tuple: A tuple containing the numerator and denominator coefficients of the GEQ filter.
+
+    NOTE: This function was previously being called `accurate_geq`. It was creating confusion with the other geq function. 
+
     """
 
     # Initialization
