@@ -402,7 +402,7 @@ class Recursion(nn.Module):
                 torch.Tensor: The identity matrix.
         """
         size = (self.nfft // 2 + 1, self.output_channels, self.output_channels)
-        I = torch.zeros(*size, dtype=torch.complex64)
+        I = torch.complex(torch.zeros(*size), torch.zeros(*size))
         for i in range(self.output_channels):
             I[:, i, i] = 1
         return I
