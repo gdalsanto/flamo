@@ -644,6 +644,13 @@ class edr_loss(nn.Module):
         Y_pred_edr = 10 * torch.log10(self.schroeder_backward_int(Y_pred)[0])
         Y_true_edr = 10 * torch.log10(self.schroeder_backward_int(Y_true)[0])
 
+        # in case you get bad targets 
+        clip_indx = torch.nonzero(
+            Y_true_edr == torch.tensor(-float("inf"), device=self.device),
+            as_tuple=True,
+        )
+        Y_true_edr[clip_indx] = torch.finfo(Y_true_edr.dtype).eps
+
         loss = torch.norm(Y_true_edr - Y_pred_edr, p=1) / torch.norm(Y_true_edr, p=1)
         return loss
 
@@ -671,7 +678,6 @@ class edc_loss(nn.Module):
     def __init__(
         self,
         sample_rate: int = 48000,
-        nfft: int = 96000,
         is_broadband: bool = False,
         n_fractions: int = 1,
         energy_norm: bool = False,
