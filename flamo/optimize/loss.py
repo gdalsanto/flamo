@@ -525,7 +525,7 @@ class AveragePower(nn.Module):
         ).squeeze()
         # compute the normalized difference between the two windowed spectrograms
         return (
-            torch.norm(S2_win - S1_win, p="fro") / torch.norm(S1_win, p="fro"),
+            torch.norm(S2_win - S1_win, p="fro") / torch.norm(S1_win, p="fro") / torch.norm(S2_win, p="fro"),
             S1_win,
             S2_win,
         )
@@ -650,6 +650,7 @@ class edr_loss(nn.Module):
             as_tuple=True,
         )
         Y_true_edr[clip_indx] = torch.finfo(Y_true_edr.dtype).eps
+        Y_pred_edr[clip_indx] = torch.finfo(Y_pred_edr.dtype).eps
 
         loss = torch.norm(Y_true_edr - Y_pred_edr, p=1) / torch.norm(Y_true_edr, p=1)
         return loss
