@@ -637,7 +637,7 @@ class parallelFDNPEQ(Filter):
         """
         if self.design == 'biquad' and not is_twostage:
             # frequency mapping
-            bias = self.center_freq_bias / self.fs * 2 * torch.pi
+            bias = torch.tensor(self.center_freq_bias / self.fs * 2 * torch.pi, device=self.device)
             min_f = 2 * torch.pi * self.f_min / self.fs
             max_f = 2 * torch.pi * self.f_max / self.fs
             f = torch.clamp(torch.sigmoid(param[:, 0, ...] - 1/2) / 2**(torch.linspace(self.n_bands, 0, self.n_bands)).unsqueeze(-1) + bias.unsqueeze(-1), min=min_f, max=max_f) 
@@ -647,12 +647,12 @@ class parallelFDNPEQ(Filter):
             R[-1, :] = 0.1 + torch.sigmoid(R[-1, :]) * 0.9
             R[1:-1, :] = 0.1 + torch.sigmoid(R[1:-1, :] ) * 3
             # Gain mapping
-            clip_min = torch.tensor(-1e-6)
-            clip_max = torch.tensor(-5)
+            clip_min = torch.tensor(-1e-6, device=self.device)
+            clip_max = torch.tensor(-5, device=self.device)
             G =  clip_min + torch.sigmoid(param[:, 2, ...] - 1/2) * clip_max
         elif self.design == 'svf' and not is_twostage:
             # frequency mapping
-            bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs))
+            bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs)).to(device=self.device)
             f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1) ) * 0.5) 
             # Q factor mapping
             R =  torch.log(1+torch.exp(param[:, 1, ...]))  / torch.log(torch.tensor(2)) 
@@ -660,14 +660,14 @@ class parallelFDNPEQ(Filter):
             G = 10**(-torch.log(1+torch.exp(param[:, 2, ...] - 1/2)) / torch.log(torch.tensor(2))) - 10
         elif (self.design == 'svf' or self.design == 'biquad') and is_twostage:
             # frequency mapping
-            bias = torch.pi / 3
+            bias = torch.tensor((torch.pi / 3)).to(device=self.device)
             f = torch.sigmoid(param[0]) / self.n_bands  + bias
             # Q factor mapping 
             R = torch.zeros_like(param[1])
             R[:] = 0.1 + torch.sigmoid(R) * 0.9
             # Gain mapping
-            clip_min = torch.tensor(-1e-6)
-            clip_max = torch.tensor(-30)
+            clip_min = torch.tensor(-1e-6, device=self.device)
+            clip_max = torch.tensor(-30, device=self.device)
             G = clip_min + torch.sigmoid(param[2] - 1/2) * clip_max
 
         param = torch.cat(
