@@ -638,8 +638,8 @@ class parallelFDNPEQ(Filter):
         if self.design == 'biquad' and not is_twostage:
             # frequency mapping
             bias = torch.tensor(self.center_freq_bias / self.fs * 2 * torch.pi, device=self.device)
-            min_f = 2 * torch.pi * self.f_min / self.fs
-            max_f = 2 * torch.pi * self.f_max / self.fs
+            min_f = torch.tensor(2 * torch.pi * self.f_min / self.fs, device=self.device)
+            max_f = torch.tensor(2 * torch.pi * self.f_max / self.fs, device=self.device)
             f = torch.clamp(torch.sigmoid(param[:, 0, ...] - 1/2) / 2**(torch.linspace(self.n_bands, 0, self.n_bands)).unsqueeze(-1) + bias.unsqueeze(-1), min=min_f, max=max_f) 
             # Q factor mapping 
             R = torch.zeros_like(param[:, 1, ...])
@@ -653,14 +653,14 @@ class parallelFDNPEQ(Filter):
         elif self.design == 'svf' and not is_twostage:
             # frequency mapping
             bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs)).to(device=self.device)
-            f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1) ) * 0.5) 
+            f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1)) * 0.5) 
             # Q factor mapping
-            R =  torch.log(1+torch.exp(param[:, 1, ...]))  / torch.log(torch.tensor(2)) 
+            R =  torch.log(1+torch.exp(param[:, 1, ...]))  / torch.log(torch.tensor(2, device=self.device)) 
             # G 
-            G = 10**(-torch.log(1+torch.exp(param[:, 2, ...] - 1/2)) / torch.log(torch.tensor(2))) - 10
+            G = 10**(-torch.log(1+torch.exp(param[:, 2, ...] - 1/2)) / torch.log(torch.tensor(2, device=self.device))) - 10
         elif (self.design == 'svf' or self.design == 'biquad') and is_twostage:
             # frequency mapping
-            bias = torch.tensor((torch.pi / 3)).to(device=self.device)
+            bias = torch.tensor((torch.pi / 3), device=self.device)
             f = torch.sigmoid(param[0]) / self.n_bands  + bias
             # Q factor mapping 
             R = torch.zeros_like(param[1])
