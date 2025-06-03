@@ -640,7 +640,7 @@ class parallelFDNPEQ(Filter):
             bias = torch.tensor(self.center_freq_bias / self.fs * 2 * torch.pi, device=self.device)
             min_f = torch.tensor(2 * torch.pi * self.f_min / self.fs, device=self.device)
             max_f = torch.tensor(2 * torch.pi * self.f_max / self.fs, device=self.device)
-            f = torch.clamp(torch.sigmoid(param[:, 0, ...] - 1/2) / 2**(torch.linspace(self.n_bands, 0, self.n_bands)).unsqueeze(-1) + bias.unsqueeze(-1), min=min_f, max=max_f) 
+            f = torch.clamp(torch.sigmoid(param[:, 0, ...] - 1/2) / 2**(torch.linspace(self.n_bands, 0, self.n_bands, device=self.device)).unsqueeze(-1) + bias.unsqueeze(-1), min=min_f, max=max_f) 
             # Q factor mapping 
             R = torch.zeros_like(param[:, 1, ...])
             R[0, :] = 0.1 + torch.sigmoid(R[0, :]) * 0.9
