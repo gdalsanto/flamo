@@ -732,7 +732,7 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         size = (2,)      # rt at DC and crossover frequency
         assert (delays is not None), "Delays must be provided"
         self.delays = delays
-        self.rt_nyquist = torch.tensor(rt_nyquist)
+        self.rt_nyquist = torch.tensor(rt_nyquist, device=device)
         map = lambda x: self.map_param(x, fs)
         super().__init__(
             size=size,
