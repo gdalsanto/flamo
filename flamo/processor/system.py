@@ -484,6 +484,176 @@ class Recursion(nn.Module):
 
         return ff_in_ch, ff_out_ch
 
+# ============================= RECURSION ================================
+
+
+class Parallel(nn.Module):
+    r"""
+    Parallel processing of two input branches. Inherits from :class:`nn.Module`.
+    The branches, if are given as a :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`,
+    they are converted to a :class:`Series` instance.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, and :math:`N_{out}` is the sum of the number of output channels for branch A and B :math:`N_{out} = N_{out}^A + N_{out}^B`.
+    Ellipsis :math:`(...)` represents additional dimensions.
+
+        **Arguments**:
+            - **brA**: Branch A with size (M, N_{in}, N_{out}^A).
+            - **brB**: Branch B with size (M, N_{in}, N_{out}^B).
+            - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to None.
+            - **sum_output** (bool, optional): If True, the output of the two branches is summed. If False, the output is concatenated. Defaults to True.
+
+        **Attributes**:
+            - **branchA** (nn.Module | Series): The feedforward path.
+            - **branchB** (nn.Module | Series): The feedback path.
+            - **nfft** (int): The number of frequency points.
+            - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.
+
+    """
+
+    def __init__(
+        self,
+        brA: nn.Module | nn.Sequential | OrderedDict | Series,
+        brB: nn.Module | nn.Sequential | OrderedDict | Series,
+        sum_output: bool = True,
+    ):
+
+        nn.Module.__init__(self)
+
+        # Prepare the feedforward and feedback paths
+        if isinstance(brA, (nn.Sequential, OrderedDict)) and not isinstance(brA, Series):
+            self.branchA = Series(brA)
+            warnings.warn(
+                "Branch A has been converted to a Series class instance."
+            )
+        else:
+            self.branchA = brA
+        if isinstance(brB, (nn.Sequential, OrderedDict)) and not isinstance(brB, Series):
+            self.branchB = Series(brB)
+            warnings.warn(
+                "Branch B has been converted to a Series class instance."
+            )
+        else:
+            self.branchB = brB
+
+        self.sum_output = sum_output
+        # Check nfft and time anti-aliasing decay-envelope parameter values
+        self.nfft = self.__check_attribute("nfft")
+        self.alias_decay_db = self.__check_attribute("alias_decay_db")
+
+        # Check I/O compatibility
+        self.input_channels, self.output_channels = self.__check_io()
+
+    def forward(self,  X: torch.Tensor, ext_param: dict = None):
+        r"""
+        Applies the closed-loop transfer function to the input tensor X.
+
+            **Arguments**:
+                **X** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
+
+            **Returns**:
+                torch.Tensor: Output tensor of shape :math:`(B, M, N_{out}, ...)`.
+        """
+        ext_param_brA = None
+        ext_param_brB = None
+        if ext_param is not None:
+            for key, param in ext_param.items():
+                # check if the key is in param_dict
+                if 'branchA' in key:
+                    ext_param_brA = param
+                elif 'branchB' in key:
+                    ext_param_brB = param
+
+        YA = self.branchA(X, ext_param_brA)
+
+        YB = self.branchB(X, ext_param_brB)
+
+        if self.sum_output:
+            return YA + YB
+        else:
+            return torch.cat((YA, YB), dim=2)
+
+    # ---------------------- Check methods ----------------------
+    def __check_attribute(self, attr: str) -> int | float:
+        r"""
+        Checks if the branches have the same value of the requested attribute.
+
+            **Arguments**:
+                **attr** (str): The attribute to check.
+
+            **Returns**:
+                int | float: The attribute value.
+
+            **Raises**:
+                ValueError: The two paths have different values of the requested attribute.
+        """
+        brA_attr = getattr(self.branchA, attr, None)
+        if brA_attr is None:
+            warnings.warn(
+                f"The feedforward pass does not possess the attribute {attr}."
+            )
+        brB_attr = getattr(self.branchB, attr, None)
+        if brB_attr is None:
+            warnings.warn(f"The feedback pass does not possess the attribute {attr}.")
+        # Then, check that the two paths have the same value of the attribute.
+        if brA_attr is not None and brB_attr is not None:
+            assert (
+                brA_attr == brB_attr
+            ), f"Branch A has {attr} = {brA_attr} and branch B has {attr} = {brB_attr}. They must have the same value."
+
+        # Return the attribute value
+        attr_value = brA_attr if brA_attr is not None else brB_attr
+
+        return attr_value
+
+    def __check_io(self) -> tuple:
+        r"""
+        Checks if branch A and branch B have compatible input/output shapes.
+
+            **Returns**:
+                tuple(int,int): The number of input and output channels.
+
+            **Raises**:
+                - ValueError: If any of the branches does not possess either the input_channels or the output_channels attributes.
+                - AssertionError: Branch A and branch B input channels are not compatible.
+        """
+        # Get input channels of both feedforward and feedback
+        brA_in_ch = getattr(self.branchA, "input_channels", None)
+        brA_out_ch = getattr(self.branchA, "output_channels", None)
+        brB_in_ch = getattr(self.branchB, "input_channels", None)
+        brB_out_ch = getattr(self.branchB, "output_channels", None)
+
+        # Check if the input/output channels are compatible
+        if brA_in_ch is None:
+            raise ValueError(
+                f"Branch A does not possess the attribute input_channels."
+            )
+        if brA_out_ch is None:
+            raise ValueError(
+                f"Branch A does not possess the attribute output_channels."
+            )
+        if brB_in_ch is None:
+            raise ValueError(
+                f"Branch B does not possess the attribute input_channels."
+            )
+        if brB_out_ch is None:
+            raise ValueError(
+                f"Branch B does not possess the attribute output_channels."
+            )
+
+        assert (
+            brA_in_ch == brB_in_ch
+        ), f"Branch A has {brA_in_ch} input channels, but branch B has {brB_in_ch} input channels. They must be the same."
+        if self.sum_output: 
+            assert (
+                brA_out_ch == brB_out_ch
+            ), f"Branch A has {brA_out_ch} output channels, but branch B has {brB_out_ch} output channels. They must be the same if their output is being summed."
+        return brA_in_ch, brA_out_ch + brB_out_ch
+    
 
 # ============================= SHELL ================================
 

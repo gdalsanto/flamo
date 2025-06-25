@@ -37,9 +37,14 @@ class sparsity_loss(nn.Module):
         try:
             A = core.feedback_loop.feedback.map(core.feedback_loop.feedback.param)
         except:
-            A = core.feedback_loop.feedback.mixing_matrix.map(
-                core.feedback_loop.feedback.mixing_matrix.param
-            )
+            try:
+                A = core.feedback_loop.feedback.map(
+                    core.feedback_loop.feedback.mixing_matrix.param
+                )
+            except:
+                A = core.branchA.feedback_loop.feedback.mixing_matrix.map(
+                    core.branchA.feedback_loop.feedback.mixing_matrix.param
+                )
         N = A.shape[-1]
         if len(A.shape) == 3:
             return torch.mean(
