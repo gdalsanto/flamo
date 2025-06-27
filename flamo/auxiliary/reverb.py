@@ -315,6 +315,8 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
         fs: int = 48000,
         delays: torch.Tensor =  None,
         alias_decay_db: float = 0.0,
+        start_freq: float = 31.25,
+        end_freq: float = 16000.0,
         device=None
     ):
         assert (delays is not None), "Delays must be provided"
@@ -327,6 +329,8 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
             fs=fs,
             map=map,
             alias_decay_db=alias_decay_db,
+            start_freq=start_freq,
+            end_freq=end_freq,
             device=device
         )
 
@@ -347,11 +351,11 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
                 )
          
         b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
-        H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
         return H.to(H_type), B, A
     

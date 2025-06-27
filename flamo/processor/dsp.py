@@ -2401,8 +2401,10 @@ class AccurateGEQ(Filter):
             - fs (int, optional): The sampling frequency. Default: 48000.
             - map (function, optional): The mapping function to apply to the raw parameters. Default: lambda x: 20*torch.log10(x).
             - alias_decay_db (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - start_freq (float, optional): The starting frequency for the filter bands. Default: 31.25.
+            - end_freq (float, optional): The ending frequency for the filter bands. Default: 16000.0.            
             - device (str, optional): The device of the constructed tensors. Default: None.
-            
+
         **Attributes**:
             - fs (int): The sampling frequency.
             - center_freq (torch.Tensor): The center frequencies of the filter bands.
@@ -2432,12 +2434,14 @@ class AccurateGEQ(Filter):
         fs: int = 48000,
         map=lambda x: 20*torch.log10(x),
         alias_decay_db: float = 0.0,
+        start_freq: float = 31.25,
+        end_freq: float = 16000.0,
         device=None
     ):
         self.octave_interval = octave_interval
         self.fs = fs
         self.center_freq, self.shelving_crossover = eq_freqs(
-            interval=self.octave_interval)
+            interval=self.octave_interval, start_freq=start_freq, end_freq=end_freq)
         self.n_gains = len(self.center_freq) + 2
         gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20)
         self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=device))
@@ -2492,9 +2496,6 @@ class AccurateGEQ(Filter):
     def initialize_class(self):
         self.check_param_shape()
         self.get_io()
-        self.freq_response = to_complex(
-            torch.empty((self.nfft // 2 + 1, *self.size[1:]))
-        )
         self.get_freq_response()
         self.get_freq_convolve()
 
@@ -2530,6 +2531,8 @@ class parallelAccurateGEQ(AccurateGEQ):
         fs: int = 48000,
         map=lambda x: 20*torch.log10(x),
         alias_decay_db: float = 0.0,
+        start_freq: float = 31.25,
+        end_freq: float = 16000.0,
         device=None
     ):
         super().__init__(
@@ -2539,6 +2542,8 @@ class parallelAccurateGEQ(AccurateGEQ):
             fs=fs,
             map=map,
             alias_decay_db=alias_decay_db,
+            start_freq=start_freq,
+            end_freq=end_freq,
             device=device
         )
 
