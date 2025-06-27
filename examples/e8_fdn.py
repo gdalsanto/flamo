@@ -340,7 +340,7 @@ def example_fdn_direct(args):
         size=(1, 1),
         nfft=args.nfft,
         requires_grad=True,
-        map = lambda x: x / torch.max(torch.abs(x)),
+        map = lambda x: torch.clip(x, min=-1.0, max=1.0),
         alias_decay_db=alias_decay_db,
         device=args.device,
     )
