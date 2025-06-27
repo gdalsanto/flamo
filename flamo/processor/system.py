@@ -652,7 +652,9 @@ class Parallel(nn.Module):
             assert (
                 brA_out_ch == brB_out_ch
             ), f"Branch A has {brA_out_ch} output channels, but branch B has {brB_out_ch} output channels. They must be the same if their output is being summed."
-        return brA_in_ch, brA_out_ch + brB_out_ch
+            return brA_in_ch, brA_out_ch
+        else:
+            return brA_in_ch, brA_out_ch + brB_out_ch
     
 
 # ============================= SHELL ================================
