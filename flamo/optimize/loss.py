@@ -38,7 +38,7 @@ class sparsity_loss(nn.Module):
             A = core.feedback_loop.feedback.map(core.feedback_loop.feedback.param)
         except:
             try:
-                A = core.feedback_loop.feedback.map(
+                A = core.feedback_loop.feedback.mixing_matrix.map(
                     core.feedback_loop.feedback.mixing_matrix.param
                 )
             except:
