@@ -1055,6 +1055,7 @@ class ScatteringMatrix(Filter):
         self.get_freq_convolve()
 
 
+
 #equivalent to convSparse.m in Jon Fagerstrom's DVN matlab implementation
 def conv_sparse(x: torch.Tensor, k: torch.Tensor, g: torch.Tensor, vL: int) -> torch.Tensor:
     """
