@@ -1055,6 +1055,39 @@ class ScatteringMatrix(Filter):
         self.get_freq_convolve()
 
 
+#equivalent to convSparse.m in Jon Fagerstrom's DVN matlab implementation
+def conv_sparse(x: torch.Tensor, k: torch.Tensor, g: torch.Tensor, vL: int) -> torch.Tensor:
+    """
+    sparse time-domain convolution using a velvet sequence.
+    translation of Jon Fagerström's convSparse.m.
+
+    args:
+        x (Tensor): Input signal, shape (xL,)
+        k (Tensor): Start indices for each pulse, shape (M,)
+        g (Tensor): Gains for each pulse, shape (M,)
+        vL (int): Length of the pulse/velvet sequence
+
+    returns:
+        tensor: output convolved signal, shape (xL + vL - 1,)
+    """
+    xL = x.shape[0]
+    yL = xL + vL - 1
+    y = torch.zeros(yL, dtype=x.dtype, device=x.device)
+
+    if k.numel() > 0 and torch.max(k) > vL:
+        print("Warning: k-index over the sequence length")
+
+    M = k.shape[0]
+    for m in range(M):
+        n_start = k[m]
+        n_stop = n_start + xL
+        if n_stop > yL:
+            continue  #avoid overflow
+        y[n_start:n_stop] += x * g[m]
+
+    return y
+
+
 class Biquad(Filter):
     r"""
     A class representing a set of Biquad filters.
