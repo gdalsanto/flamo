@@ -15,6 +15,7 @@ Velvet-Noise Sequences" by Vesa Välimäki and Karolina Prawda.
 """
 
 class VelvetNoiseSequence(nn.Module): #make it a pytorch module
+        """Generates a sparse velvet noise sequence with randomised impulses."""
         def __init__(self, length: int, density: float, sample_rate: int = 48000, decay_db: float = 60.0):
             super().__init__()
             self.length = length #how many samples long the output sequence is
@@ -53,10 +54,11 @@ class VelvetNoiseSequence(nn.Module): #make it a pytorch module
 
             return sequence
         
+        
 if __name__ == "__main__":
     vnm = VelvetNoiseSequence(length=48000, density=100)
-    print("generated velvet noise sequence:")
-    print(vnm.sequence)    
+    #print("generated velvet noise sequence:")
+    #print(vnm.sequence)    
     #plot 
     plt.plot(vnm.sequence[:2000].numpy())
     plt.figure(figsize=(12, 4))
@@ -67,6 +69,44 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+
+class VelvetNoiseBank(nn.Module):
+    """Creates an NxN bank of velvet noise sequences for FDN filtering."""
+    def __init__(self, N: int, length: int, density: float, sample_rate: int = 48000, decay_db: float = 60.0):
+        super().__init__()
+        self.N = N
+        self.length = length
+        self.density = density
+        self.sample_rate = sample_rate
+        self.decay_db = decay_db
+
+        self.register_buffer("bank", self._generate_bank())
+
+    def _generate_bank(self):
+        #initialise empty tensor of shape (N, N, T)
+        bank = torch.zeros((self.N, self.N, self.length))
+        for i in range(self.N):
+            for j in range(self.N):
+                vn = VelvetNoiseSequence(
+                    length=self.length,
+                    density=self.density,
+                    sample_rate=self.sample_rate,
+                    decay_db=self.decay_db
+                )
+                bank[i, j, :] = vn.sequence
+
+        return bank
+if __name__ == "__main__":
+    vnb = VelvetNoiseBank(N=3, length=2048, density=100) #protoyping placeholder values
+    print("Bank shape:", vnb.bank.shape)#should print: torch.Size([3, 3, 2048])
+    print("Sample slice:", vnb.bank[0, 0, :20]) #first 20 samples of first ir
+
+
+
+
+
+
 
 
 
@@ -90,6 +130,8 @@ in short:::::
 now VelvetNoiseBank, Create NxN of them, shape (N, N, T)
 then filtering step to make each 1D sequence smoother
 last return a torch.Tensor of shape (N, N, T)
+
+Separate all in different classes probably...
 
 
 """
