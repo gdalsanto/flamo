@@ -8,7 +8,9 @@ from flamo.functional import (
     lowpass_filter,
     highpass_filter,
     bandpass_filter,
-    rad2hertz )
+    rad2hertz, 
+    HadamardMatrix, 
+    RotationMatrix)
 from flamo.auxiliary.eq import (
     eq_freqs,
     geq, 
@@ -535,11 +537,13 @@ class Matrix(Gain):
         nfft: int = 2**11,
         map: callable = lambda x: x,
         matrix_type: str = "random",
+        iter: int = 1,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
     ):
         self.matrix_type = matrix_type
+        self.iter = iter # iterations number for the rotation matrix 
         super().__init__(
             size=size,
             nfft=nfft,
@@ -557,14 +561,31 @@ class Matrix(Gain):
         Warning(
             f"you asked for {self.matrix_type} matrix type, map will be overwritten"
         )
+        N = self.size[0]
         match self.matrix_type:
             case "random":
                 self.map = lambda x: x
             case "orthogonal":
                 assert (
-                    self.size[0] == self.size[1]
+                    N == self.size[1]
                 ), "Matrix must be square to be orthogonal"
                 self.map = lambda x: torch.matrix_exp(skew_matrix(x))
+            case "hadamard":
+                assert (
+                    N == self.size[1]
+                ), "Matrix must be square to be Hadamard"
+                assert (
+                    N % 2 == 0
+                ), "Matrix must have even dimensions to be Hadamard"
+                self.map = lambda x: HadamardMatrix(self.size[0], device=self.device)(x)
+            case "rotation":
+                assert (
+                    N == self.size[1]
+                ), "Matrix must be square to be a rotation matrix"
+                assert (
+                    N % 2 == 0
+                ), "Matrix must have even dimensions to be a rotation matrix"
+                self.map = lambda x: RotationMatrix(self.size[0], self.iter, device=self.device)([x[0][0]])
 
     def initialize_class(self):
         r"""

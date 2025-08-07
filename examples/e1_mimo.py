@@ -19,6 +19,65 @@ from flamo.optimize.trainer import Trainer
 
 torch.manual_seed(1)
 
+def example_matrix(args) -> None:
+    """
+    Test all the different types of matrices available in dsp.Matrix.
+    We will create different matrix types and apply them to a multi-channel input signal.
+    """
+    # ------------------- Signal Definition --------------------
+    in_ch = 4
+    out_ch = 4
+    
+    # Input signal - multi-channel noise
+    input_sig = signal_gallery(
+        signal_type="noise",
+        batch_size=1,
+        n_samples=args.nfft,
+        n=in_ch,
+        fs=args.samplerate,
+        device=args.device,
+    )
+    
+    # Test different matrix types
+    matrix_types = ["random", "identity", "orthogonal", "hadamard", "rotation"]
+    
+    fig, axes = plt.subplots(len(matrix_types), out_ch, figsize=(12, 2*len(matrix_types)))
+    if len(matrix_types) == 1:
+        axes = axes.reshape(1, -1)
+    
+    for i, matrix_type in enumerate(matrix_types):
+        print(f"Testing matrix type: {matrix_type}")
+        
+        # ------------------- DSP Definition --------------------
+        matrix_filter = dsp.Matrix(
+            size=(out_ch, in_ch),
+            matrix_type=matrix_type,
+            nfft=args.nfft,
+            device=args.device,
+        )
+        
+        input_layer = dsp.FFT(nfft=args.nfft)
+        output_layer = dsp.iFFT(nfft=args.nfft)
+        
+        my_dsp = nn.Sequential(input_layer, matrix_filter, output_layer)
+        
+        # -------------- Apply signal to DSP --------------
+        output_sig = my_dsp(input_sig)
+        
+        # ----------------------- Plot ------------------------
+        for j in range(out_ch):
+            ax = axes[i, j] if out_ch > 1 else axes[i]
+            ax.plot(output_sig.squeeze()[:1000, j].cpu().numpy())  # Plot first 1000 samples
+            ax.set_xlabel("Samples")
+            ax.set_ylabel("Amplitude")
+            ax.grid(True)
+            ax.set_title(f"{matrix_type.capitalize()} Matrix - Output Ch {j+1}")
+            
+    plt.tight_layout()
+    plt.show()
+
+    return None
+
 
 def example_delays(args) -> None:
     """
@@ -239,5 +298,6 @@ if __name__ == "__main__":
         )
 
     # Run examples
+    example_matrix(args)
     example_delays(args)
     example_biquads(args)
