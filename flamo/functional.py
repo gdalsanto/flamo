@@ -1,6 +1,8 @@
 import torch
+import torch.nn as nn
 import numpy as np
 import scipy.signal
+from typing import Optional
 from flamo.utils import RegularGridInterpolator
 
 
@@ -69,6 +71,68 @@ def get_frequency_samples(num: int, device: str | torch.device = None):
     return torch.polar(abs, angle * np.pi)
 
 
+class HadamardMatrix(nn.Module):
+    """
+    Generate a Hadamard matrix of size N as a nn.Module.
+    """
+
+    def __init__(self, N, device: Optional[str] = None):
+        super().__init__()
+        self.N = N
+        self.device = device
+
+    def forward(self, x):
+        U = torch.tensor([[1.0]], device=self.device)
+        while U.shape[0] < self.N:
+            U = torch.kron(
+                U, torch.tensor([[1, 1], [1, -1]], dtype=U.dtype, device=U.device)
+            ) / torch.sqrt(torch.tensor(2.0, device=U.device))
+        return U
+
+
+class RotationMatrix(nn.Module):
+    """
+    Generate a rotation matrix of size N as a nn.Module from a given angle.
+    """
+
+    def __init__(
+        self,
+        N: int,
+        min_angle: float = 0,
+        max_angle: float = torch.pi / 4,
+        iter: Optional[int] = None,
+        device: Optional[str] = None,
+    ):
+
+        super().__init__()
+        self.N = N
+        self.min_angle = min_angle
+        self.max_angle = max_angle
+        self.iter = iter
+        self.device = device
+
+    def create_submatrix(self, angles: torch.Tensor, iters: int = 1):
+        """Create a submatrix for each group."""
+        X = torch.zeros(2, 2, device=self.device)
+        angles[0] = torch.clamp(angles[0], self.min_angle, self.max_angle)
+        X.fill_diagonal_(torch.cos(angles[0]))
+        X[1, 0] = -torch.sin(torch.tensor(angles[0], device=self.device))
+        X[0, 1] = torch.sin(torch.tensor(angles[0], device=self.device))
+
+        if iters is None:
+            iters = torch.log2(torch.tensor(self.N)).int().item() - 1
+        for i in range(iters):
+            if len(angles) > 1:
+                X = torch.kron(X, self.create_submatrix([angles[i]]))
+            else:
+                X = torch.kron(X, X)
+        return X
+
+    def forward(self, theta):
+
+        return self.create_submatrix(theta, self.iter)
+
+
 def biquad2tf(b: torch.Tensor, a: torch.Tensor, nfft: int):
     r"""
     Converts a biquad filter representation to a transfer function.
@@ -133,10 +197,11 @@ def signal_gallery(
         "wgn",
         "exp",
         "reference",
+        "noise",
     }
 
     if signal_type not in signal_types:
-        raise ValueError(f"Matrix type {signal_type} not recognized.")
+        raise ValueError(f"Signal type {signal_type} not recognized.")
     match signal_type:
         case "impulse":
             x = torch.zeros(batch_size, n_samples, n)
@@ -185,6 +250,8 @@ def signal_gallery(
                 return torch.tensor(reference, device=device).expand(
                     batch_size, n_samples, n
                 )
+        case "noise":
+            return torch.randn((batch_size, n_samples, n), device=device)
 
 
 def hertz2rad(hertz: torch.Tensor, fs: int):
