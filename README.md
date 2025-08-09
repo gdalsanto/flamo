@@ -24,7 +24,7 @@ Utilities, system designers, and optimization - in `flamo.processor.system`:
 - **Shell**: Container class for safe interaction between system, dataset, and loss functions
 
 Optimization - in `flamo.optimize`:
-- **Trianer** : Handling of the training and validation steps 
+- **Trainer** : Handling of the training and validation steps 
 - **Dataset** : Customizable dataset class and helper methods 
 
 --- 
