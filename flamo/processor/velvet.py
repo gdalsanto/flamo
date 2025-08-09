@@ -21,7 +21,7 @@ class VelvetNoiseSequence(nn.Module):
     """
     Basic velvet noise sequence generator.
     
-    Velvet noise is characterized by:
+    Velvet noise is characterised by:
     - Sparse impulses (mostly zeros)
     - Random signs (+1 or -1) for each impulse
     - Jittered positioning on a quasi-regular grid
@@ -62,7 +62,7 @@ class VelvetNoiseSequence(nn.Module):
         jitter_factors = torch.rand(floor_impulses)
         impulse_indices = torch.ceil(grid_positions + jitter_factors * (Td - 1)).long()
         
-        # Ensure first impulse is at position 0 and all indices are within bounds
+        # first impulse is at position 0 and all indices are within bounds
         impulse_indices[0] = 0
         impulse_indices = torch.clamp(impulse_indices, max=self.length - 1)
         
@@ -183,7 +183,7 @@ class ExtendedVelvetNoiseSequence(nn.Module):
             grid_positions + self.delta * jitter_factors * (Td - 1)
         ).long()
         
-        # Ensure first impulse is at position 0 and all indices are within bounds
+        # first impulse is at position 0 and all indices are within bounds
         impulse_indices[0] = 0
         impulse_indices = torch.clamp(impulse_indices, max=self.length - 1)
         
