@@ -86,7 +86,8 @@ def geq(
 
     for band in range(num_bands):
         if band == 0:
-            b = torch.tensor([db2mag(gain_db[band]), 0, 0], device=device)
+            b = torch.tensor([0, 0, 0], device=device)
+            b[0] = db2mag(gain_db[band])
             a = torch.tensor([1, 0, 0], device=device)
         elif band == 1:
             b, a = shelving_filter(
