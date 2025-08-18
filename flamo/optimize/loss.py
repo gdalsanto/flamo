@@ -77,6 +77,7 @@ class mse_loss(nn.Module):
         self.nfft = nfft
         self.device = device
         self.mse_loss = nn.MSELoss()
+        self.name = "MSE"
 
     def forward(self, y_pred, y_true):
         """
