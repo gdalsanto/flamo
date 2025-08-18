@@ -2743,7 +2743,7 @@ class Delay(DSP):
         """
         m = self.get_delays()
         if self.isint:
-            self.freq_response = lambda param: (self.gamma ** m(param)) * torch.exp(
+            self.freq_response = lambda param: (self.gamma ** m(param).round()) * torch.exp(
                 -1j
                 * torch.einsum(
                     "fo, omn -> fmn",
@@ -2880,14 +2880,24 @@ class parallelDelay(Delay):
         Computes the frequency response of the delay module.
         """
         m = self.get_delays()
-        self.freq_response = lambda param: (self.gamma ** m(param)) * torch.exp(
-            -1j
-            * torch.einsum(
-                "fo, on -> fn",
-                self.omega,
-                m(param).unsqueeze(0),
+        if self.isint:
+            self.freq_response = lambda param: (self.gamma ** m(param).round()) * torch.exp(
+                -1j
+                * torch.einsum(
+                     "fo, on -> fn",
+                    self.omega,
+                    m(param).round().unsqueeze(0),
+                )
             )
-        )
+        else:
+            self.freq_response = lambda param: (self.gamma ** m(param)) * torch.exp(
+                -1j
+                * torch.einsum(
+                    "fo, on -> fn",
+                    self.omega,
+                    m(param).unsqueeze(0),
+                )
+            )
 
     def get_io(self):
         r"""
