@@ -6,7 +6,7 @@ import argparse
 import yaml
 from flamo.auxiliary.reverb import HomogeneousFDN, map_gamma, inverse_map_gamma
 from flamo.auxiliary.config.config import HomogeneousFDNConfig
-from flamo.optimize.loss import mse_loss
+from flamo.optimize.loss import mse_loss, mel_mss_loss
 from flamo.optimize.surface import LossProfile, LossConfig, ParameterConfig, LossSurface
 from flamo.functional import signal_gallery, get_magnitude
 
@@ -59,7 +59,7 @@ def example_loss_profile(args):
 
     loss_profile = LossProfile(FDN.model, loss_config)
     loss = loss_profile.compute_loss(input_signal, target_signal)
-    loss_profile.plot_loss(loss, criterion_name=["MSE"])
+    loss_profile.plot_loss(loss)
 
 
 def example_loss_surface(args):
@@ -103,7 +103,7 @@ def example_loss_surface(args):
 
     # define config structures
     loss_config = LossConfig(
-        criteria=[mse_loss(), torch.nn.L1Loss()],
+        criteria=[mse_loss(), mel_mss_loss()],
         param_config=[attenuation_config, input_gain_config],
         # perturb_param=None,#"output_gain",
         perturb_map=lambda x: x,
@@ -124,7 +124,7 @@ def example_loss_surface(args):
 
     loss_profile = LossSurface(FDN.model, loss_config)
     loss = loss_profile.compute_loss(input_signal, target_signal)
-    loss_profile.plot_loss(loss, criterion_name=["MSE", "MAE"])
+    loss_profile.plot_loss(loss)
 
 if __name__ == "__main__":
 
