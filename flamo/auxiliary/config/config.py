@@ -33,7 +33,8 @@ class HomogeneousFDNConfig(BaseModel):
     delays_grad: bool = False
     mixing_matrix_grad: bool = True
     attenuation_grad: bool = True
-
+    is_delay_int: bool = True
+    
     def __init__(self, **data):
         super().__init__(**data)
         if self.delays is None:

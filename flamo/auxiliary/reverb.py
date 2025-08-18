@@ -129,7 +129,7 @@ class HomogeneousFDN:
             size=(self.N,),
             max_len=delay_lines.max(),
             nfft=self.config_dict.nfft,
-            isint=True,
+            isint=self.config_dict.is_delay_int,
             requires_grad=self.config_dict.delays_grad,
             alias_decay_db=self.config_dict.alias_decay_db,
             device=self.config_dict.device,
