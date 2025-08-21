@@ -2553,7 +2553,7 @@ class AccurateGEQ(Filter):
     :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
     The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).   
-    NOTE I: It is not differentiable 
+    NOTE I: It is not learnable 
     NOTE II: To avoid NaN or Inf values in the frequency response, the operations 
     performed in the frequency domain are done in double precision. The original 
     data type is restored at the end of the computation.
@@ -2674,7 +2674,7 @@ class parallelAccurateGEQ(AccurateGEQ):
     r"""
     Parallel counterpart of the :class:`GEQ` class
     For information about **attributes** and **methods** see :class:`flamo.processor.dsp.GEQ`.
-    NOTE: It is not differentiable 
+    NOTE: It is not learnable. 
 
     Shape:
         - input: :math:`(B, M, N, ...)`
