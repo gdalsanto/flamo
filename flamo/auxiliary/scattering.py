@@ -243,10 +243,9 @@ def get_random_shifts(N, sparsity_vect, pulse_size):
     return rand_shift
 
 
-#took the liberty to remove the following; "TODO remove for loop becuase all matrices look the same" I double-checked and the matrices are not the same
 def hadamard_matrix(N):
     """Generate a hadamard matrix of size N"""
-    X = np.array([[1]]) #gloria said this the flamo convention 
+    X = np.array([[1]]) 
     # Create a Hadamard matrix of the specified order
     while X.shape[0] < N:
         # Kronecker product to generate a larger Hadamard matrix
