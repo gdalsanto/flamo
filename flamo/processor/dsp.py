@@ -1084,7 +1084,7 @@ class VelvetNoiseMatrix(Filter):
     The :class:`VelvetNoiseMatrix` was designed as filter feedback matrix of the
      Feedback Delay Network (FDN) reverberator structure.
     NOTE: It is not learnable. 
-    
+
     The input tensor is expected to be a complex-valued tensor representing the
     frequency response of the input signal. The input tensor is then convolved in
     frequency domain with the filter frequency responses to produce the output tensor.
@@ -1137,7 +1137,6 @@ class VelvetNoiseMatrix(Filter):
         gain_per_sample: float = 0.9999,
         m_L: torch.tensor = None,
         m_R: torch.tensor = None,
-        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
     ):
@@ -1153,7 +1152,7 @@ class VelvetNoiseMatrix(Filter):
             size=size,
             nfft=nfft,
             map=map,
-            requires_grad=requires_grad,
+            requires_grad=False,
             alias_decay_db=alias_decay_db,
             device=device,
         )
