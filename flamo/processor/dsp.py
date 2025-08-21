@@ -1,4 +1,5 @@
 import torch
+import math
 from typing import Optional
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,7 +17,8 @@ from flamo.auxiliary.eq import (
     geq, 
     accurate_geq)
 from flamo.auxiliary.scattering import (
-    ScatteringMapping)
+    ScatteringMapping, 
+    hadamard_matrix)
 # ============================= TRANSFORMS ================================
 
 
@@ -928,7 +930,7 @@ class parallelFilter(Filter):
 
 class ScatteringMatrix(Filter):
     r"""
-    A class representing a set of Scattering Filter matrix.
+    A class representing a Scattering Filter matrix.
 
     The :class:`ScatteringMatrix` was designed as filter feedback matrix of the
      Feedback Delay Network (FDN) reverberator structure.
@@ -1064,6 +1066,145 @@ class ScatteringMatrix(Filter):
             self.size[-1],
             n_stages=self.size[0] - 1,
             sparsity=self.sparsity,
+            gain_per_sample=self.gain_per_sample,
+            pulse_size=self.pulse_size,
+            m_L=self.m_L,
+            m_R=self.m_R,
+            device=self.device,
+        )
+        self.check_param_shape()
+        self.get_io()
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+class VelvetNoiseMatrix(Filter):
+    r"""
+    A class representing a Velvet Noise Filter matrix.
+
+    The :class:`VelvetNoiseMatrix` was designed as filter feedback matrix of the
+     Feedback Delay Network (FDN) reverberator structure.
+    NOTE: It is not learnable. 
+
+    The input tensor is expected to be a complex-valued tensor representing the
+    frequency response of the input signal. The input tensor is then convolved in
+    frequency domain with the filter frequency responses to produce the output tensor.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(N_{taps}, N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
+    and :math:`N_{taps}` is the number of filter parameters per input-output channel pair. By default, :math:`N_{taps}`
+    correspond to the length of the FIR filters.
+    Ellipsis :math:`(...)` represents additional dimensions.
+
+        **Arguments / Attributes**:
+            - **size** (tuple): The size of the filter parameters. Default: (1, 1, 1).
+            - **nfft** (int): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
+            - **density** (float): Average number of pulses per sample. Default: 0.03.
+            - **gain_per_sample** (float): The gain per sample. This is useful when ensuring homogeneous decay in FDNs Default: 0.9999.
+            - **m_L** (torch.tensor): The leftmost delay vector. Default: None.
+            - **m_R** (torch.tensor): The rightmost delay vector. Default: None.
+            - **requires_grad** (bool): Whether the filter parameters require gradients. Default: False.
+            - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
+            - **device** (str): The device of the constructed tensors. Default: None.
+
+        **Attributes**:
+            - **param** (nn.Parameter): The parameters of the Filter module.
+            - **map** (function): Mapping function to ensure orthogonality of :math:`\mathbf{U}_k`.
+            - **map_filter** (ScatteringMapping): Mapping function to generate the filter matrix.
+            - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
+            - **ifft** (function): The Inverse FFT function. Calls the torch.fft.irfft.
+            - **gamma** (torch.Tensor): The gamma value used for time anti-aliasing envelope.
+            - **new_value** (int): Flag indicating if new values have been assigned.
+            - **freq_response** (torch.Tensor): The frequency response of the filter.
+            - **freq_convolve** (function): The frequency convolution function.
+            - **input_channels** (int): The number of input channels.
+            - **output_channels** (int): The number of output channels.
+
+    Refereces:
+        - Schlecht, S. J., & Habets, E. A. (2020). Scattering in feedback delay networks. IEEE/ACM Transactions on Audio, Speech, and Language Processing, 28, 1915-1924.
+
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1, 1),
+        nfft: int = 2**11,
+        density: float = 0.03,
+        gain_per_sample: float = 0.9999,
+        m_L: torch.tensor = None,
+        m_R: torch.tensor = None,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
+    ):
+        self.sparsity = 1/density
+        self.gain_per_sample = gain_per_sample
+        self.pulse_size = 1
+        self.m_L = m_L
+        self.m_R = m_R
+        map = lambda x: x
+        assert size[1] == size[2], "Matrix must be square"
+        assert (size[1] & (size[1] - 1)) == 0, "At the moment the Matrix must have dimensions which are powers of 2"
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=False,
+            alias_decay_db=alias_decay_db,
+            device=device,
+        )
+        self.assign_value(torch.tensor(hadamard_matrix(self.size[-1]), device=self.device).unsqueeze(0).repeat(self.size[0], 1, 1))
+
+    def get_freq_convolve(self):
+        r"""
+        Computes the frequency convolution function.
+
+        The frequency convolution is computed using the :func:`torch.einsum` function.
+
+            **Arguments**:
+                **x** (torch.Tensor): Input tensor.
+
+            **Returns**:
+                torch.Tensor: Output tensor after frequency convolution.
+        """
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fmn,bfn...->bfm...", self.freq_response(param), x
+        )
+
+    def get_freq_response(self):
+        r"""
+        Computes the frequency response of the filter.
+
+        The mapping function is applied to the filter parameters to obtain the filter impulse responses.
+        Then, the time anti-aliasing envelope is computed and applied to the impulse responses. Finally,
+        the frequency response is obtained by computing the FFT of the filter impulse responses.
+        """
+        L = (
+            (sum(self.map_filter.shifts).max() + 1).item()
+            + self.m_L.max().item()
+            + self.m_R.max().item()
+        )
+        self.freq_response = lambda param: self.fft(
+            self.map_filter(self.map(param))
+            * (self.gamma ** torch.arange(0, L, device=self.device)).view(
+                -1, *tuple([1 for i in self.size[1:]])
+            )
+        )
+
+    def initialize_class(self):
+        r"""
+        Initializes the ScatteringMatrix module.
+
+        This method creates the mapping to generate the filter matrix, checks the shape of the gain parameters, computes the frequency response of the filter,
+        and computes the frequency convolution function.
+        """
+        self.map_filter = ScatteringMapping(
+            self.size[-1],
+            n_stages=self.size[0] - 1,
+            sparsity=math.floor(self.sparsity),
             gain_per_sample=self.gain_per_sample,
             pulse_size=self.pulse_size,
             m_L=self.m_L,
@@ -2410,7 +2551,7 @@ class AccurateGEQ(Filter):
     :math:`N_{in}` is the number of input channels, :math:`N_{out}` is the number of output channels,
     The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).   
-    NOTE I: It is not differentiable 
+    NOTE I: It is not learnable 
     NOTE II: To avoid NaN or Inf values in the frequency response, the operations 
     performed in the frequency domain are done in double precision. The original 
     data type is restored at the end of the computation.
@@ -2531,7 +2672,7 @@ class parallelAccurateGEQ(AccurateGEQ):
     r"""
     Parallel counterpart of the :class:`GEQ` class
     For information about **attributes** and **methods** see :class:`flamo.processor.dsp.GEQ`.
-    NOTE: It is not differentiable 
+    NOTE: It is not learnable. 
 
     Shape:
         - input: :math:`(B, M, N, ...)`

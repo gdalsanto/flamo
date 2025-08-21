@@ -245,13 +245,11 @@ def get_random_shifts(N, sparsity_vect, pulse_size):
 
 def hadamard_matrix(N):
     """Generate a hadamard matrix of size N"""
-    X = np.array([[1]])
+    X = np.array([[1]]) 
     # Create a Hadamard matrix of the specified order
-    # TODO remove for loop becuase all matrices look the same
     while X.shape[0] < N:
         # Kronecker product to generate a larger Hadamard matrix
         X = np.kron(X, np.array([[1, 1], [1, -1]])) / np.sqrt(2)
-
     return X
 
 
