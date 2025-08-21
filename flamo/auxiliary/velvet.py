@@ -15,187 +15,100 @@ import torch
 import torch.nn as nn
 import math
 from typing import Optional
+from flamo.processor.dsp import Filter, parallelFilter
 
 
-class VelvetNoiseSequence(nn.Module):
+class VelvetNoiseFilter(Filter):
     """
-    Basic velvet noise sequence generator.
-    
-    Velvet noise is characterised by:
-    - Sparse impulses (mostly zeros)
-    - Random signs (+1 or -1) for each impulse
-    - Jittered positioning on a quasi-regular grid
-    
-    Following Välimäki & Prawda (2021).
-    
+    TODO 
     Args:
-        length: Length of the output sequence in samples
+        size: Size of the filter parameters (length, output_channels, input_channels)
         density: Number of impulses per second
-        sample_rate: Sample rate in Hz (default: 48000)
-    """
-    
-    def __init__(
-        self, 
-        length: int, 
-        density: float, 
-        sample_rate: int = 48000
-    ):
-        super().__init__()
-        self.length = length
-        self.density = density
-        self.sample_rate = sample_rate
-        
-        # Generate and store the velvet noise sequence
-        self.register_buffer("sequence", self._generate())
-        
-    def _generate(self) -> torch.Tensor:
-        """Generate the velvet noise sequence."""
-        # Calculate grid size (average distance between impulses)
-        Td = self.sample_rate / self.density
-        num_impulses = self.length / Td
-        floor_impulses = math.floor(num_impulses)
-        
-        # Generate fixed grid positions
-        grid_positions = torch.arange(floor_impulses) * Td
-        
-        # Add random jitter to each position (uniform distribution)
-        jitter_factors = torch.rand(floor_impulses)
-        impulse_indices = torch.ceil(grid_positions + jitter_factors * (Td - 1)).long()
-        
-        # first impulse is at position 0 and all indices are within bounds
-        impulse_indices[0] = 0
-        impulse_indices = torch.clamp(impulse_indices, max=self.length - 1)
-        
-        # Generate random signs (+1 or -1)
-        signs = 2 * torch.randint(0, 2, (floor_impulses,)) - 1
-        
-        # Construct sparse signal
-        sequence = torch.zeros(self.length)
-        sequence[impulse_indices] = signs.float()
-        
-        return sequence
-    
-    def forward(self) -> torch.Tensor:
-        """Return the velvet noise sequence."""
-        return self.sequence
-
-
-class VelvetNoiseBank(nn.Module):
-    """
-    Bank of velvet noise sequences for multi-channel processing.
-    
-    This can be used for:
-    - Feedback Delay Networks (FDN)
-    - Multi-channel decorrelation
-    - Parallel reverb processing
-    
-    Args:
-        num_channels: Number of velvet noise sequences to generate
-        length: Length of each sequence in samples
-        density: Number of impulses per second
-        sample_rate: Sample rate in Hz (default: 48000)
-    """
-    
-    def __init__(
-        self,
-        num_channels: int,
-        length: int,
-        density: float,
-        sample_rate: int = 48000
-    ):
-        super().__init__()
-        self.num_channels = num_channels
-        self.length = length
-        self.density = density
-        self.sample_rate = sample_rate
-        
-        # Generate bank of velvet noise sequences
-        self.register_buffer("bank", self._generate_bank())
-        
-    def _generate_bank(self) -> torch.Tensor:
-        """Generate multiple independent velvet noise sequences."""
-        bank = torch.zeros((self.num_channels, self.length))
-        
-        for i in range(self.num_channels):
-            vn = VelvetNoiseSequence(
-                length=self.length,
-                density=self.density,
-                sample_rate=self.sample_rate
-            )
-            bank[i, :] = vn.sequence
-            
-        return bank
-    
-    def forward(self) -> torch.Tensor:
-        """Return the bank of velvet noise sequences."""
-        return self.bank
-
-
-class ExtendedVelvetNoiseSequence(nn.Module):
-    """
-    Extended Velvet Noise (EVN) sequence with configurable impulse range.
-    
-    EVN limits where impulses can appear within each grid period using
-    a scaling factor delta. This enables interleaving multiple sequences
-    without collisions, as described in Välimäki & Prawda (2021).
-    
-    Args:
-        length: Length of the output sequence in samples
-        density: Number of impulses per second
-        sample_rate: Sample rate in Hz (default: 48000)
         delta: Scaling factor for impulse range (0 < delta <= 1)
                When delta=0.25, impulses only appear in first 25% of each grid
+        sample_rate: Sample rate in Hz (default: 48000)
+        nfft: Number of FFT points required to compute the frequency response
+        requires_grad: Whether the filter parameters require gradients
+        alias_decay_db: The decaying factor in dB for the time anti-aliasing envelope
+        device: The device of the constructed tensors
     """
     
     def __init__(
         self,
-        length: int,
-        density: float,
+        size: tuple = (1, 1, 1),
+        density: float = 1000.0,
+        delta: float = 1.0,
         sample_rate: int = 48000,
-        delta: float = 1.0
+        nfft: int = 2**11,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
     ):
-        super().__init__()
-        
+        self.density = density
+        self.sample_rate = sample_rate
+        self.Td = sample_rate / density  # Average distance between impulses
         if not 0 < delta <= 1:
             raise ValueError("Delta must be in range (0, 1]")
             
-        self.length = length
-        self.density = density
-        self.sample_rate = sample_rate
         self.delta = delta
+        # Create mapping function that generates velvet noise
+        map = lambda x: self._generate_velvet_impulse_response(x)
+        super().__init__(
+            size=size,
+            nfft=nfft,
+            map=map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device,
+        )
+    
+    def _generate_velvet_impulse_response(self, param: torch.Tensor) -> torch.Tensor:
+        """Generate velvet noise impulse response from parameters."""        
+        # Calculate grid size (average distance between impulses)
+
         
-        # Generate and store the extended velvet noise sequence
-        self.register_buffer("sequence", self._generate())
+        result = torch.zeros_like(param)
         
-    def _generate(self) -> torch.Tensor:
-        """Generate the extended velvet noise sequence."""
-        # Calculate grid size
-        Td = self.sample_rate / self.density
-        num_impulses = self.length / Td
-        floor_impulses = math.floor(num_impulses)
+        for out_ch in range(self.param.shape[1]):
+            for in_ch in range(self.param.shape[2]):
+                # Extract parameters for this channel pair
+                result[:, out_ch, in_ch] = self._generate_velvet_sequence()
+                
+        return result
+    
+    def _generate_velvet_sequence(
+        self, 
+    ) -> torch.Tensor:
+        """Generate a single velvet noise sequence."""
         
-        # Generate fixed grid positions
-        grid_positions = torch.arange(floor_impulses) * Td
-        
-        # Add LIMITED random jitter based on delta
-        jitter_factors = torch.rand(floor_impulses)
-        impulse_indices = torch.ceil(
-            grid_positions + self.delta * jitter_factors * (Td - 1)
-        ).long()
-        
+        # Add random jitter to each position (uniform distribution)
+        jitter_factors = torch.rand(self.floor_impulses)
+        impulse_indices = torch.ceil(self.grid + self.delta *  jitter_factors * (self.Td - 1)).long()
+
         # first impulse is at position 0 and all indices are within bounds
         impulse_indices[0] = 0
-        impulse_indices = torch.clamp(impulse_indices, max=self.length - 1)
+        impulse_indices = torch.clamp(impulse_indices, max=self.param.shape[0] - 1)
         
         # Generate random signs (+1 or -1)
-        signs = 2 * torch.randint(0, 2, (floor_impulses,)) - 1
+        signs = 2 * torch.randint(0, 2, (self.floor_impulses,)) - 1
         
         # Construct sparse signal
-        sequence = torch.zeros(self.length)
+        sequence = torch.zeros(self.size[0], device=self.device)
         sequence[impulse_indices] = signs.float()
-        
+
         return sequence
-    
-    def forward(self) -> torch.Tensor:
-        """Return the extended velvet noise sequence."""
-        return self.sequence
+
+    def initialize_class(self):
+        r"""
+        Initializes the Filter module.
+
+        This method checks the shape of the gain parameters, computes the frequency response of the filter,
+        and computes the frequency convolution function.
+        """
+        self.check_param_shape()
+        self.get_io()
+        num_impulses = self.param.shape[0] / self.Td
+        self.floor_impulses = math.floor(num_impulses)
+        self.grid = torch.arange(self.floor_impulses) * self.Td
+        self.get_freq_response()
+        self.get_freq_convolve()
