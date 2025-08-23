@@ -410,7 +410,7 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
             device=device
         )
         self.n_gains = self.size[0]
-        self.size = (self.n_groups * self.size[0], len(self.delays))
+        self.size = (self.n_groups * self.size[0],)
         self.param = torch.nn.Parameter(
             torch.empty(self.size, device=self.device), requires_grad=self.requires_grad
         )
