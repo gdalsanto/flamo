@@ -400,7 +400,6 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
         self.delays = delays
         map = map_gfdn_gamma(delays, n_groups, fs)
         super().__init__(
-            size=( ),
             octave_interval=octave_interval,
             nfft=nfft,
             delays=delays,
