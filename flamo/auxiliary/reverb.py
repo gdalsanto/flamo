@@ -398,23 +398,23 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
     ):
         assert (delays is not None), "Delays must be provided"
         self.delays = delays
-        map = map_gfdn_gamma(delays, n_groups, fs)
+        self.n_groups = n_groups
         super().__init__(
             octave_interval=octave_interval,
             nfft=nfft,
             delays=delays,
             fs=fs,
-            map=map,
             alias_decay_db=alias_decay_db,
             start_freq=start_freq,
             end_freq=end_freq,
             device=device
         )
         self.n_gains = self.size[0]
-        self.size = (n_groups * self.size[0], len(delays))
-        self.param = param = torch.nn.Parameter(
+        self.size = (self.n_groups * self.size[0], len(self.delays))
+        self.param = torch.nn.Parameter(
             torch.empty(self.size, device=self.device), requires_grad=self.requires_grad
         )
+        self.map = map_gfdn_gamma(self.delays, self.n_groups, self.fs)
 
     def get_poly_coeff(self, param):
         r"""
@@ -423,7 +423,7 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
         a = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
         b = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
         for n_i in range(len(self.delays)):
-            for i_group in range(self.n_gains):
+            for i_group in range(self.n_groups):
                 (
                     b[:, i_group * (self.n_gains) : (i_group + 1) * self.n_gains, n_i],
                     a[:, i_group * (self.n_gains) : (i_group + 1) * self.n_gains, n_i],
