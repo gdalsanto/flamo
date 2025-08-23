@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import numpy as np
@@ -175,11 +176,12 @@ def signal_gallery(
         - ``sweep``: A linear sweep from 20 Hz to 20 kHz.
         - ``wgn``: White Gaussian noise.
         - ``exp``: An exponential decay signal.
+        - ``velvet``: A velvet noise signal with density :attr:`rate` impulses per second.
         - ``reference``: A reference signal provided as argument :attr:`reference`.
 
         **Arguments**:
             - **batch_size** (int): The number of batches to generate.
-            - **n_samples** (int): THe signal length in samples.
+            - **n_samples** (int): The signal length in samples.
             - **n_channel** (int): The number of channels in each signal.
             - **signal_type** (str, optional): The type of signal to generate. Defaults to 'impulse'.
             - **fs** (int, optional): The sampling frequency of the signals. Defaults to 48000.
@@ -198,6 +200,7 @@ def signal_gallery(
         "exp",
         "reference",
         "noise",
+        "velvet",
     }
 
     if signal_type not in signal_types:
@@ -243,6 +246,12 @@ def signal_gallery(
                 .expand(batch_size, n_samples, n)
                 .to(device)
             )
+        case "velvet":
+            x = torch.empty((batch_size, n_samples, n), device=device)
+            for i_batch in range(batch_size):
+                for i_ch in range(n):
+                    x[i_batch, :, i_ch] = gen_velvet_noise(n_samples, fs, rate, device)
+            return x
         case "reference":
             if isinstance(reference, torch.Tensor):
                 return reference.expand(batch_size, n_samples, n).to(device)
@@ -253,6 +262,38 @@ def signal_gallery(
         case "noise":
             return torch.randn((batch_size, n_samples, n), device=device)
 
+
+def gen_velvet_noise(n_samples: int, fs: int, density: float, device: str | torch.device = None) -> torch.Tensor:
+    r"""
+    Generate a velvet noise sequence.
+    **Arguments**:
+        - **n_samples** (int): The length of the signal in samples.
+        - **fs** (int): The sampling frequency of the signal in Hz.
+        - **density** (float): The density of impulses in impulses per second.
+        - **device** (str | torch.device): The device of constructed tensors.
+    **Returns**:
+        - torch.Tensor: A tensor of shape (n_samples,) containing the velvet noise sequence.
+    """
+    Td = fs / density # average distance between impulses
+    num_impulses = n_samples / Td # expected number of impulses
+    floor_impulses = math.floor(num_impulses)
+    grid = torch.arange(floor_impulses) * Td
+
+    jitter_factors = torch.rand(floor_impulses)
+    impulse_indices = torch.ceil(grid + jitter_factors * (Td - 1)).long()
+
+    # first impulse is at position 0 and all indices are within bounds
+    impulse_indices[0] = 0
+    impulse_indices = torch.clamp(impulse_indices, max=n_samples - 1)
+            
+    # Generate random signs (+1 or -1)
+    signs = 2 * torch.randint(0, 2, (floor_impulses,)) - 1
+            
+    # Construct sparse signal
+    sequence = torch.zeros(n_samples, device=device)
+    sequence[impulse_indices] = signs.float()
+
+    return sequence
 
 def hertz2rad(hertz: torch.Tensor, fs: int):
     r"""
