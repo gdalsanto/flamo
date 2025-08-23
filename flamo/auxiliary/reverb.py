@@ -67,7 +67,18 @@ class inverse_map_gamma(torch.nn.Module):
                 return y
             else:
                 return y**(1/self.delays)
-            
+
+class map_gfdn_gamma(torch.nn.Module):
+    def __init__(self, delays: torch.Tensor, n_groups: int, fs: int):
+        super().__init__()
+        self.delays = delays
+        self.n_groups = n_groups
+        self.fs = fs
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Map input to grouped RT values."""
+        gamma = torch.mul(rt2slope(x, self.fs).unsqueeze(-1), self.delays.unsqueeze(0))
+        return gamma
 
 class HomogeneousFDN:
     r"""
@@ -281,7 +292,7 @@ class HomogeneousFDN:
             rt60, self.config_dict.sample_rate, torch.tensor(self.delays)
         ).squeeze()
         return 10 ** (gdB / 20)
-    
+
 
 class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
     r"""
@@ -371,6 +382,70 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
         self.input_channels = len(self.delays)
         self.output_channels = len(self.delays)
 
+class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
+    # TODO
+    def __init__(
+        self,
+        octave_interval: int = 1,
+        n_groups: int = 2,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        delays: torch.Tensor =  None,
+        alias_decay_db: float = 0.0,
+        start_freq: float = 31.25,
+        end_freq: float = 16000.0,
+        device=None
+    ):
+        assert (delays is not None), "Delays must be provided"
+        self.delays = delays
+        map = map_gfdn_gamma(delays, n_groups, fs)
+        super().__init__(
+            size=( ),
+            octave_interval=octave_interval,
+            nfft=nfft,
+            delays=delays,
+            fs=fs,
+            map=map,
+            alias_decay_db=alias_decay_db,
+            start_freq=start_freq,
+            end_freq=end_freq,
+            device=device
+        )
+        self.n_gains = self.size[0]
+        self.size = (n_groups * self.size[0], len(delays))
+        self.param = param = torch.nn.Parameter(
+            torch.empty(self.size, device=self.device), requires_grad=self.requires_grad
+        )
+
+    def get_poly_coeff(self, param):
+        r"""
+        Computes the polynomial coefficients for the SOS section.
+        """
+        a = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
+        b = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
+        for n_i in range(len(self.delays)):
+            for i_group in range(self.n_gains):
+                (
+                    b[:, i_group * (self.n_gains) : (i_group + 1) * self.n_gains, n_i],
+                    a[:, i_group * (self.n_gains) : (i_group + 1) * self.n_gains, n_i],
+                ) = accurate_geq(
+                    target_gain=param[
+                        i_group * self.n_gains : (i_group + 1) * self.n_gains, n_i
+                    ],
+                    center_freq=self.center_freq,
+                    shelving_crossover=self.shelving_crossover,
+                    fs=self.fs,
+                    device=self.device,
+                )
+
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
 
 class parallelFDNGEQ(dsp.parallelGEQ):
     r"""
@@ -719,7 +794,6 @@ class parallelFDNPEQ(Filter):
         """
         self.input_channels = len(self.delays)
         self.output_channels = len(self.delays)
-
 
 
 class parallelFirstOrderShelving(dsp.parallelFilter):
