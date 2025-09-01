@@ -621,7 +621,6 @@ class LossSurface(LossProfile):
             plt.savefig(
                 f"{self.output_dir}/{title[i_plot]}_{self.param_config[0].key}_{self.param_config[1].key}.png"
             )
-            plt.clf()
         return fig, ax
 
     def compute_accuracy(self, loss):
