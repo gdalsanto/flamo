@@ -420,13 +420,13 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
         r"""
         Computes the polynomial coefficients for the SOS section.
         """
-        a = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
-        b = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
+        a = torch.zeros((3, self.size[0]+self.n_groups, len(self.delays)), device=self.device)
+        b = torch.zeros((3, self.size[0]+self.n_groups, len(self.delays)), device=self.device)
         for n_i in range(len(self.delays)):
             for i_group in range(self.n_groups):
                 (
-                    b[:, i_group * (self.n_gains) : (i_group + 1) * self.n_gains, n_i],
-                    a[:, i_group * (self.n_gains) : (i_group + 1) * self.n_gains, n_i],
+                    b[:, i_group * (self.n_gains+1) : (i_group + 1) * (self.n_gains+1), n_i],
+                    a[:, i_group * (self.n_gains+1) : (i_group + 1) * (self.n_gains+1), n_i],
                 ) = accurate_geq(
                     target_gain=param[
                         i_group * self.n_gains : (i_group + 1) * self.n_gains, n_i
