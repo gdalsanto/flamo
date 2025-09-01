@@ -484,9 +484,9 @@ class LossSurface(LossProfile):
                 )
             for i_crit in range(len(self.criteria)):
                 if i_plot == 0:
-                    x = loss[..., i_crit].mean(0)
+                    x = loss[..., i_crit].mean(0).T
                 else:
-                    x = loss[..., i_crit].std(0)
+                    x = loss[..., i_crit].std(0).T
                 criterion_name = self.criteria[i_crit].name
                 if len(self.criteria) == 1:
 
