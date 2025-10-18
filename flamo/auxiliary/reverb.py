@@ -576,7 +576,7 @@ class parallelFDNPEQ(Filter):
         self.center_freq_bias = f_min * (f_max / f_min) ** ((k - 1) / (self.n_bands - 1))
         self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device)
         super().__init__(
-            size=(self.n_bands+1 if self.is_twostage else self.n_band, 3, 1 if self.is_proportional else len(delays)),
+            size=(self.n_bands+1 if self.is_twostage else self.n_bands, 3, 1 if self.is_proportional else len(delays)),
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
