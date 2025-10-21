@@ -214,8 +214,8 @@ class nnComb(nn.Module):
         comb = system.Recursion(fF=delays, fB=filt)
 
         # Create the model with Shell
-        input_layer = dsp.FFT(args.nfft)
-        output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+        input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+        output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
         self.comb = system.Shell(
             core=comb, input_layer=input_layer, output_layer=output_layer
         )
@@ -344,6 +344,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--nfft", type=int, default=32000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=16000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     parser.add_argument("--num", type=int, default=2**10, help="dataset size")
     parser.add_argument(
         "--device", type=str, default="cuda", help="device to use for computation"
@@ -372,6 +373,9 @@ if __name__ == "__main__":
     # Check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # Make output directory
     if args.train_dir is not None:

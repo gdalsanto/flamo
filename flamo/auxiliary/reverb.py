@@ -104,11 +104,12 @@ class HomogeneousFDN:
     def set_model(self, input_layer=None, output_layer=None):
         # set the input and output layers of the FDN model
         if input_layer is None:
-            input_layer = dsp.FFT(self.config_dict.nfft)
+            input_layer = dsp.FFT(self.config_dict.nfft, dtype=self.config_dict.dtype)
         if output_layer is None:
             output_layer = dsp.iFFTAntiAlias(
                 nfft=self.config_dict.nfft,
                 alias_decay_db=self.config_dict.alias_decay_db,
+                dtype=self.config_dict.dtype,
             )
 
         self.model = self.get_shell(input_layer, output_layer)
@@ -125,6 +126,7 @@ class HomogeneousFDN:
             requires_grad=self.config_dict.input_gain_grad,
             alias_decay_db=self.config_dict.alias_decay_db,
             device=self.config_dict.device,
+            dtype=self.config_dict.dtype,
         )
         output_gain = dsp.Gain(
             size=(1, self.N),
@@ -132,6 +134,7 @@ class HomogeneousFDN:
             requires_grad=self.config_dict.output_gain_grad,
             alias_decay_db=self.config_dict.alias_decay_db,
             device=self.config_dict.device,
+            dtype=self.config_dict.dtype,
         )
 
         # RECURSION
@@ -144,6 +147,7 @@ class HomogeneousFDN:
             requires_grad=self.config_dict.delays_grad,
             alias_decay_db=self.config_dict.alias_decay_db,
             device=self.config_dict.device,
+            dtype=self.config_dict.dtype,
         )
         # assign the required delay line lengths
         delays.assign_value(delays.sample2s(delay_lines))
@@ -156,6 +160,7 @@ class HomogeneousFDN:
             requires_grad=self.config_dict.mixing_matrix_grad,
             alias_decay_db=self.config_dict.alias_decay_db,
             device=self.config_dict.device,
+            dtype=self.config_dict.dtype,
         )
 
         # homogeneous attenuation
@@ -165,6 +170,7 @@ class HomogeneousFDN:
             requires_grad=self.config_dict.attenuation_grad,
             alias_decay_db=self.config_dict.alias_decay_db,
             device=self.config_dict.device,
+            dtype=self.config_dict.dtype,
         )
         attenuation.map = map_gamma(delay_lines)
         attenuation.assign_value(

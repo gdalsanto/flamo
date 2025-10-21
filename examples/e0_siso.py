@@ -20,8 +20,8 @@ def example_fft(args) -> None:
     Use of FFT and iFFT modules.
     """
     # ------------------ Module Definition ------------------
-    fft = dsp.FFT(nfft=args.nfft)
-    ifft = dsp.iFFT(nfft=args.nfft)
+    fft = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    ifft = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     # ------------------ Signal Definition ------------------
     x = signal_gallery(
@@ -31,6 +31,7 @@ def example_fft(args) -> None:
         n=1,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # ------------------ Apply FFT and iFFT -----------------
@@ -58,9 +59,9 @@ def example_gains(args) -> None:
 
     # ------------------- DSP Definition --------------------
     channels = 1
-    filter = dsp.parallelGain(size=(channels,), nfft=args.nfft, device=args.device)
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    filter = dsp.parallelGain(size=(channels,), nfft=args.nfft, device=args.device, dtype=args.dtype)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     my_dsp = nn.Sequential(input_layer, filter, output_layer)
 
@@ -74,6 +75,7 @@ def example_gains(args) -> None:
         n=channels,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Apply filter
@@ -104,9 +106,9 @@ def example_gains_2(args) -> None:
     # ------------------- DSP Definition -------------------
     in_ch = 1
     out_ch = 1
-    filter = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device)
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    filter = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device, dtype=args.dtype)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     my_dsp = nn.Sequential(input_layer, filter, output_layer)
 
@@ -120,6 +122,7 @@ def example_gains_2(args) -> None:
         n=in_ch,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Apply filter before changes
@@ -168,9 +171,10 @@ def example_fir(args) -> None:
         nfft=args.nfft,
         requires_grad=True,
         device=args.device,
+        dtype=args.dtype,
     )
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     model = nn.Sequential(input_layer, filter, output_layer)
 
@@ -183,6 +187,7 @@ def example_fir(args) -> None:
         n=in_ch,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Target impulse response
@@ -194,6 +199,7 @@ def example_fir(args) -> None:
         rate=2,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Dataset
@@ -252,6 +258,7 @@ if __name__ == "__main__":
     # ---------------------- Processing -------------------
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     # ----------------------- Dataset ----------------------
     parser.add_argument(
         "--batch_size", type=int, default=1, help="batch size for training"
@@ -287,6 +294,9 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # make output directory
     if args.train_dir is not None:

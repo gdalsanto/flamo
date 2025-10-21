@@ -40,6 +40,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     output_gain = dsp.Gain(
         size=(1, N),
@@ -47,6 +48,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -57,6 +59,7 @@ def example_fdn(args):
         requires_grad=False,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     delays.assign_value(delays.sample2s(delay_lengths))
 
@@ -66,12 +69,14 @@ def example_fdn(args):
         high=int(torch.floor(min(delay_lengths) / 2)),
         size=[N],
         device=args.device,
+        dtype=args.dtype,
     )
     m_R = torch.randint(
         low=1,
         high=int(torch.floor(min(delay_lengths) / 2)),
         size=[N],
         device=args.device,
+        dtype=args.dtype,
     )
     feedback = dsp.ScatteringMatrix(
         size=(4, N, N),
@@ -83,6 +88,7 @@ def example_fdn(args):
         alias_decay_db=alias_decay_db,
         requires_grad=True,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Recursion
@@ -100,8 +106,8 @@ def example_fdn(args):
     )
 
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
     # Get initial impulse response
@@ -201,6 +207,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--nfft", type=int, default=48000 * 2, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     parser.add_argument(
         "--device", type=str, default="cuda", help="device to use for computation"
     )
@@ -208,7 +215,7 @@ if __name__ == "__main__":
         "--batch_size", type=int, default=1, help="batch size for training"
     )
     parser.add_argument(
-        "--max_epochs", type=int, default=40, help="maximum number of epochs"
+        "--max_epochs", type=int, default=20, help="maximum number of epochs"
     )
     parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument(
@@ -221,7 +228,10 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
-        print("cuda not available, will use cpu")
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
+    print("cuda not available, will use cpu")
 
     # make output directory
     if args.train_dir is not None:

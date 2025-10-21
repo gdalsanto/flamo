@@ -36,6 +36,7 @@ def example_matrix(args) -> None:
         n=in_ch,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     
     # Test different matrix types
@@ -54,10 +55,11 @@ def example_matrix(args) -> None:
             matrix_type=matrix_type,
             nfft=args.nfft,
             device=args.device,
+            dtype=args.dtype,
         )
         
-        input_layer = dsp.FFT(nfft=args.nfft)
-        output_layer = dsp.iFFT(nfft=args.nfft)
+        input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+        output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
         
         my_dsp = nn.Sequential(input_layer, matrix_filter, output_layer)
         
@@ -94,9 +96,10 @@ def example_delays(args) -> None:
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     my_dsp = nn.Sequential(input_layer, filter, output_layer)
 
@@ -110,6 +113,7 @@ def example_delays(args) -> None:
         n=in_ch,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Apply filter
@@ -147,9 +151,10 @@ def example_biquads(args) -> None:
         fs=args.samplerate,
         requires_grad=True,
         device=args.device,
+        dtype=args.dtype,
     )
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.Transform(lambda x: torch.abs(x))
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.Transform(lambda x: torch.abs(x), dtype=args.dtype)
 
     model = nn.Sequential(input_layer, filter, output_layer)
 
@@ -163,17 +168,18 @@ def example_biquads(args) -> None:
         n=in_ch,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Target frequency responses
     f_cut_1 = 500  # Cut-off frequency for the first lowpass filter
     g_1 = 10  # Bandpass gain for the first lowpass filter
-    b_lp_1, a_lp_1 = lowpass_filter(f_cut_1, g_1, args.samplerate, device=args.device)
+    b_lp_1, a_lp_1 = lowpass_filter(f_cut_1, g_1, args.samplerate, device=args.device, dtype=args.dtype)
     H_lp_1 = biquad2tf(b=b_lp_1, a=a_lp_1, nfft=args.nfft)
 
     f_cut_2 = 5000  # Cut-off frequency for the second lowpass filter
     g_2 = 0.7  # Bandpass gain for the second lowpass filter
-    b_lp_2, a_lp_2 = lowpass_filter(f_cut_2, g_2, args.samplerate, device=args.device)
+    b_lp_2, a_lp_2 = lowpass_filter(f_cut_2, g_2, args.samplerate, device=args.device, dtype=args.dtype)
     H_lp_2 = biquad2tf(b=b_lp_2, a=a_lp_2, nfft=args.nfft)
 
     target = torch.stack([torch.abs(H_lp_1), torch.abs(H_lp_2)], dim=1).unsqueeze(0)
@@ -242,6 +248,7 @@ if __name__ == "__main__":
     # ---------------------- Processing -------------------
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     # ----------------------- Dataset ----------------------
     parser.add_argument(
         "--batch_size", type=int, default=1, help="batch size for training"
@@ -277,6 +284,9 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # make output directory
     if args.train_dir is not None:

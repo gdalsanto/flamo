@@ -48,9 +48,9 @@ class Dataset(torch.utils.data.Dataset):
             (num, args.nfft // 2 + 1, out_ch),
             device=args.device,
         )
-        input_layer = dsp.FFT(args.nfft)
+        input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
         imp = signal_gallery(
-            1, n_samples=args.nfft, n=in_ch, signal_type="impulse", fs=args.samplerate
+            1, n_samples=args.nfft, n=in_ch, signal_type="impulse", fs=args.samplerate, dtype=args.dtype
         )
         for i in range(num):
             target_filter = generate_biquad_filter(args, in_ch, out_ch, n_sections)
@@ -81,7 +81,7 @@ class nnBiquad(nn.Module):
         self.in_ch = in_ch
         self.out_ch = out_ch
         self.n_param = n_param
-
+        self.dtype = args.dtype
         # Stack of MLPs
         self.stack = nn.Sequential(
             nn.Linear(args.nfft // 2 + 1, 256),
@@ -108,6 +108,7 @@ class nnBiquad(nn.Module):
             requires_grad=False,
             alias_decay_db=30,
             device=args.device,
+            dtype=args.dtype,
         )
 
         # To condition the biquad filter, we will need to pass the parameters estimated
@@ -121,8 +122,8 @@ class nnBiquad(nn.Module):
         )
 
         # Create the model with Shell
-        input_layer = dsp.FFT(args.nfft)
-        output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+        input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+        output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
         self.biquad = system.Shell(
             core=core, input_layer=input_layer, output_layer=output_layer
         )
@@ -149,7 +150,7 @@ class nnBiquad(nn.Module):
         y = []
         for i in range(x.size(0)):
             # Create a dictionary whose key is the name of the module whose parameters are to be estimated
-            param_dict = {"biquad": x[i]}
+            param_dict = {"biquad": x[i].to(self.dtype)}
             y.append(self.biquad(z[0].unsqueeze(0), param_dict))
 
         y = torch.vstack(y)
@@ -181,6 +182,7 @@ def example_biquad_nn(args):
         model,
         max_epochs=args.max_epochs,
         train_dir=args.train_dir,
+        lr=args.lr,
         device=args.device,
         step_size=10,
         patience_delta=1e-5,
@@ -225,6 +227,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--nfft", type=int, default=4096, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     parser.add_argument("--num", type=int, default=2**10, help="dataset size")
     parser.add_argument(
         "--device", type=str, default="cuda", help="device to use for computation"
@@ -235,7 +238,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_epochs", type=int, default=100, help="maximum number of epochs"
     )
-    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-5, help="learning rate")
     parser.add_argument(
         "--train_dir", type=str, help="directory to save training results"
     )
@@ -248,6 +251,9 @@ if __name__ == "__main__":
     # Check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # Make output directory
     if args.train_dir is not None:

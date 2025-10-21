@@ -1,5 +1,7 @@
 import torch
 import math
+import abc
+import warnings
 from typing import Optional
 import torch.nn as nn
 import torch.nn.functional as F
@@ -41,11 +43,11 @@ class Transform(nn.Module):
             tensor([1, 4, 9])
     """
 
-    def __init__(self, transform: callable = lambda x: x, device: Optional[str] = None):
-
+    def __init__(self, transform: callable = lambda x: x, device: Optional[str] = None, dtype: torch.dtype = torch.float32):
         super().__init__()
         self.transform = transform
         self.device = device
+        self.dtype = dtype
 
     def forward(self, x: torch.Tensor):
         r"""
@@ -75,12 +77,12 @@ class FFT(Transform):
     For details on the real FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
     """
 
-    def __init__(self, nfft: int = 2**11, norm: str = "backward"):
-
+    def __init__(self, nfft: int = 2**11, norm: str = "backward", dtype: torch.dtype = torch.float32):
         self.nfft = nfft
         self.norm = norm
+        self.dtype = dtype
         transform = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
-        super().__init__(transform=transform)
+        super().__init__(transform=transform, dtype=self.dtype)
 
 
 class iFFT(Transform):
@@ -97,12 +99,12 @@ class iFFT(Transform):
     For details on the inverse real FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
     """
 
-    def __init__(self, nfft: int = 2**11, norm: str = "backward"):
-
+    def __init__(self, nfft: int = 2**11, norm: str = "backward", dtype: torch.dtype = torch.float32):
         self.nfft = nfft
         self.norm = norm
+        self.dtype = dtype
         transform = lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
-        super().__init__(transform=transform)
+        super().__init__(transform=transform, dtype=self.dtype)
 
 
 class FFTAntiAlias(Transform):
@@ -119,7 +121,7 @@ class FFTAntiAlias(Transform):
             - **norm** (str): The normalization mode for the FFT.
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.
             - **device** (str): The device of the constructed tensors. Default: None.
-
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
     For details on the FFT function, see `torch.fft.rfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.rfft.html>`_.
     """
@@ -130,24 +132,23 @@ class FFTAntiAlias(Transform):
         norm: str = "backward",
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
-
         self.nfft = nfft
         self.norm = norm
         self.device = device
-
+        self.dtype = dtype
         gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=self.device))
+            -torch.abs(torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype))
             / (self.nfft)
             / 20
         )
         self.alias_envelope = gamma ** torch.arange(
-            0, -self.nfft, -1, device=self.device
+            0, -self.nfft, -1, device=self.device, dtype=self.dtype
         )
-
         fft = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
         transform = lambda x: fft(torch.einsum("btm, t->btm", x, self.alias_envelope))
-        super().__init__(transform=transform)
+        super().__init__(transform=transform, dtype=self.dtype)
 
 
 class iFFTAntiAlias(Transform):
@@ -163,6 +164,7 @@ class iFFTAntiAlias(Transform):
             - **norm** (str): The normalization mode. Default: "backward".
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. Default: 0.0.
             - **device** (str): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
     For details on the inverse FFT function, see `torch.fft.irfft documentation <https://pytorch.org/docs/stable/generated/torch.fft.irfft.html>`_.
     """
@@ -173,24 +175,23 @@ class iFFTAntiAlias(Transform):
         norm: str = "backward",
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
-
         self.nfft = nfft
         self.norm = norm
         self.device = device
-
+        self.dtype = dtype
         gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=self.device))
+            -torch.abs(torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype))
             / (self.nfft)
             / 20
         )
         self.alias_envelope = gamma ** torch.arange(
-            0, -self.nfft, -1, device=self.device
+            0, -self.nfft, -1, device=self.device, dtype=self.dtype
         )
-
         ifft = lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
         transform = lambda x: torch.einsum("btm, t->btm", ifft(x), self.alias_envelope)
-        super().__init__(transform=transform)
+        super().__init__(transform=transform, dtype=self.dtype)
 
 
 # ============================= CORE ================================
@@ -216,6 +217,7 @@ class DSP(nn.Module):
             - **requires_grad** (bool, optional): Whether the parameters require gradients. Default: False.
             - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str): The device of the constructed tensor, if any. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **param** (nn.Parameter): The parameters of the DSP module.
@@ -234,6 +236,7 @@ class DSP(nn.Module):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
 
         super().__init__()
@@ -244,25 +247,31 @@ class DSP(nn.Module):
         self.new_value = 0  # flag indicating if new values have been assigned
         self.requires_grad = requires_grad
         self.device = device
+        self.dtype = dtype
         self.param = nn.Parameter(
-            torch.empty(self.size, device=self.device), requires_grad=self.requires_grad
+            torch.empty(self.size, device=self.device, dtype=self.dtype), requires_grad=self.requires_grad
         )
         self.fft = lambda x: torch.fft.rfft(x, n=self.nfft, dim=0)
         self.ifft = lambda x: torch.fft.irfft(x, n=self.nfft, dim=0)
         # initialize time anti-aliasing envelope function
-        self.alias_decay_db = torch.tensor(alias_decay_db, device=self.device)
+        self.alias_decay_db = torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype)
         self.init_param()
         self.get_gamma()
 
-    def forward(self, x, **kwArguments):
+    @abc.abstractmethod
+    def forward(self, x, **kwArguments): 
         r"""
         Forward method.
 
         Input is returned. Forward method is to be implemented by the child class.
 
         """
-        Warning("Forward method not implemented. Input is returned")
+        warnings.warn(
+            "Forward method not implemented. Input is returned.",
+            UserWarning
+        )
         return x
+    
 
     def init_param(self):
         r"""
@@ -334,6 +343,7 @@ class Gain(DSP):
             - **requires_grad** (bool): Whether the parameters requires gradients. Default: False.
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **param** (nn.Parameter): The parameters of the Gain module.
@@ -354,6 +364,7 @@ class Gain(DSP):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -362,6 +373,7 @@ class Gain(DSP):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
         self.initialize_class()
 
@@ -461,6 +473,7 @@ class parallelGain(Gain):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -469,6 +482,7 @@ class parallelGain(Gain):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def check_param_shape(self):
@@ -520,6 +534,7 @@ class Matrix(Gain):
             - **requires_grad** (bool, optional): Whether the matrix requires gradient computation. Default: False.
             - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str, optional): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **param** (nn.Parameter): The parameters of the Matrix module.
@@ -543,6 +558,7 @@ class Matrix(Gain):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.matrix_type = matrix_type
         self.iter = iter # iterations number for the rotation matrix 
@@ -553,6 +569,7 @@ class Matrix(Gain):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def matrix_gallery(self):
@@ -579,7 +596,7 @@ class Matrix(Gain):
                 assert (
                     N % 2 == 0
                 ), "Matrix must have even dimensions to be Hadamard"
-                self.map = lambda x: HadamardMatrix(self.size[0], device=self.device)(x)
+                self.map = lambda x: HadamardMatrix(self.size[0], device=self.device, dtype=self.dtype)(x)
             case "rotation":
                 assert (
                     N == self.size[1]
@@ -587,7 +604,7 @@ class Matrix(Gain):
                 assert (
                     N % 2 == 0
                 ), "Matrix must have even dimensions to be a rotation matrix"
-                self.map = lambda x: RotationMatrix(self.size[0], self.iter, device=self.device)([x[0][0]])
+                self.map = lambda x: RotationMatrix(self.size[0], self.iter, device=self.device, dtype=self.dtype)([x[0][0]])
 
     def initialize_class(self):
         r"""
@@ -619,6 +636,7 @@ class HouseholderMatrix(Gain):
             - **requires_grad** (bool, optional): If True, gradients will be computed for the parameters. Defaults to False.
             - **alias_decay_db** (float, optional): Alias decay in decibels. Defaults to 0.0.
             - **device** (optional): Device on which to perform computations. Defaults to None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **param** (nn.Parameter): The parameters `u`` used to construct the Householder matrix.
@@ -640,6 +658,7 @@ class HouseholderMatrix(Gain):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         assert size[0] == size[1], "Matrix must be square"
         size = (size[0], 1)
@@ -651,6 +670,7 @@ class HouseholderMatrix(Gain):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def forward(self, x, ext_param=None):
@@ -735,6 +755,7 @@ class Filter(DSP):
             - **requires_grad** (bool): Whether the filter parameters require gradients. Default: False.
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **param** (nn.Parameter): The parameters of the Filter module.
@@ -758,6 +779,7 @@ class Filter(DSP):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -766,6 +788,7 @@ class Filter(DSP):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
         self.initialize_class()
 
@@ -886,6 +909,7 @@ class parallelFilter(Filter):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -894,6 +918,7 @@ class parallelFilter(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def check_param_shape(self):
@@ -973,7 +998,8 @@ class ScatteringMatrix(Filter):
             - **requires_grad** (bool): Whether the filter parameters require gradients. Default: False.
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str): The device of the constructed tensors. Default: None.
-
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
+    
         **Attributes**:
             - **param** (nn.Parameter): The parameters of the Filter module.
             - **map** (function): Mapping function to ensure orthogonality of :math:`\mathbf{U}_k`.
@@ -1002,6 +1028,7 @@ class ScatteringMatrix(Filter):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.sparsity = sparsity
         self.gain_per_sample = gain_per_sample
@@ -1017,6 +1044,7 @@ class ScatteringMatrix(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def get_freq_convolve(self):
@@ -1071,6 +1099,7 @@ class ScatteringMatrix(Filter):
             m_L=self.m_L,
             m_R=self.m_R,
             device=self.device,
+            dtype=self.dtype,
         )
         self.check_param_shape()
         self.get_io()
@@ -1110,6 +1139,7 @@ class VelvetNoiseMatrix(Filter):
             - **requires_grad** (bool): Whether the filter parameters require gradients. Default: False.
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **param** (nn.Parameter): The parameters of the Filter module.
@@ -1139,6 +1169,7 @@ class VelvetNoiseMatrix(Filter):
         m_R: torch.tensor = None,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.sparsity = 1/density
         self.gain_per_sample = gain_per_sample
@@ -1155,8 +1186,9 @@ class VelvetNoiseMatrix(Filter):
             requires_grad=False,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
-        self.assign_value(torch.tensor(hadamard_matrix(self.size[-1]), device=self.device).unsqueeze(0).repeat(self.size[0], 1, 1))
+        self.assign_value(torch.tensor(hadamard_matrix(self.size[-1]), device=self.device, dtype=self.dtype).unsqueeze(0).repeat(self.size[0], 1, 1))
 
     def get_freq_convolve(self):
         r"""
@@ -1210,6 +1242,7 @@ class VelvetNoiseMatrix(Filter):
             m_L=self.m_L,
             m_R=self.m_R,
             device=self.device,
+            dtype=self.dtype,
         )
         self.check_param_shape()
         self.get_io()
@@ -1253,6 +1286,7 @@ class Biquad(Filter):
             - **requires_grad** (bool, optional): Whether the filter parameters require gradient computation. Default: True.
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str, optional): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **param** (nn.Parameter): The parameters of the Filter module.
@@ -1279,17 +1313,19 @@ class Biquad(Filter):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         assert filter_type in ["lowpass", "highpass", "bandpass"], "Invalid filter type"
         self.n_sections = n_sections
         self.filter_type = filter_type
         self.fs = fs
         self.device = device
+        self.dtype = dtype
         self.get_map()
         gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=self.device)) / (nfft) / 20
+            -torch.abs(torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype)) / (nfft) / 20
         )
-        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=self.device)
+        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=self.device, dtype=self.dtype)
         super().__init__(
             size=(n_sections, *self.get_size(), *size),
             nfft=nfft,
@@ -1297,6 +1333,7 @@ class Biquad(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def get_size(self):
@@ -1361,6 +1398,7 @@ class Biquad(Filter):
                     gain=param[:, 1, :, :],
                     fs=self.fs,
                     device=self.device,
+                    dtype=self.dtype,
                 )
             case "highpass":
                 b, a = highpass_filter(
@@ -1368,6 +1406,7 @@ class Biquad(Filter):
                     gain=param[:, 1, :, :],
                     fs=self.fs,
                     device=self.device,
+                    dtype=self.dtype,
                 )
             case "bandpass":
                 b, a = bandpass_filter(
@@ -1376,15 +1415,15 @@ class Biquad(Filter):
                     gain=param[:, 2, :, :],
                     fs=self.fs,
                     device=self.device,
+                    dtype=self.dtype,
                 )
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
         
     def get_map(self):
         r"""
@@ -1398,10 +1437,10 @@ class Biquad(Filter):
                         (x[:, 0, :, :], 20 * torch.log10(torch.abs(x[:, 1, :, :]))),
                         dim=1,
                     ),
-                    min=torch.tensor([0, -60], device=self.device)
+                    min=torch.tensor([0, -60], device=self.device, dtype=self.dtype)
                     .view(-1, 1, 1)
                     .expand_as(x),
-                    max=torch.tensor([1, 60], device=self.device)
+                    max=torch.tensor([1, 60], device=self.device, dtype=self.dtype)
                     .view(-1, 1, 1)
                     .expand_as(x),
                 )
@@ -1415,10 +1454,10 @@ class Biquad(Filter):
                         ),
                         dim=1,
                     ),
-                    min=torch.tensor([0 + torch.finfo(torch.float).eps, 0 + torch.finfo(torch.float).eps, -60], device=self.device)
+                    min=torch.tensor([0 + torch.finfo(self.dtype).eps, 0 + torch.finfo(self.dtype).eps, -60], device=self.device, dtype=self.dtype)
                     .view(-1, 1, 1)
                     .expand_as(x),
-                    max=torch.tensor([1 - torch.finfo(torch.float).eps, 1 - torch.finfo(torch.float).eps, 60], device=self.device)
+                    max=torch.tensor([1 - torch.finfo(self.dtype).eps, 1 - torch.finfo(self.dtype).eps, 60], device=self.device, dtype=self.dtype)
                     .view(-1, 1, 1)
                     .expand_as(x),
                 )
@@ -1491,6 +1530,7 @@ class parallelBiquad(Biquad):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -1501,6 +1541,7 @@ class parallelBiquad(Biquad):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def check_param_shape(self):
@@ -1519,10 +1560,10 @@ class parallelBiquad(Biquad):
                     torch.stack(
                         (x[:, 0, :], 20 * torch.log10(torch.abs(x[:, -1, :]))), dim=1
                     ),
-                    min=torch.tensor([0, -60], device=self.device)
+                    min=torch.tensor([0, -60], device=self.device, dtype=self.dtype)
                     .view(-1, 1)
                     .expand_as(x),
-                    max=torch.tensor([1, 60], device=self.device)
+                    max=torch.tensor([1, 60], device=self.device, dtype=self.dtype)
                     .view(-1, 1)
                     .expand_as(x),
                 )
@@ -1536,10 +1577,10 @@ class parallelBiquad(Biquad):
                         ),
                         dim=1,
                     ),
-                    min=torch.tensor([0 + torch.finfo(torch.float).eps, 0 + torch.finfo(torch.float).eps, -60], device=self.device)
+                    min=torch.tensor([0 + torch.finfo(self.dtype).eps, 0 + torch.finfo(self.dtype).eps, -60], device=self.device, dtype=self.dtype)
                     .view(-1, 1)
                     .expand_as(x),
-                    max=torch.tensor([1 - torch.finfo(torch.float).eps, 1 - torch.finfo(torch.float).eps, 60], device=self.device)
+                    max=torch.tensor([1 - torch.finfo(self.dtype).eps, 1 - torch.finfo(self.dtype).eps, 60], device=self.device, dtype=self.dtype)
                     .view(-1, 1)
                     .expand_as(x),
                 )
@@ -1582,6 +1623,7 @@ class parallelBiquad(Biquad):
                     gain=param[:, 1, :],
                     fs=self.fs,
                     device=self.device,
+                    dtype=self.dtype,
                 )
             case "highpass":
                 b, a = highpass_filter(
@@ -1589,6 +1631,7 @@ class parallelBiquad(Biquad):
                     gain=param[:, 1, :],
                     fs=self.fs,
                     device=self.device,
+                    dtype=self.dtype,
                 )
             case "bandpass":
                 b, a = bandpass_filter(
@@ -1597,15 +1640,15 @@ class parallelBiquad(Biquad):
                     gain=param[:, 2, :],
                     fs=self.fs,
                     device=self.device,
+                    dtype=self.dtype,
                 )
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -1673,7 +1716,8 @@ class SVF(Filter):
             - **requires_grad** (bool, optional): Whether the filter parameters require gradients. Default: False.
             - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str, optional): The device of the constructed tensors. Default: None.
-            
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
+
         **Attributes**:
             - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
             - **fft** (function): The FFT function. Calls the torch.fft.rfft function.
@@ -1700,6 +1744,7 @@ class SVF(Filter):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.fs = fs
         self.n_sections = n_sections
@@ -1715,9 +1760,9 @@ class SVF(Filter):
         ], "Invalid filter type"
         self.filter_type = filter_type
         gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
+            -torch.abs(torch.tensor(alias_decay_db, device=device, dtype=dtype)) / (nfft) / 20
         )
-        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device)
+        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device, dtype=dtype)
         super().__init__(
             size=(5, self.n_sections, *size),
             nfft=nfft,
@@ -1725,6 +1770,7 @@ class SVF(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def check_param_shape(self):
@@ -1767,14 +1813,13 @@ class SVF(Filter):
         a[2] = (f**2) - 2 * R * f + 1
 
         # apply anti-aliasing
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if f.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def param2freq(self, param):
         r"""
@@ -1801,8 +1846,8 @@ class SVF(Filter):
 
         """
         return torch.div(
-            torch.log(torch.ones(1, device=self.device) + torch.exp(param)),
-            torch.log(torch.tensor(2, device=self.device)),
+            torch.log(torch.ones(1, device=self.device, dtype=self.dtype) + torch.exp(param)),
+            torch.log(torch.tensor(2, device=self.device, dtype=self.dtype)),
         )
 
     def param2mix(self, param, R=None):
@@ -1887,8 +1932,8 @@ class SVF(Filter):
                 )
             case None:
                 # general SVF filter
-                bias = torch.ones((param.shape), device=self.device)
-                bias[1] = 2 * torch.ones((param.shape[1:]), device=self.device)
+                bias = torch.ones((param.shape), device=self.device, dtype=self.dtype)
+                bias[1] = 2 * torch.ones((param.shape[1:]), device=self.device, dtype=self.dtype)
                 return param + bias
 
     def map_param2svf(self, param):
@@ -1899,7 +1944,7 @@ class SVF(Filter):
         r = self.param2R(param[1])
         if self.filter_type == "lowshelf" or self.filter_type == "highshelf":
             # R = r + torch.sqrt(torch.tensor(2))
-            R = torch.tensor(1, device=self.device)
+            R = torch.tensor(1, device=self.device, dtype=self.dtype)
         if self.filter_type == "peaking":
             R = 1 / r  # temporary fix for peaking filter
             m = self.param2mix(param[2:], r)
@@ -1945,6 +1990,7 @@ class parallelSVF(SVF):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -1955,6 +2001,7 @@ class parallelSVF(SVF):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def check_param_shape(self):
@@ -1985,14 +2032,13 @@ class parallelSVF(SVF):
         a[2] = (f**2) - 2 * R * f + 1
 
         # apply anti-aliasing
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if f.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -2038,6 +2084,7 @@ class GEQ(Filter):
             - **requires_grad** (bool, optional): Whether the filter parameters require gradients. Default: False.
             - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
             - **device** (str, optional): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
@@ -2072,6 +2119,7 @@ class GEQ(Filter):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.octave_interval = octave_interval
         self.fs = fs
@@ -2080,9 +2128,9 @@ class GEQ(Filter):
         )
         self.n_gains = len(self.center_freq) + 3
         gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
+            -torch.abs(torch.tensor(alias_decay_db, device=device, dtype=dtype)) / (nfft) / 20
         )
-        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device)
+        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device, dtype=dtype)
         super().__init__(
             size=(self.n_gains, *size),
             nfft=nfft,
@@ -2090,6 +2138,7 @@ class GEQ(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def init_param(self):
@@ -2124,14 +2173,13 @@ class GEQ(Filter):
                     device=self.device,
                 )
 
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def initialize_class(self):
         self.check_param_shape()
@@ -2178,6 +2226,7 @@ class parallelGEQ(GEQ):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -2188,6 +2237,7 @@ class parallelGEQ(GEQ):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def check_param_shape(self):
@@ -2210,14 +2260,13 @@ class parallelGEQ(GEQ):
                 device=self.device,
             )
 
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A  
+        return H, B, A  
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -2248,6 +2297,7 @@ class PEQ(Filter):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.n_bands = n_bands
         self.design = design
@@ -2255,11 +2305,11 @@ class PEQ(Filter):
         self.f_min = f_min
         self.f_max = f_max
         gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
+            -torch.abs(torch.tensor(alias_decay_db, device=device, dtype=dtype)) / (nfft) / 20
         )
-        k = torch.arange(1, self.n_bands + 1, dtype=torch.float32)
+        k = torch.arange(1, self.n_bands + 1, dtype=dtype)
         self.center_freq_bias = f_min * (f_max / f_min) ** ((k - 1) / (self.n_bands - 1))
-        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device)
+        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device, dtype=dtype)
         super().__init__(
             size=(self.n_bands, 3, *size),
             nfft=nfft,
@@ -2267,6 +2317,7 @@ class PEQ(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def init_param(self):
@@ -2316,14 +2367,13 @@ class PEQ(Filter):
                     G=G[1:-1],
                     type='peaking',
                 )
-        b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=1)
         A = torch.fft.rfft(a_aa, self.nfft, dim=1)
         H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
         H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def compute_biquad_coeff(self, f, R, G, type='peaking'):
         # f : freq, R : resonance, G : gain in dB
@@ -2432,6 +2482,7 @@ class parallelPEQ(PEQ):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -2445,6 +2496,7 @@ class parallelPEQ(PEQ):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def init_param(self):
@@ -2487,14 +2539,13 @@ class parallelPEQ(PEQ):
                 G=G[1:-1],
                 type='peaking'
             )
-        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=1)
         A = torch.fft.rfft(a_aa, self.nfft, dim=1)
         H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
         H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
     
 
     def map_eq(self, param):
@@ -2566,6 +2617,7 @@ class AccurateGEQ(Filter):
             - start_freq (float, optional): The starting frequency for the filter bands. Default: 31.25.
             - end_freq (float, optional): The ending frequency for the filter bands. Default: 16000.0.            
             - device (str, optional): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - fs (int): The sampling frequency.
@@ -2598,22 +2650,24 @@ class AccurateGEQ(Filter):
         alias_decay_db: float = 0.0,
         start_freq: float = 31.25,
         end_freq: float = 16000.0,
-        device=None
+        device=None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.octave_interval = octave_interval
         self.fs = fs
         self.center_freq, self.shelving_crossover = eq_freqs(
             interval=self.octave_interval, start_freq=start_freq, end_freq=end_freq)
         self.n_gains = len(self.center_freq) + 2
-        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20)
-        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=device))
+        gamma = 10 ** (-torch.abs(torch.tensor(alias_decay_db, device=device, dtype=dtype)) / (nfft) / 20)
+        self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=device, dtype=dtype))
         super().__init__(
             size=(self.n_gains, *size),
             nfft=nfft,
             map=map,
             requires_grad=False,
             alias_decay_db=alias_decay_db,
-            device=device
+            device=device,
+            dtype=dtype,
         )
 
     def init_param(self):
@@ -2646,14 +2700,13 @@ class AccurateGEQ(Filter):
                     device=self.device
                 )
          
-        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
-        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def initialize_class(self):
         self.check_param_shape()
@@ -2695,7 +2748,8 @@ class parallelAccurateGEQ(AccurateGEQ):
         alias_decay_db: float = 0.0,
         start_freq: float = 31.25,
         end_freq: float = 16000.0,
-        device=None
+        device=None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -2706,7 +2760,8 @@ class parallelAccurateGEQ(AccurateGEQ):
             alias_decay_db=alias_decay_db,
             start_freq=start_freq,
             end_freq=end_freq,
-            device=device
+            device=device,
+            dtype=dtype,
         )
 
     def check_param_shape(self):
@@ -2729,14 +2784,13 @@ class parallelAccurateGEQ(AccurateGEQ):
                     device=self.device
                 )
          
-        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
-        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -2788,6 +2842,7 @@ class Delay(DSP):
             - **requires_grad** (bool, optional): Flag indicating whether the module parameters require gradients. Default: False.
             - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Defaults to 0.
             - **device** (str, optional): The device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
         **Attributes**:
             - **alias_envelope_dcy** (torch.Tensor): The anti time-aliasing decaying envelope.
@@ -2815,6 +2870,7 @@ class Delay(DSP):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.fs = fs
         self.max_len = max_len
@@ -2826,6 +2882,7 @@ class Delay(DSP):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
         self.initialize_class()
 
@@ -2949,7 +3006,7 @@ class Delay(DSP):
         self.omega = (
             2
             * torch.pi
-            * torch.arange(0, self.nfft // 2 + 1, device=self.device)
+            * torch.arange(0, self.nfft // 2 + 1, device=self.device, dtype=self.dtype)
             / self.nfft
         ).unsqueeze(1)
         self.get_freq_response()
@@ -2989,6 +3046,7 @@ class parallelDelay(Delay):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
             size=size,
@@ -3000,6 +3058,7 @@ class parallelDelay(Delay):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def check_param_shape(self):

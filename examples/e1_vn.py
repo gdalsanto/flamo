@@ -5,6 +5,7 @@ This example shows how to use the new Filter-based velvet noise classes
 that are differentiable and can be used within the FLAMO processing chain.
 """
 
+import torch
 import torch.nn as nn   
 
 import matplotlib.pyplot as plt
@@ -21,6 +22,7 @@ def example_velvet_noise_filter():
     in_ch, out_ch = 1, 1
     nfft = 2048  # FFT size for the filter
     length = nfft # Length of the filter
+    dtype = torch.float64  # Can be changed to torch.float32 if needed
 
     # Create a velvet noise filter
     # size = (length, output_channels, input_channels)
@@ -28,11 +30,12 @@ def example_velvet_noise_filter():
         size=(length, out_ch, in_ch),  # 1024 samples, 1x1 matrix
         density=1000.0,     # 1000 impulses per second
         sample_rate=48000,
-        requires_grad=True  # Make it differentiable
+        requires_grad=True,  # Make it differentiable
+        dtype=dtype,
     )
     
-    input_layer = dsp.FFT(nfft=nfft)
-    output_layer = dsp.iFFT(nfft=nfft)
+    input_layer = dsp.FFT(nfft=nfft, dtype=dtype)
+    output_layer = dsp.iFFT(nfft=nfft, dtype=dtype)
 
     my_dsp = nn.Sequential(input_layer, velvet_filter, output_layer)
 
@@ -46,6 +49,7 @@ def example_velvet_noise_filter():
         n=in_ch,
         fs=48000,
         device="cpu",
+        dtype=dtype,
     )
 
     output_vn = my_dsp(input_sig)

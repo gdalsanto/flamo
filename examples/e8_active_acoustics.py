@@ -43,6 +43,7 @@ class AA(nn.Module):
         FIR_order: int = 100,
         wgn_RT: float = 1.0,
         alias_decay_db: float = 0,
+        dtype: torch.dtype = torch.float32,
     ):
         r"""
         Initialize the Active Acoustics (AA) model.
@@ -58,12 +59,14 @@ class AA(nn.Module):
                 - FIR_order (int, optional): order of the FIR filters. Defaults to 100.
                 - wgn_RT (float, optional): reverberation time of the WGN reverb. Defaults to 1.0.
                 - alias_decay_db (float, optional): Time-alias decay in dB. Defaults to 0.
+                - dtype (torch.dtype, optional): Data type for tensors. Defaults to torch.float32.
         """
         nn.Module.__init__(self)
 
         # Processing resolution
         self.fs = fs
         self.nfft = nfft
+        self.dtype = dtype
 
         # Sources, transducers, and audience
         self.n_S = n_S
@@ -84,18 +87,21 @@ class AA(nn.Module):
             size=(self.__Room.RIR_length, n_M, n_S),
             nfft=self.nfft,
             alias_decay_db=alias_decay_db,
+            dtype=self.dtype,
         )
         self.H_SM.assign_value(self.__Room.get_scs_to_mcs())
         self.H_SA = dsp.Filter(
             size=(self.__Room.RIR_length, n_A, n_S),
             nfft=self.nfft,
             alias_decay_db=alias_decay_db,
+            dtype=self.dtype,
         )
         self.H_SA.assign_value(self.__Room.get_scs_to_aud())
         self.H_LM = dsp.Filter(
             size=(self.__Room.RIR_length, n_M, n_L),
             nfft=self.nfft,
             alias_decay_db=alias_decay_db,
+            dtype=self.dtype,
         )
         self.H_LM.assign_value(self.__Room.get_lds_to_mcs())
         self.H_LA = dsp.Filter(
@@ -128,7 +134,7 @@ class AA(nn.Module):
         self.F_MM = system.Shell(
             core=self.__FL_iteration(self.V_ML, self.G, self.H_LM),
             input_layer=nn.Sequential(
-                dsp.Transform(lambda x: x.diag_embed()), dsp.FFT(self.nfft)
+                dsp.Transform(lambda x: x.diag_embed(), dtype=self.dtype), dsp.FFT(self.nfft, dtype=self.dtype)
             ),
         )
         self.set_G_to_GBI()
@@ -294,14 +300,14 @@ class AA(nn.Module):
         )
         ea_path = system.Shell(
             core=ea_components,
-            input_layer=dsp.FFT(self.nfft),
-            output_layer=dsp.iFFT(self.nfft),
+            input_layer=dsp.FFT(self.nfft, dtype=self.dtype),
+            output_layer=dsp.iFFT(self.nfft, dtype=self.dtype),
         )
         # Build the natural path
         nat_path = system.Shell(
             core=self.H_SA,
-            input_layer=dsp.FFT(self.nfft),
-            output_layer=dsp.iFFT(self.nfft),
+            input_layer=dsp.FFT(self.nfft, dtype=self.dtype),
+            output_layer=dsp.iFFT(self.nfft, dtype=self.dtype),
         )
         return nat_path, ea_path
 
@@ -684,6 +690,7 @@ def example_AA(args) -> None:
         FIR_order=FIR_order,
         wgn_RT=wgn_RT,
         alias_decay_db=-20,
+        dtype=args.dtype,
     )
 
     # ------------- Performance at initialization -------------
@@ -705,6 +712,7 @@ def example_AA(args) -> None:
         target_shape=(args.batch_size, nfft // 2 + 1, microphones),
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(
         dataset, batch_size=args.batch_size, split=args.split, shuffle=False
@@ -718,6 +726,7 @@ def example_AA(args) -> None:
         patience_delta=args.patience_delta,
         train_dir=args.train_dir,
         device=args.device,
+        dtype=args.dtype,
     )
     criterion = MSE_evs(iter_num=args.num, freq_points=nfft // 2 + 1)
     trainer.register_criterion(criterion, 1)
@@ -752,6 +761,8 @@ if __name__ == "__main__":
     # Define system parameters and pipeline hyperparameters
     parser = argparse.ArgumentParser()
 
+    # ---------------------- Processing -------------------
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     # ----------------------- Dataset ----------------------
     parser.add_argument(
         "--batch_size", type=int, default=1, help="batch size for training"
@@ -783,6 +794,9 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     # ----------------- Parse the arguments ----------------
     args = parser.parse_args()
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # make output directory
     if args.train_dir is not None:

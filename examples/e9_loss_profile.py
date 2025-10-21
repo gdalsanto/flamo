@@ -53,7 +53,7 @@ def example_loss_profile(args):
         yaml.dump(loss_config, file)
 
     input_signal = signal_gallery(
-        signal_type="impulse", batch_size=1, n=1, n_samples=fdn_config.nfft
+        signal_type="impulse", batch_size=1, n=1, n_samples=fdn_config.nfft, dtype=fdn_config.dtype
     )
     target_signal = FDN.model(input_signal)
 
@@ -65,7 +65,7 @@ def example_loss_profile(args):
 def example_loss_surface(args):
 
     # create a homogeneous FDN model
-    fdn_config = HomogeneousFDNConfig()
+    fdn_config = HomogeneousFDNConfig(device=args.device)
     FDN = HomogeneousFDN(fdn_config)
     FDN.set_model(output_layer=get_magnitude)
     inverse_gamma = inverse_map_gamma(torch.tensor(FDN.delays))
@@ -118,7 +118,7 @@ def example_loss_surface(args):
         yaml.dump(loss_config, file)
 
     input_signal = signal_gallery(
-        signal_type="impulse", batch_size=1, n=1, n_samples=fdn_config.nfft
+        signal_type="impulse", batch_size=1, n=1, n_samples=fdn_config.nfft, dtype=fdn_config.dtype
     )
     target_signal = FDN.model(input_signal)
 
@@ -149,5 +149,5 @@ if __name__ == "__main__":
         args.output_dir = os.path.join("output", time.strftime("%Y%m%d-%H%M%S"))
         os.makedirs(args.output_dir)
 
-    # example_loss_profile(args)
+    example_loss_profile(args)
     example_loss_surface(args)

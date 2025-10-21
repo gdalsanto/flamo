@@ -38,6 +38,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     output_gain = dsp.Gain(
         size=(1, N),
@@ -45,6 +46,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -55,6 +57,7 @@ def example_fdn(args):
         requires_grad=False,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     delays.assign_value(delays.sample2s(delay_lengths))
     # Feedback path with orthogonal matrix
@@ -65,6 +68,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # # Feedback path with scattering matrix
@@ -97,8 +101,8 @@ def example_fdn(args):
     )
 
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
     # Get initial impulse response
@@ -118,6 +122,7 @@ def example_fdn(args):
         target_shape=(1, args.nfft // 2 + 1, 1),
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
@@ -189,6 +194,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     parser.add_argument("--num", type=int, default=2**8, help="dataset size")
     parser.add_argument(
         "--device", type=str, default="cuda", help="device to use for computation"
@@ -209,7 +215,10 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
-        print("cuda not available, will use cpu")
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
+    print("cuda not available, will use cpu")
 
     # make output directory
     if args.train_dir is not None:

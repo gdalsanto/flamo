@@ -56,19 +56,20 @@ def skew_matrix(X):
     return A - A.transpose(-1, -2)
 
 
-def get_frequency_samples(num: int, device: str | torch.device = None):
+def get_frequency_samples(num: int, device: str | torch.device = None, dtype: torch.dtype = torch.float32):
     r"""
     Get frequency samples (in radians) sampled at linearly spaced points along the unit circle.
 
     **Arguments**
         - **num** (int): number of frequency samples
         - **device** (torch.device, str): The device of constructed tensors. Default: None.
+        - **dtype** (torch.dtype): The dtype of constructed tensors. Default: torch.float32.
 
     **Returns**
         - frequency samples in radians between [0, pi]
     """
-    angle = torch.linspace(0, 1, num, device=device)
-    abs = torch.ones(num, device=device)
+    angle = torch.linspace(0, 1, num, device=device, dtype=dtype)
+    abs = torch.ones(num, device=device, dtype=dtype)
     return torch.polar(abs, angle * np.pi)
 
 
@@ -77,17 +78,18 @@ class HadamardMatrix(nn.Module):
     Generate a Hadamard matrix of size N as a nn.Module.
     """
 
-    def __init__(self, N, device: Optional[str] = None):
+    def __init__(self, N, device: Optional[str] = None, dtype: torch.dtype = torch.float32):
         super().__init__()
         self.N = N
         self.device = device
+        self.dtype = dtype
 
     def forward(self, x):
-        U = torch.tensor([[1.0]], device=self.device)
+        U = torch.tensor([[1.0]], device=self.device, dtype=self.dtype)
         while U.shape[0] < self.N:
             U = torch.kron(
                 U, torch.tensor([[1, 1], [1, -1]], dtype=U.dtype, device=U.device)
-            ) / torch.sqrt(torch.tensor(2.0, device=U.device))
+            ) / torch.sqrt(torch.tensor(2.0, device=U.device, dtype=U.dtype))
         return U
 
 
@@ -103,6 +105,7 @@ class RotationMatrix(nn.Module):
         max_angle: float = torch.pi / 4,
         iter: Optional[int] = None,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
 
         super().__init__()
@@ -111,14 +114,15 @@ class RotationMatrix(nn.Module):
         self.max_angle = max_angle
         self.iter = iter
         self.device = device
+        self.dtype = dtype
 
     def create_submatrix(self, angles: torch.Tensor, iters: int = 1):
         """Create a submatrix for each group."""
-        X = torch.zeros(2, 2, device=self.device)
+        X = torch.zeros(2, 2, device=self.device, dtype=self.dtype)
         angles[0] = torch.clamp(angles[0], self.min_angle, self.max_angle)
         X.fill_diagonal_(torch.cos(angles[0]))
-        X[1, 0] = -torch.sin(torch.tensor(angles[0], device=self.device))
-        X[0, 1] = torch.sin(torch.tensor(angles[0], device=self.device))
+        X[1, 0] = -torch.sin(angles[0])
+        X[0, 1] = torch.sin(angles[0])
 
         if iters is None:
             iters = torch.log2(torch.tensor(self.N)).int().item() - 1
@@ -166,6 +170,7 @@ def signal_gallery(
     rate: float = 1.0,
     reference: torch.Tensor = None,
     device: str | torch.device = None,
+    dtype: torch.dtype = torch.float32,
 ):
     r"""
     Generate a tensor containing a signal based on the specified signal type.
@@ -187,6 +192,7 @@ def signal_gallery(
             - **fs** (int, optional): The sampling frequency of the signals. Defaults to 48000.
             - **reference** (torch.Tensor, optional): A reference signal to use. Defaults to None.
             - **device** (torch.device, optional): The device of constructed tensors. Defaults to None.
+            - **dtype** (torch.dtype, optional): The dtype of constructed tensors. Defaults to torch.float32.
 
         **Returns**:
             - torch.Tensor: A tensor of shape (batch_size, n_samples, n) containing the generated signals.
@@ -207,7 +213,7 @@ def signal_gallery(
         raise ValueError(f"Signal type {signal_type} not recognized.")
     match signal_type:
         case "impulse":
-            x = torch.zeros(batch_size, n_samples, n)
+            x = torch.zeros(batch_size, n_samples, n, dtype=dtype)
             x[:, 0, :] = 1
             return x.to(device)
         case "sine":
@@ -218,7 +224,7 @@ def signal_gallery(
                         * np.pi
                         * rate
                         / fs
-                        * torch.linspace(0, n_samples / fs, n_samples)
+                        * torch.linspace(0, n_samples / fs, n_samples, dtype=dtype)
                     )
                     .unsqueeze(-1)
                     .expand(batch_size, n_samples, n)
@@ -226,44 +232,45 @@ def signal_gallery(
                 )
             else:
                 return torch.sin(
-                    torch.linspace(0, 2 * np.pi, n_samples)
+                    torch.linspace(0, 2 * np.pi, n_samples, dtype=dtype)
                     .unsqueeze(-1)
                     .expand(batch_size, n_samples, n)
                 ).to(device)
         case "sweep":
-            t = torch.linspace(0, n_samples / fs - 1 / fs, n_samples)
+            t = torch.linspace(0, n_samples / fs - 1 / fs, n_samples, dtype=dtype)
             x = torch.tensor(
                 scipy.signal.chirp(t, f0=20, f1=20000, t1=t[-1], method="linear"),
                 device=device,
+                dtype=dtype,
             ).unsqueeze(-1)
             return x.expand(batch_size, n_samples, n)
         case "wgn":
-            return torch.randn((batch_size, n_samples, n), device=device)
+            return torch.randn((batch_size, n_samples, n), device=device, dtype=dtype)
         case "exp":
             return (
-                torch.exp(-rate * torch.arange(n_samples) / fs)
+                torch.exp(-rate * torch.arange(n_samples, dtype=dtype) / fs)
                 .unsqueeze(-1)
                 .expand(batch_size, n_samples, n)
                 .to(device)
             )
         case "velvet":
-            x = torch.empty((batch_size, n_samples, n), device=device)
+            x = torch.empty((batch_size, n_samples, n), device=device, dtype=dtype)
             for i_batch in range(batch_size):
                 for i_ch in range(n):
-                    x[i_batch, :, i_ch] = gen_velvet_noise(n_samples, fs, rate, device)
+                    x[i_batch, :, i_ch] = gen_velvet_noise(n_samples, fs, rate, device, dtype)
             return x
         case "reference":
             if isinstance(reference, torch.Tensor):
                 return reference.expand(batch_size, n_samples, n).to(device)
             else:
-                return torch.tensor(reference, device=device).expand(
+                return torch.tensor(reference, device=device, dtype=dtype).expand(
                     batch_size, n_samples, n
                 )
         case "noise":
-            return torch.randn((batch_size, n_samples, n), device=device)
+            return torch.randn((batch_size, n_samples, n), device=device, dtype=dtype)
 
 
-def gen_velvet_noise(n_samples: int, fs: int, density: float, device: str | torch.device = None) -> torch.Tensor:
+def gen_velvet_noise(n_samples: int, fs: int, density: float, device: str | torch.device = None, dtype: torch.dtype = torch.float32) -> torch.Tensor:
     r"""
     Generate a velvet noise sequence.
     **Arguments**:
@@ -271,15 +278,16 @@ def gen_velvet_noise(n_samples: int, fs: int, density: float, device: str | torc
         - **fs** (int): The sampling frequency of the signal in Hz.
         - **density** (float): The density of impulses in impulses per second.
         - **device** (str | torch.device): The device of constructed tensors.
+        - **dtype** (torch.dtype): The dtype of constructed tensors.
     **Returns**:
         - torch.Tensor: A tensor of shape (n_samples,) containing the velvet noise sequence.
     """
     Td = fs / density # average distance between impulses
     num_impulses = n_samples / Td # expected number of impulses
     floor_impulses = math.floor(num_impulses)
-    grid = torch.arange(floor_impulses) * Td
+    grid = torch.arange(floor_impulses, dtype=dtype) * Td
 
-    jitter_factors = torch.rand(floor_impulses)
+    jitter_factors = torch.rand(floor_impulses, dtype=dtype)
     impulse_indices = torch.ceil(grid + jitter_factors * (Td - 1)).long()
 
     # first impulse is at position 0 and all indices are within bounds
@@ -290,7 +298,7 @@ def gen_velvet_noise(n_samples: int, fs: int, density: float, device: str | torc
     signs = 2 * torch.randint(0, 2, (floor_impulses,)) - 1
             
     # Construct sparse signal
-    sequence = torch.zeros(n_samples, device=device)
+    sequence = torch.zeros(n_samples, device=device, dtype=dtype)
     sequence[impulse_indices] = signs.float()
 
     return sequence
@@ -370,6 +378,7 @@ def lowpass_filter(
     gain: float = 0.0,
     fs: int = 48000,
     device: str | torch.device = None,
+    dtype: torch.dtype = torch.float32,
 ) -> tuple:
     r"""
     Lowpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map
@@ -402,12 +411,12 @@ def lowpass_filter(
     """
 
     omegaC = hertz2rad(fc, fs).to(device=device)
-    two = torch.tensor(2, device=device)
+    two = torch.tensor(2, device=device, dtype=dtype)
     alpha = torch.sin(omegaC) / 2 * torch.sqrt(two)
     cosOC = torch.cos(omegaC)
 
-    a = torch.ones(3, *omegaC.shape, device=device)
-    b = torch.ones(3, *omegaC.shape, device=device)
+    a = torch.ones(3, *omegaC.shape, device=device, dtype=dtype)
+    b = torch.ones(3, *omegaC.shape, device=device, dtype=dtype)
 
     b[0] = (1 - cosOC) / 2
     b[1] = 1 - cosOC
@@ -424,6 +433,7 @@ def highpass_filter(
     gain: float = 0.0,
     fs: int = 48000,
     device: str | torch.device = None,
+    dtype: torch.dtype = torch.float32,
 ) -> tuple:
     r"""
     Highpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map
@@ -455,12 +465,12 @@ def highpass_filter(
     """
 
     omegaC = hertz2rad(fc, fs)
-    two = torch.tensor(2, device=device)
+    two = torch.tensor(2, device=device, dtype=dtype)
     alpha = torch.sin(omegaC) / 2 * torch.sqrt(two)
     cosOC = torch.cos(omegaC)
 
-    a = torch.ones(3, *omegaC.shape, device=device)
-    b = torch.ones(3, *omegaC.shape, device=device)
+    a = torch.ones(3, *omegaC.shape, device=device, dtype=dtype)
+    b = torch.ones(3, *omegaC.shape, device=device, dtype=dtype)
 
     b[0] = (1 + cosOC) / 2
     b[1] = -(1 + cosOC)
@@ -478,6 +488,7 @@ def bandpass_filter(
     gain: float = 0.0,
     fs: int = 48000,
     device: str | torch.device = None,
+    dtype: torch.dtype = torch.float32,
 ) -> tuple:
     r"""
     Bandpass filter coefficients. It uses the `RBJ cookbook formulas <https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt>`_ to map
@@ -521,15 +532,15 @@ def bandpass_filter(
 
     omegaC = (hertz2rad(fc1, fs) + hertz2rad(fc2, fs)) / 2
     BW = torch.log2(fc2 / fc1)
-    two = torch.tensor(2, device=device)
+    two = torch.tensor(2, device=device, dtype=dtype)
     alpha = torch.sin(omegaC) * torch.sinh(
         torch.log(two) / two * BW * (omegaC / torch.sin(omegaC))
     )
 
     cosOC = torch.cos(omegaC)
 
-    a = torch.ones(3, *omegaC.shape, device=device)
-    b = torch.ones(3, *omegaC.shape, device=device)
+    a = torch.ones(3, *omegaC.shape, device=device, dtype=dtype)
+    b = torch.ones(3, *omegaC.shape, device=device, dtype=dtype)
 
     b[0] = alpha
     b[1] = 0
@@ -547,7 +558,8 @@ def shelving_filter(
     type: str = "low",
     fs: int = 48000,
     device: torch.device | str = None,
-):
+    dtype: torch.dtype = torch.float32,
+) -> tuple:
     r"""
     Shelving filter coefficients.
     Maps the cutoff frequencies and gain to the :math:`\mathbf{b}` and :math:`\mathbf{a}` biquad coefficients.
@@ -582,8 +594,8 @@ def shelving_filter(
             - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
             - **a** (torch.Tensor): The denominator coefficients of the filter transfer function.
     """
-    b = torch.ones(3, device=device)
-    a = torch.ones(3, device=device)
+    b = torch.ones(3, device=device, dtype=dtype)
+    a = torch.ones(3, device=device, dtype=dtype)
 
     omegaC = hertz2rad(fc, fs)
     t = torch.tan(omegaC / 2)
@@ -591,7 +603,7 @@ def shelving_filter(
     g2 = gain**0.5
     g4 = gain**0.25
 
-    two = torch.tensor(2, device=device)
+    two = torch.tensor(2, device=device, dtype=dtype)
     b[0] = g2 * t2 + torch.sqrt(two) * t * g4 + 1
     b[1] = 2 * g2 * t2 - 2
     b[2] = g2 * t2 - torch.sqrt(two) * t * g4 + 1
@@ -616,6 +628,7 @@ def peak_filter(
     Q: torch.Tensor,
     fs: int = 48000,
     device: str | torch.device = None,
+    dtype: torch.dtype = torch.float32,
 ) -> tuple:
     r"""
     Peak filter coefficients.
@@ -644,8 +657,8 @@ def peak_filter(
             - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
             - **a** (torch.Tensor): The denominator coefficients of the filter transfer function
     """
-    b = torch.ones(3, device=device)
-    a = torch.ones(3, device=device)
+    b = torch.ones(3, device=device, dtype=dtype)
+    a = torch.ones(3, device=device, dtype=dtype)
 
     omegaC = hertz2rad(fc, fs)
     bandWidth = omegaC / Q
@@ -668,6 +681,7 @@ def prop_shelving_filter(
     type: str = "low",
     fs: int = 48000,
     device="cpu",
+    dtype: torch.dtype = torch.float32,
 ):
     r"""
     Proportional first order Shelving filter coefficients.
@@ -700,6 +714,7 @@ def prop_shelving_filter(
             - **type** (str, optional): The type of shelving filter. Can be 'low' or 'high'. Default: 'low'.
             - **fs** (int, optional): The sampling frequency of the signal in Hz.
             - **device** (torch.device | str, optional): The device of constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): The dtype of constructed tensors. Default: torch.float32.
 
         **Returns**:
             - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
@@ -712,7 +727,7 @@ def prop_shelving_filter(
     t = torch.tan(torch.pi * fc / fs)
     k = 10 ** (gain / 20)
 
-    a = torch.zeros((2, *fc.shape), device=device)
+    a = torch.zeros((2, *fc.shape), device=device, dtype=dtype)
     b = torch.zeros_like(a)
 
     if type == "low":
@@ -736,6 +751,7 @@ def prop_peak_filter(
     gain: torch.Tensor,
     fs: int = 48000,
     device="cpu",
+    dtype: torch.dtype = torch.float32,
 ):
     r"""
     Proportional Peak (Presence) filter coefficients.
@@ -761,6 +777,7 @@ def prop_peak_filter(
             - **gain** (torch.Tensor): The gain in dB of the filter.
             - **fs** (int, optional): The sampling frequency of the signal in Hz.
             - **device** (torch.device | str, optional): The device of constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): The dtype of constructed tensors. Default: torch.float32.
 
         **Returns**:
             - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
@@ -774,7 +791,7 @@ def prop_peak_filter(
     c = torch.cos(2 * np.pi * fc / fs)
     k = 10 ** (gain / 20)
 
-    a = torch.zeros((3, *fc.shape), device=device)
+    a = torch.zeros((3, *fc.shape), device=device, dtype=dtype)
     b = torch.zeros_like(a)
 
     b[0] = 1 + torch.sqrt(k) * t
@@ -815,6 +832,7 @@ def svf(
     filter_type: str = None,
     fs: int = 48000,
     device: str | torch.device = None,
+    dtype: torch.dtype = torch.float32,
 ):
     r"""
     Implements a State Variable Filter (SVF) with various filter types.
@@ -827,6 +845,7 @@ def svf(
             - **filter_type** (str, optional): The type of filter to be applied. Can be one of "lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "peaking", "notch", or None. Default: None.
             - **fs** (int, optional): The sampling frequency. Default: 48000.
             - **device** (torch.device, optional): The device of constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): The dtype of constructed tensors. Default: torch.float32.
 
         **Returns**:
             Tuple[torch.Tensor, torch.Tensor]: The numerator and denominator coefficients of the filter transfer function.
@@ -897,8 +916,8 @@ def svf(
         case None:
             print("No filter type specified. Using the given mixing coefficents.")
 
-    b = torch.zeros((3, *f.shape), device=device)
-    a = torch.zeros((3, *f.shape), device=device)
+    b = torch.zeros((3, *f.shape), device=device, dtype=dtype)
+    a = torch.zeros((3, *f.shape), device=device, dtype=dtype)
 
     b[0] = (f**2) * m[..., 0] + f * m[..., 1] + m[..., 2]
     b[1] = 2 * (f**2) * m[..., 0] - 2 * m[..., 2]
@@ -917,6 +936,7 @@ def probe_sos(
     nfft: int,
     fs: int,
     device: str | torch.device = None,
+    dtype: torch.dtype = torch.float32,
 ):
     r"""
     Probe the frequency / magnitude response of a cascaded SOS filter at the points
@@ -928,6 +948,7 @@ def probe_sos(
             - **nfft** (int): Length of the FFT used for frequency analysis.
             - **fs** (float): Sampling frequency in Hz.
             - **device** (torch.device, optional): The device of constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): The dtype of constructed tensors. Default: torch.float32.
 
         **Returns**:
             tuple: A tuple containing the following:
@@ -938,8 +959,8 @@ def probe_sos(
     n_freqs = sos.shape[-1]
 
     H = torch.zeros((nfft // 2 + 1, n_freqs), dtype=torch.cdouble, device=device)
-    W = torch.zeros((nfft // 2 + 1, n_freqs), device=device)
-    G = torch.zeros((len(control_freqs), n_freqs), device=device)
+    W = torch.zeros((nfft // 2 + 1, n_freqs), device=device, dtype=dtype)
+    G = torch.zeros((len(control_freqs), n_freqs), device=device, dtype=dtype)
 
     for band in range(n_freqs):
         sos[:, band] = sos[:, band] / sos[3, band]
@@ -1003,7 +1024,7 @@ def find_onset(rir: torch.Tensor):
 
 
 def WGN_reverb(
-    matrix_size: tuple = (1, 1), t60: float = 1.0, samplerate: int = 48000, device=None
+    matrix_size: tuple = (1, 1), t60: float = 1.0, samplerate: int = 48000, device=None, dtype: torch.dtype = torch.float32
 ) -> torch.Tensor:
     r"""
     Generates White-Gaussian-Noise-reverb impulse responses.
@@ -1013,6 +1034,7 @@ def WGN_reverb(
             - **t60** (float, optional): Reverberation time. Defaults to 1.0.
             - **samplerate** (int, optional): Sampling frequency. Defaults to 48000.
             - **nfft** (int, optional): Number of frequency bins. Defaults to 2**11.
+            - **dtype** (torch.dtype, optional): The dtype of constructed tensors. Defaults to torch.float32.
 
         **Returns**:
             torch.Tensor: Matrix of WGN-reverb impulse responses.
@@ -1020,10 +1042,10 @@ def WGN_reverb(
     # Number of samples
     n_samples = int(1.5 * t60 * samplerate)
     # White Guassian Noise
-    noise = torch.randn(n_samples, *matrix_size, device=device)
+    noise = torch.randn(n_samples, *matrix_size, device=device, dtype=dtype)
     # Decay
-    dr = t60 / torch.log(torch.tensor(1000, dtype=torch.float32, device=device))
-    decay = torch.exp(-1 / dr * torch.linspace(0, t60, n_samples))
+    dr = t60 / torch.log(torch.tensor(1000, dtype=dtype, device=device))
+    decay = torch.exp(-1 / dr * torch.linspace(0, t60, n_samples, dtype=dtype))
     decay = decay.view(-1, *(1,) * (len(matrix_size))).expand(-1, *matrix_size)
     # Decaying WGN
     IRs = torch.mul(noise, decay)
@@ -1031,11 +1053,11 @@ def WGN_reverb(
     TFs = torch.fft.rfft(input=IRs, n=n_samples, dim=0)
 
     # Generate bandpass filter
-    fc_left = torch.tensor([20], dtype=torch.float32, device=device)
-    fc_right = torch.tensor([20000], dtype=torch.float32, device=device)
-    g = torch.tensor([1], dtype=torch.float32, device=device)
+    fc_left = torch.tensor([20], dtype=dtype, device=device)
+    fc_right = torch.tensor([20000], dtype=dtype, device=device)
+    g = torch.tensor([1], dtype=dtype, device=device)
     b, a = bandpass_filter(
-        fc1=fc_left, fc2=fc_right, gain=g, fs=samplerate, device=device
+        fc1=fc_left, fc2=fc_right, gain=g, fs=samplerate, device=device, dtype=dtype
     )
     sos = torch.cat((b.reshape(1, 3), a.reshape(1, 3)), dim=1)
     bp_H = sosfreqz(sos=sos, nfft=n_samples).squeeze()

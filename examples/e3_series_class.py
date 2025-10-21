@@ -50,8 +50,8 @@ def example_series(args):
         size=(out_ch, btw_ch), nfft=args.nfft, requires_grad=False, device=args.device
     )
     # Input and output layers
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     # Series class
     my_dsp = system.Series(input_layer, filter1, filter2, filter3, output_layer)
@@ -93,8 +93,8 @@ def example_series_with_error(args):
         device=args.device,
     )
     # Input and output layers
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     # Series class
     my_dsp = system.Series(input_layer, filter1, filter2, filter3, output_layer)
@@ -131,8 +131,8 @@ def example_series_OrderedDict(args):
         size=(out_ch, btw_ch), nfft=args.nfft, requires_grad=False, device=args.device
     )
     # Input and output layers
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     # Series class
     my_dsp = system.Series(
@@ -182,8 +182,8 @@ def example_series_nesting(args):
         size=(out_ch, btw_ch), nfft=args.nfft, requires_grad=False, device=args.device
     )
     # Input and output layers
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     # Series class
     filters = OrderedDict({"Gains": filter1, "Delays": filter2, "Eqs": filter3})
@@ -221,9 +221,10 @@ def example_series_training(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     # Series of filters
     filters = OrderedDict(
@@ -252,6 +253,7 @@ def example_series_training(args):
         n=in_ch,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Target
@@ -336,6 +338,7 @@ def example_series_utils(args):
         fs=args.samplerate,
         device=args.device,
         alias_decay_db=alias_decay_db,
+        dtype=args.dtype
     )
     feedback = dsp.Matrix(
         size=(channel_n, channel_n),
@@ -343,6 +346,7 @@ def example_series_utils(args):
         matrix_type="orthogonal",
         device=args.device,
         alias_decay_db=alias_decay_db,
+        dtype=args.dtype
     )
     feedback_loop = system.Recursion(fF=feedforward, fB=feedback)
 
@@ -350,13 +354,14 @@ def example_series_utils(args):
     my_dsp = system.Series(OrderedDict({"Recursion": feedback_loop}))
 
     # New filters to add an the beginning
-    input_layer = dsp.FFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
     input_gains = dsp.parallelGain(
         size=(channel_n,),
         nfft=args.nfft,
         requires_grad=False,
         device=args.device,
         alias_decay_db=alias_decay_db,
+        dtype=args.dtype
     )
     # New filter to add in the middle
     output_gains = dsp.Gain(
@@ -365,6 +370,7 @@ def example_series_utils(args):
         requires_grad=False,
         device=args.device,
         alias_decay_db=alias_decay_db,
+        dtype=args.dtype
     )
     # New filters to add at the end
     equalization = dsp.GEQ(
@@ -373,8 +379,9 @@ def example_series_utils(args):
         requires_grad=False,
         device=args.device,
         alias_decay_db=alias_decay_db,
+        dtype=args.dtype
     )
-    output_layer = dsp.iFFTAntiAlias(nfft=args.nfft, alias_decay_db=alias_decay_db)
+    output_layer = dsp.iFFTAntiAlias(nfft=args.nfft, alias_decay_db=alias_decay_db, dtype=args.dtype)
 
     # DSP so far
     print(my_dsp)
@@ -409,6 +416,7 @@ def example_series_utils(args):
         n=channel_n,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     y = my_dsp(input_signal)
 
@@ -436,6 +444,7 @@ if __name__ == "__main__":
     # ---------------------- Processing -------------------
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     # ----------------------- Dataset ----------------------
     parser.add_argument(
         "--batch_size", type=int, default=1, help="batch size for training"
@@ -471,6 +480,9 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # make output directory
     if args.train_dir is not None:

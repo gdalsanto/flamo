@@ -26,7 +26,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
-
+        self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
 
@@ -65,6 +65,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
@@ -116,6 +117,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
@@ -357,7 +359,7 @@ class Recursion(nn.Module):
         # Check nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
-
+        self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
 
@@ -402,7 +404,7 @@ class Recursion(nn.Module):
                 torch.Tensor: The identity matrix.
         """
         size = (self.nfft // 2 + 1, self.output_channels, self.output_channels)
-        I = torch.complex(torch.zeros(*size), torch.zeros(*size))
+        I = torch.complex(torch.zeros(*size, dtype=self.dtype), torch.zeros(*size, dtype=self.dtype))
         for i in range(self.output_channels):
             I[:, i, i] = 1
         return I
@@ -544,6 +546,7 @@ class Parallel(nn.Module):
         # Check nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
@@ -719,7 +722,7 @@ class Shell(nn.Module):
         # Check model nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
-
+        self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
 
@@ -895,15 +898,15 @@ class Shell(nn.Module):
             .view(1, -1, 1)
             .expand(1, -1, self.output_channels)
         )
-
+        self.alias_envelope = self.alias_envelope.to(dtype=self.dtype)
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
 
         # update input/output layers
-        self.set_inputLayer(FFT(self.nfft))
+        self.set_inputLayer(FFT(self.nfft, dtype=self.dtype))
         self.set_outputLayer(
-            nn.Sequential(iFFT(self.nfft), Transform(lambda x: x * self.alias_envelope))
+            nn.Sequential(iFFT(self.nfft, dtype=self.dtype), Transform(lambda x: x * self.alias_envelope))
         )
 
         # generate input signal
@@ -914,6 +917,7 @@ class Shell(nn.Module):
             signal_type="impulse",
             fs=fs,
             device=gamma.device,
+            dtype=self.dtype
         )
         if identity and self.input_channels > 1:
             self.alias_envelope = self.alias_envelope.unsqueeze(-1).expand(
@@ -963,7 +967,7 @@ class Shell(nn.Module):
             .view(1, -1, 1)
             .expand(1, -1, self.output_channels)
         )
-
+        self.alias_envelope_exp = self.alias_envelope_exp.to(dtype=self.dtype)
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
@@ -972,13 +976,13 @@ class Shell(nn.Module):
         self.set_inputLayer(FFT(self.nfft))
         self.set_outputLayer(
             nn.Sequential(
-                iFFT(self.nfft),
+                iFFT(self.nfft, dtype=self.dtype),
                 Transform(
                     lambda x: torch.einsum(
                         "bfm..., bfm... -> bfm...", x, self.alias_envelope_exp
                     )
                 ),
-                FFT(self.nfft),
+                FFT(self.nfft, dtype=self.dtype),
             )
         )  # TODO, this is a very suboptimal way to do this, we need to find a better way
 
@@ -990,6 +994,7 @@ class Shell(nn.Module):
             signal_type="impulse",
             fs=fs,
             device=gamma.device,
+            dtype=self.dtype
         )
         if identity and self.input_channels > 1:
             x = x.diag_embed()

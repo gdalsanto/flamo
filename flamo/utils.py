@@ -22,12 +22,12 @@ def to_complex(x):
     return torch.complex(x, torch.zeros_like(x))
 
 
-def save_audio(filepath, x, fs=48000):
+def save_audio(filepath, x, fs=48000, subtype='PCM_24'):
     # check if the folder exists
     folder = os.path.dirname(filepath)
     if not os.path.exists(folder):
         os.makedirs(folder)
-    sf.write(filepath, x.cpu().numpy(), fs)
+    sf.write(filepath, x.cpu().numpy(), fs, subtype=subtype)
 
 
 class RegularGridInterpolator:

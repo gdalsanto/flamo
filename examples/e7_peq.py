@@ -33,10 +33,11 @@ def example_peq(args):
         requires_grad=True,
         alias_decay_db=0,
         device=args.device,
+        dtype=args.dtype,
     )
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
     model = system.Shell(core=target_filt, input_layer=input_layer, output_layer=output_layer)
     target = model.get_freq_response(identity=True)
 
@@ -49,17 +50,16 @@ def example_peq(args):
         requires_grad=True,
         alias_decay_db=0,
         device=args.device,
+        dtype=args.dtype,
     )
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
     model = system.Shell(core=filt, input_layer=input_layer, output_layer=output_layer)
     estimation_init = model.get_freq_response()
 
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
-    input = signal_gallery(
-        1, n_samples=args.nfft, n=in_ch, signal_type="impulse", fs=args.samplerate
-    )
+    input = signal_gallery(1, n_samples=args.nfft, n=in_ch, signal_type="impulse", fs=args.samplerate, dtype=args.dtype)
     
     dataset = Dataset(
         input=input,
@@ -134,10 +134,11 @@ def example_parallel_peq(args):
         requires_grad=True,
         alias_decay_db=0,
         device=args.device,
+        dtype=args.dtype,
     )
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
     model = system.Shell(core=target_filt, input_layer=input_layer, output_layer=output_layer)
     target = model.get_freq_response()
 
@@ -150,17 +151,16 @@ def example_parallel_peq(args):
         requires_grad=True,
         alias_decay_db=0,
         device=args.device,
+        dtype=args.dtype,
     )
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
     model = system.Shell(core=filt, input_layer=input_layer, output_layer=output_layer)
     estimation_init = model.get_freq_response()
 
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
-    input = signal_gallery(
-        1, n_samples=args.nfft, n=ch,  signal_type="impulse", fs=args.samplerate
-    )
+    input = signal_gallery(1, n_samples=args.nfft, n=ch, signal_type="impulse", fs=args.samplerate, dtype=args.dtype)
     
     dataset = Dataset(
         input=input,
@@ -221,6 +221,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     parser.add_argument("--num", type=int, default=2**8, help="dataset size")
     parser.add_argument(
         "--device", type=str, default="cuda", help="device to use for computation"
@@ -244,6 +245,9 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # make output directory
     if args.train_dir is not None:

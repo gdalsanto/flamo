@@ -23,6 +23,8 @@ class HomogeneousFDNConfig(BaseModel):
     nfft: int = 96000
     # device to run the model
     device: str = 'cpu'
+    # data type
+    dtype: torch.dtype = torch.float32
     # delays in samples
     delays: Optional[List[int]] = None
     # delay lengths range in ms
@@ -76,4 +78,4 @@ class HomogeneousFDNConfig(BaseModel):
             ), "CUDA is not available for training"
     
     # forbid extra fields - adding this to help prevent errors in config file creation
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)

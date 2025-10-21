@@ -4,10 +4,6 @@ import numpy as np
 from typing import Optional
 from flamo.utils import to_complex
 
-torch.random.manual_seed(0)
-np.random.seed(0)
-
-
 class ScatteringMapping(nn.Module):
     r"""
     Class mapping an orthogonal matrix to a paraunitary matrix using sparse scattering.
@@ -47,23 +43,26 @@ class ScatteringMapping(nn.Module):
         m_L: Optional[torch.tensor] = None,
         m_R: Optional[torch.tensor] = None,
         device: str = "cpu",
+        dtype: torch.dtype = torch.float32
     ):
         super(ScatteringMapping, self).__init__()
 
         self.n_stages = n_stages
         self.sparsity = sparsity
         self.gain_per_sample = gain_per_sample
+        self.device = device
+        self.dtype = dtype
         if m_L is None:
-            self.m_L = torch.zeros(N, device=device)
+            self.m_L = torch.zeros(N, device=device, dtype=self.dtype)
         else:
             self.m_L = m_L
         if m_R is None:
-            self.m_R = torch.zeros(N, device=device)
+            self.m_R = torch.zeros(N, device=device, dtype=self.dtype)
         else:
             self.m_R = m_R
-        self.sparsity_vect = torch.ones((n_stages), device=device)
+        self.sparsity_vect = torch.ones((n_stages), device=device, dtype=self.dtype)
         self.sparsity_vect[0] = sparsity
-        self.shifts = get_random_shifts(N, self.sparsity_vect, pulse_size)
+        self.shifts = get_random_shifts(N, self.sparsity_vect, pulse_size, dtype=self.dtype)
 
     def forward(self, U):
         r"""
@@ -81,7 +80,7 @@ class ScatteringMapping(nn.Module):
 
             G = (
                 torch.diag(self.gain_per_sample ** self.shifts[k - 1, :])
-                .to(torch.float32)
+                .to(self.dtype)
                 .to(U.device)
             )
             R = torch.matmul(U[:, :, k], G)
@@ -103,6 +102,7 @@ def cascaded_paraunit_matrix(
     pulse_size: int = 1,
     m_L: Optional[torch.tensor] = None,
     m_R: Optional[torch.tensor] = None,
+    dtype: torch.dtype = torch.float32,
 ):
     r"""
     Creates paraunitary matrix from input orthogonal matrix.
@@ -122,7 +122,7 @@ def cascaded_paraunit_matrix(
     """
 
     K = n_stages + 1
-    sparsity_vect = torch.ones((n_stages), device=U.device)
+    sparsity_vect = torch.ones((n_stages), device=U.device, dtype=dtype)
     sparsity_vect[0] = sparsity
     # check that the input matrix is of correct shape
     assert U.shape[0] == K, "The input matrix must have n_stages+1 stages"
@@ -133,14 +133,14 @@ def cascaded_paraunit_matrix(
     N = V.shape[0]
 
     if m_L is None:
-        m_L = torch.zeros(N, device=U.device)
+        m_L = torch.zeros(N, device=U.device, dtype=dtype)
     if m_R is None:
-        m_R = torch.zeros(N, device=U.device)
+        m_R = torch.zeros(N, device=U.device, dtype=dtype)
 
-    shift_L = get_random_shifts(N, sparsity_vect, pulse_size)
+    shift_L = get_random_shifts(N, sparsity_vect, pulse_size, dtype=dtype)
     for k in range(1, K):
 
-        G = torch.diag(gain_per_sample ** shift_L[k - 1, :]).to(torch.float32)
+        G = torch.diag(gain_per_sample ** shift_L[k - 1, :]).to(dtype)
         R = torch.matmul(U[:, :, k], G)
 
         V = shift_matrix(V, shift_L[k - 1, :], direction="left")
@@ -168,7 +168,7 @@ def poly_matrix_conv(A: torch.tensor, B: torch.tensor):
     if szA[1] != szB[0]:
         raise ValueError("Invalid matrix dimension.")
 
-    C = torch.zeros((szA[0], szB[1], szA[2] + szB[2] - 1), device=A.device)
+    C = torch.zeros((szA[0], szB[1], szA[2] + szB[2] - 1), device=A.device, dtype=A.dtype)
 
     A = A.permute(2, 0, 1)
     B = B.permute(2, 0, 1)
@@ -202,7 +202,7 @@ def shift_matrix(X: torch.tensor, shift: torch.tensor, direction: str = "left"):
         required_space = order + shift.reshape(-1, 1)
         additional_space = int((required_space.max() - X.shape[-1]) + 1)
         X = torch.cat(
-            (X, torch.zeros((N, N, additional_space), device=shift.device)), dim=-1
+            (X, torch.zeros((N, N, additional_space), device=shift.device, dtype=X.dtype)), dim=-1
         )
         for i in range(N):
             X[i, :, :] = torch.roll(X[i, :, :], int(shift[i].item()), dims=-1)
@@ -210,7 +210,7 @@ def shift_matrix(X: torch.tensor, shift: torch.tensor, direction: str = "left"):
         required_space = order + shift.reshape(1, -1)
         additional_space = int((required_space.max() - X.shape[-1]) + 1)
         X = torch.cat(
-            (X, torch.zeros((N, N, additional_space), device=shift.device)), dim=-1
+            (X, torch.zeros((N, N, additional_space), device=shift.device, dtype=X.dtype)), dim=-1
         )
         for i in range(N):
             X[:, i, :] = torch.roll(X[:, i, :], int(shift[i].item()), dims=-1)
@@ -228,14 +228,14 @@ def shift_mat_distribute(X: torch.tensor, sparsity: int, pulse_size: int):
     return (rand_shift * pulse_size).int()
 
 
-def get_random_shifts(N, sparsity_vect, pulse_size):
-    rand_shift = torch.zeros(sparsity_vect.shape[0], N, device=sparsity_vect.device)
+def get_random_shifts(N, sparsity_vect, pulse_size, dtype=torch.float32):
+    rand_shift = torch.zeros(sparsity_vect.shape[0], N, device=sparsity_vect.device, dtype=dtype)
     for k in range(sparsity_vect.shape[0]):
         temp = torch.floor(
             sparsity_vect[k]
             * (
-                torch.arange(0, N, device=sparsity_vect.device)
-                + torch.rand((N), device=sparsity_vect.device) * 0.99
+                torch.arange(0, N, device=sparsity_vect.device, dtype=dtype)
+                + torch.rand((N), device=sparsity_vect.device, dtype=dtype) * 0.99
             )
         )
         rand_shift[k, :] = (temp * pulse_size).int()

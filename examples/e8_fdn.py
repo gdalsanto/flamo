@@ -52,6 +52,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     output_gain = dsp.Gain(
         size=(1, N),
@@ -59,6 +60,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -69,6 +71,7 @@ def example_fdn(args):
         requires_grad=False,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     delays.assign_value(delays.sample2s(delay_lengths))
     # Feedback path with orthogonal matrix
@@ -79,6 +82,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     attenuation = dsp.parallelGEQ(
         size=(N,),
@@ -88,6 +92,7 @@ def example_fdn(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     attenuation.map = lambda x: 20 * torch.log10(torch.sigmoid(x))
     feedback = system.Series(
@@ -109,11 +114,11 @@ def example_fdn(args):
     )
 
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
     # Since time aliasing mitigation is enabled, we use the iFFTAntiAlias layer
     # to undo the effect of the anti aliasing modulation introduced by the system's layers
     output_layer = dsp.iFFTAntiAlias(
-        nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device
+        nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device, dtype=args.dtype
     )
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
@@ -136,6 +141,7 @@ def example_fdn(args):
         signal_type="impulse",
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     target_rir = torch.tensor(sf.read(args.target_rir)[0], dtype=torch.float32)
     target_rir = target_rir / torch.max(torch.abs(target_rir))
@@ -205,6 +211,7 @@ def example_fdn_accurate_geq(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     output_gain = dsp.Gain(
         size=(1, N),
@@ -212,6 +219,7 @@ def example_fdn_accurate_geq(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -222,6 +230,7 @@ def example_fdn_accurate_geq(args):
         requires_grad=False,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     delays.assign_value(delays.sample2s(delay_lengths))
     # Feedback path with orthogonal matrix
@@ -232,6 +241,7 @@ def example_fdn_accurate_geq(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     attenuation = parallelFDNAccurateGEQ(
         octave_interval=1,
@@ -240,6 +250,7 @@ def example_fdn_accurate_geq(args):
         delays=delay_lengths,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     target_rt = torch.tensor(
         [0.25, 0.5, 0.5, 0.65, 0.7, 0.75, 0.8, 0.75, 0.65, 0.5, 0.25]
@@ -265,7 +276,7 @@ def example_fdn_accurate_geq(args):
     )
 
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
     # Since time aliasing mitigation is enabled, we use the iFFTAntiAlias layer
     # to undo the effect of the anti aliasing modulation introduced by the system's layers
     output_layer = dsp.iFFTAntiAlias(
@@ -288,8 +299,8 @@ def example_fdn_accurate_geq(args):
         + attenuation.center_freq.tolist()
         + [attenuation.shelving_crossover[1].item()]
     )
-    input_layer = dsp.FFT(args.nfft)
-    output_layer = dsp.Transform(transform=lambda x: torch.abs(x))
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
+    output_layer = dsp.Transform(transform=lambda x: torch.abs(x), dtype=args.dtype)
     attenuation_model = system.Shell(
         core=attenuation, input_layer=input_layer, output_layer=output_layer
     )
@@ -343,6 +354,7 @@ def example_fdn_direct(args):
         map = lambda x: torch.clip(x, min=-1.0, max=1.0),
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Input and output gains
@@ -352,6 +364,7 @@ def example_fdn_direct(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     output_gain = dsp.Gain(
         size=(1, N),
@@ -359,6 +372,7 @@ def example_fdn_direct(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     # Feedback loop with delays
     delays = dsp.parallelDelay(
@@ -369,6 +383,7 @@ def example_fdn_direct(args):
         requires_grad=False,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     delays.assign_value(delays.sample2s(delay_lengths))
     # Feedback path with orthogonal matrix
@@ -379,6 +394,7 @@ def example_fdn_direct(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     attenuation = dsp.parallelGEQ(
         size=(N,),
@@ -388,6 +404,7 @@ def example_fdn_direct(args):
         requires_grad=True,
         alias_decay_db=alias_decay_db,
         device=args.device,
+        dtype=args.dtype,
     )
     attenuation.map = lambda x: 20 * torch.log10(torch.sigmoid(x))
     feedback = system.Series(
@@ -420,7 +437,7 @@ def example_fdn_direct(args):
 
 
     # Create the model with Shell
-    input_layer = dsp.FFT(args.nfft)
+    input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
     # Since time aliasing mitigation is enabled, we use the iFFTAntiAlias layer
     # to undo the effect of the anti aliasing modulation introduced by the system's layers
     output_layer = dsp.iFFTAntiAlias(
@@ -447,6 +464,7 @@ def example_fdn_direct(args):
         signal_type="impulse",
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     target_rir = torch.tensor(sf.read(args.target_rir)[0], dtype=torch.float32)
     target_rir = target_rir / torch.max(torch.abs(target_rir))
@@ -492,6 +510,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     parser.add_argument("--num", type=int, default=100, help="dataset size")
     parser.add_argument(
         "--device", type=str, default="cuda", help="device to use for computation"
@@ -522,6 +541,9 @@ if __name__ == "__main__":
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
 
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
+
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):
@@ -541,6 +563,6 @@ if __name__ == "__main__":
             )
         )
 
-    # example_fdn(args)
-    # example_fdn_accurate_geq(args)
+    example_fdn(args)
+    example_fdn_accurate_geq(args)
     example_fdn_direct(args)

@@ -29,9 +29,10 @@ class Dataset(torch.utils.data.Dataset):
         target: torch.Tensor = torch.randn(1, 1),
         expand: int = 1,
         device: str = "cpu",
+        dtype: torch.dtype = torch.float32,
     ):
-        self.input = input.to(device)
-        self.target = target.to(device)
+        self.input = input.to(device).to(dtype)
+        self.target = target.to(device).to(dtype)
         self.expand = expand
         self.device = device
         self.input = self.input.expand(tuple([expand] + [d for d in input.shape[1:]]))
@@ -69,11 +70,12 @@ class DatasetColorless(Dataset):
         target_shape: tuple,
         expand: int = 1000,
         device: str = "cpu",
+        dtype: torch.dtype = torch.float32,
     ):
-        input = torch.zeros(input_shape, device=device)
+        input = torch.zeros(input_shape, device=device, dtype=dtype)
         input[:, 0, :] = 1
-        target = torch.ones(target_shape, device=device)
-        super().__init__(input=input, target=target, expand=expand, device=device)
+        target = torch.ones(target_shape, device=device, dtype=dtype)
+        super().__init__(input=input, target=target, expand=expand, device=device, dtype=dtype)
 
     def __getitem__(self, index):
         return self.input[index], self.target[index]

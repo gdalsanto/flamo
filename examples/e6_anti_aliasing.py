@@ -128,6 +128,7 @@ if __name__ == "__main__":
     # ---------------------- Processing -------------------
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     # ----------------------- Dataset ----------------------
     parser.add_argument(
         "--batch_size", type=int, default=1, help="batch size for training"
@@ -163,6 +164,9 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
     # make output directory
     if args.train_dir is not None:
         if not os.path.isdir(args.train_dir):

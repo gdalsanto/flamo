@@ -58,7 +58,7 @@ class LossProfile:
 
     """
 
-    def __init__(self, net: Shell, loss_config: LossConfig, device: str = "cpu"):
+    def __init__(self, net: Shell, loss_config: LossConfig, device: str = "cpu", dtype: torch.dtype = torch.float32):
 
         super().__init__()
         self.net = net
@@ -68,6 +68,7 @@ class LossProfile:
         self.n_runs = loss_config.n_runs
         self.output_dir = loss_config.output_dir
         self.device = device
+        self.dtype = dtype
         self.register_steps()
 
     def compute_loss(self, input: torch.Tensor, target: torch.Tensor):
@@ -101,9 +102,9 @@ class LossProfile:
                     if type(self.param_config.lower_bound) == list:
                         # interpolate between the lower and upper bound
                         new_value = (1 - steps[i_step]) * torch.tensor(
-                            self.param_config.lower_bound, device=self.device
+                            self.param_config.lower_bound, device=self.device, dtype=self.dtype
                         ) + steps[i_step] * torch.tensor(
-                            self.param_config.upper_bound, device=self.device
+                            self.param_config.upper_bound, device=self.device, dtype=self.dtype
                         )
                     else:
                         new_value = steps[i_step]
@@ -230,12 +231,14 @@ class LossProfile:
             upper_bound = param_upper_bound
 
         if scale == "linear":
-            steps = torch.linspace(lower_bound, upper_bound, n_steps)
+            steps = torch.linspace(lower_bound, upper_bound, n_steps, device=self.device, dtype=self.dtype)
         elif scale == "log":
             steps = torch.logspace(
-                torch.log10(torch.tensor(lower_bound, device=self.device)),
-                torch.log10(torch.tensor(upper_bound, device=self.device)),
+                torch.log10(torch.tensor(lower_bound, device=self.device, dtype=self.dtype)),
+                torch.log10(torch.tensor(upper_bound, device=self.device, dtype=self.dtype)),
                 n_steps,
+                device=self.device,
+                dtype=self.dtype,
             )
         else:
             raise ValueError("Scale must be either 'linear' or 'log'")
@@ -336,9 +339,9 @@ class LossSurface(LossProfile):
         - **steps** (dict): Dictionary of steps between the lower and upper bound of the parameters.
     """
 
-    def __init__(self, net: Shell, loss_config: LossConfig, device: str = "cpu"):
+    def __init__(self, net: Shell, loss_config: LossConfig, device: str = "cpu", dtype: torch.dtype = torch.float32):
 
-        super().__init__(net, loss_config, device)
+        super().__init__(net, loss_config, device, dtype)
 
         assert (
             len(loss_config.param_config) == 2
@@ -403,9 +406,9 @@ class LossSurface(LossProfile):
                     if type(self.param_config[0].lower_bound) == list:
                         # interpolate between the lower and upper bound
                         new_value = (1 - steps_0[i_step_0]) * torch.tensor(
-                            self.param_config[0].lower_bound, device=self.device
+                            self.param_config[0].lower_bound, device=self.device, dtype=self.dtype
                         ) + steps_0[i_step_0] * torch.tensor(
-                            self.param_config[0].upper_bound, device=self.device
+                            self.param_config[0].upper_bound, device=self.device, dtype=self.dtype
                         )
                     else:
                         new_value = steps_0[i_step_0]
@@ -419,9 +422,9 @@ class LossSurface(LossProfile):
                         if type(self.param_config[1].lower_bound) == list:
                             # interpolate between the lower and upper bound
                             new_value = (1 - steps_1[i_step_1]) * torch.tensor(
-                                self.param_config[1].lower_bound, device=self.device
+                                self.param_config[1].lower_bound, device=self.device, dtype=self.dtype
                             ) + steps_1[i_step_1] * torch.tensor(
-                                self.param_config[1].upper_bound, device=self.device
+                                self.param_config[1].upper_bound, device=self.device, dtype=self.dtype
                             )
                         else:
                             new_value = steps_1[i_step_1]

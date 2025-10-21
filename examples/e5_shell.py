@@ -32,7 +32,7 @@ def example_shell(args):
     in_ch = 3
     out_ch = 1
     # Filters
-    filter1 = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device)
+    filter1 = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device, dtype=args.dtype)
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
         max_len=5000,
@@ -40,6 +40,7 @@ def example_shell(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     filter3 = dsp.parallelFilter(
         size=(
@@ -48,6 +49,7 @@ def example_shell(args):
         ),
         nfft=args.nfft,
         device=args.device,
+        dtype=args.dtype,
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
@@ -55,6 +57,7 @@ def example_shell(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     filters = OrderedDict(
         {"Gain": filter1, "Delay": filter2, "FIR": filter3, "SVF": filter4}
@@ -73,16 +76,17 @@ def example_shell(args):
         n=in_ch,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Time response
-    my_dsp.set_inputLayer(dsp.FFT(nfft=args.nfft))
-    my_dsp.set_outputLayer(dsp.iFFT(nfft=args.nfft))
+    my_dsp.set_inputLayer(dsp.FFT(nfft=args.nfft, dtype=args.dtype))
+    my_dsp.set_outputLayer(dsp.iFFT(nfft=args.nfft, dtype=args.dtype))
     imp_resp = my_dsp(unit_imp)
 
     # Magnitude response
     my_dsp.set_outputLayer(
-        nn.Sequential(dsp.Transform(get_magnitude), dsp.Transform(mag2db))
+        nn.Sequential(dsp.Transform(get_magnitude, dtype=args.dtype), dsp.Transform(mag2db, dtype=args.dtype))
     )
     mag_resp = my_dsp(unit_imp)
 
@@ -116,7 +120,7 @@ def example_shell_error(args):
     in_ch = 3
     out_ch = 3
     # Filters
-    filter1 = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device)
+    filter1 = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device, dtype=args.dtype)
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
         max_len=5000,
@@ -124,6 +128,7 @@ def example_shell_error(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     filter3 = dsp.parallelFilter(
         size=(
@@ -132,6 +137,7 @@ def example_shell_error(args):
         ),
         nfft=args.nfft,
         device=args.device,
+        dtype=args.dtype,
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
@@ -139,19 +145,20 @@ def example_shell_error(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     filters = OrderedDict(
         {"Gain": filter1, "Delay": filter2, "FIR": filter3, "SVF": filter4}
     )
 
     # Layers
-    in_layer1 = dsp.FFT(nfft=args.nfft)
+    in_layer1 = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
     in_layer2 = dsp.Gain(
-        size=(in_ch, in_ch), nfft=args.nfft, requires_grad=False, device=args.device
+        size=(in_ch, in_ch), nfft=args.nfft, requires_grad=False, device=args.device, dtype=args.dtype
     )  # NOTE: Error here
     in_layer = nn.Sequential(in_layer1, in_layer2)
 
-    out_layer = dsp.iFFT(nfft=2**8)  # NOTE: Error here
+    out_layer = dsp.iFFT(nfft=2**8, dtype=args.dtype)  # NOTE: Error here
 
     # Shell
     my_dsp = system.Shell(input_layer=in_layer, core=filters, output_layer=out_layer)
@@ -350,9 +357,9 @@ def example_shell_training(args):
 
     # Interface DSP with dataset and loss function
     model.set_inputLayer(
-        nn.Sequential(dsp.Transform(lambda x: x.diag_embed()), dsp.FFT(args.nfft))
+        nn.Sequential(dsp.Transform(lambda x: x.diag_embed(), dtype=args.dtype), dsp.FFT(args.nfft, dtype=args.dtype))
     )
-    model.set_outputLayer(dsp.Transform(get_magnitude))
+    model.set_outputLayer(dsp.Transform(get_magnitude, dtype=args.dtype))
 
     # Initialize training process
     trainer = Trainer(
@@ -410,7 +417,7 @@ def example_shell_training(args):
 
     # Interface DSP with new loss function
     model.set_outputLayer(
-        nn.Sequential(dsp.Transform(get_eigenvalues), dsp.Transform(get_magnitude))
+        nn.Sequential(dsp.Transform(get_eigenvalues, dtype=args.dtype), dsp.Transform(get_magnitude, dtype=args.dtype))
     )
 
     # Train the model
@@ -446,8 +453,8 @@ def example_shell_training(args):
     #       In this case we can also keep the last DatasetColorless instance.
 
     # Interface DSP with dataset and loss function
-    model.set_inputLayer(dsp.FFT(args.nfft))
-    model.set_outputLayer(dsp.Transform(get_magnitude))
+    model.set_inputLayer(dsp.FFT(args.nfft, dtype=args.dtype))
+    model.set_outputLayer(dsp.Transform(get_magnitude, dtype=args.dtype))
 
     # Train the model
     trainer.train(train_loader, valid_loader)
@@ -486,6 +493,7 @@ if __name__ == "__main__":
     # ---------------------- Processing -------------------
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     # ----------------------- Dataset ----------------------
     parser.add_argument(
         "--batch_size", type=int, default=1, help="batch size for training"
@@ -521,6 +529,9 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # make output directory
     if args.train_dir is not None:

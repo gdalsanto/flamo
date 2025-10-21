@@ -30,8 +30,9 @@ def example_recursion(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
-    attenuation = dsp.parallelGain(size=(out_ch,), nfft=args.nfft, device=args.device)
+    attenuation = dsp.parallelGain(size=(out_ch,), nfft=args.nfft, device=args.device, dtype=args.dtype)
     rand_vector = torch.rand(attenuation.param.shape)
     attenuation.assign_value(0.3 * rand_vector / torch.norm(rand_vector, p=2))
     feedforward_path = OrderedDict({"delays": delays, "attenuation": attenuation})
@@ -42,6 +43,7 @@ def example_recursion(args):
         matrix_type="orthogonal",
         nfft=args.nfft,
         device=args.device,
+        dtype=args.dtype,
     )
 
     feedback_path = OrderedDict({"feedback_matrix": feedback_matrix})
@@ -50,8 +52,8 @@ def example_recursion(args):
     recursion = system.Recursion(fF=feedforward_path, fB=feedback_path)
 
     # Input and output layers
-    input_layer = dsp.FFT(nfft=args.nfft)
-    output_layer = dsp.iFFT(nfft=args.nfft)
+    input_layer = dsp.FFT(nfft=args.nfft, dtype=args.dtype)
+    output_layer = dsp.iFFT(nfft=args.nfft, dtype=args.dtype)
 
     my_dsp = system.Series(
         OrderedDict(
@@ -73,6 +75,7 @@ def example_recursion(args):
         n=in_ch,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Apply filter
@@ -104,6 +107,7 @@ if __name__ == "__main__":
     # ---------------------- Processing -------------------
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
+    parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     # ----------------------- Dataset ----------------------
     parser.add_argument(
         "--batch_size", type=int, default=1, help="batch size for training"
@@ -140,6 +144,9 @@ if __name__ == "__main__":
     # check for compatible device
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
+
+    # convert dtype string to torch dtype
+    args.dtype = torch.float32 if args.dtype == "float32" else torch.float64
 
     # make output directory
     if args.train_dir is not None:
