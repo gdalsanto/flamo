@@ -334,7 +334,8 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
         alias_decay_db: float = 0.0,
         start_freq: float = 31.25,
         end_freq: float = 16000.0,
-        device=None
+        device=None, 
+        dtype=torch.float32
     ):
         assert (delays is not None), "Delays must be provided"
         self.delays = delays
@@ -348,7 +349,8 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
             alias_decay_db=alias_decay_db,
             start_freq=start_freq,
             end_freq=end_freq,
-            device=device
+            device=device, 
+            dtype=dtype
         )
 
 
@@ -400,7 +402,8 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
         alias_decay_db: float = 0.0,
         start_freq: float = 31.25,
         end_freq: float = 16000.0,
-        device=None
+        device=None,
+        dtype=torch.float32
     ):
         assert (delays is not None), "Delays must be provided"
         self.delays = delays
@@ -488,6 +491,7 @@ class parallelFDNGEQ(dsp.parallelGEQ):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype=torch.float32
     ):
         assert (delays is not None), "Delays must be provided"
         self.delays = delays
@@ -503,7 +507,8 @@ class parallelFDNGEQ(dsp.parallelGEQ):
             map=map,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
-            device=device
+            device=device, 
+            dtype=dtype
         )
 
     def get_poly_coeff(self, param):
@@ -522,14 +527,13 @@ class parallelFDNGEQ(dsp.parallelGEQ):
                     fs=self.fs,
                     device=self.device
                 )
-        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def check_param_shape(self):
         assert (
@@ -566,6 +570,7 @@ class parallelFDNPEQ(Filter):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype=torch.float32
     ):
         self.delays = delays
         self.is_twostage = is_twostage
@@ -588,6 +593,7 @@ class parallelFDNPEQ(Filter):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype
         )
 
     def get_poly_coeff(self, param):
@@ -650,16 +656,13 @@ class parallelFDNPEQ(Filter):
                 type='highshelf'
             )
 
-        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=1)
         A = torch.fft.rfft(a_aa, self.nfft, dim=1)
         H_temp = (torch.prod(B, dim=0) / (torch.prod(A, dim=0)))
-        # H_temp = (torch.prod(B, dim=0) / (torch.prod(A, dim=0)))
-
         H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def compute_biquad_coeff(self, f, R, G, type='peaking'):
         # f : freq, R : resonance, G : gain in dB
@@ -811,6 +814,7 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         delays: torch.Tensor =  None,
         alias_decay_db: float = 0.0,
         device: str = None,
+        dtype: torch.dtype = torch.float32
     ):
         size = (2,)      # rt at DC and crossover frequency
         assert (delays is not None), "Delays must be provided"
@@ -822,7 +826,8 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
             nfft=nfft,
             map=map,
             alias_decay_db=alias_decay_db,
-            device=device
+            device=device,
+            dtype=dtype
         )
         gamma = 10 ** (
             -torch.abs(torch.tensor(alias_decay_db, device=device)) / (nfft) / 20
