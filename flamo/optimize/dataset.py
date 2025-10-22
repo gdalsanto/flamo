@@ -111,7 +111,7 @@ def split_dataset(dataset: torch.utils.data.Dataset, split: float, device: str =
         **Arguments**:
             - **dataset** (torch.utils.data.Dataset): The dataset to be split.
             - **split** (float): The ratio of the training set size to the total dataset size.
-            - **device** (str, optional): The device to store the tensors on. Defaults to torch default device.
+            - **device** (str, optional): The device to use for the random split generator. Defaults to torch default device.
 
         **Returns**:
             tuple: A tuple containing the training set and the validation set.
@@ -144,7 +144,7 @@ def load_dataset(
             - **batch_size** (int, optional): The batch size for the data loaders. Defaults to 2000.
             - **split** (float, optional): The ratio to split the dataset into training and validation sets. Defaults to 0.8.
             - **shuffle** (bool, optional): Whether to shuffle the data. Defaults to True.
-            - **device** (str, optional): The device to store the tensors on. Defaults to torch default device.
+            - **device** (str, optional): The device to use for the random split generator. Defaults to torch default device.
 
         **Returns**:
             tuple: A tuple containing the training and validation data loaders.
