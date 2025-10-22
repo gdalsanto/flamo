@@ -153,6 +153,7 @@ def example_fdn(args):
         target=target_rir,
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
@@ -280,7 +281,7 @@ def example_fdn_accurate_geq(args):
     # Since time aliasing mitigation is enabled, we use the iFFTAntiAlias layer
     # to undo the effect of the anti aliasing modulation introduced by the system's layers
     output_layer = dsp.iFFTAntiAlias(
-        nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device
+        nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device, dtype=args.dtype
     )
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
@@ -441,7 +442,7 @@ def example_fdn_direct(args):
     # Since time aliasing mitigation is enabled, we use the iFFTAntiAlias layer
     # to undo the effect of the anti aliasing modulation introduced by the system's layers
     output_layer = dsp.iFFTAntiAlias(
-        nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device
+        nfft=args.nfft, alias_decay_db=alias_decay_db, device=args.device, dtype=args.dtype
     )
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
@@ -476,6 +477,7 @@ def example_fdn_direct(args):
         target=target_rir,
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 

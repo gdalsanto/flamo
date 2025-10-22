@@ -176,7 +176,7 @@ def example_shell_gets(args):
     in_ch = 2
     out_ch = 1
     # Filters
-    filter1 = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device)
+    filter1 = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device, dtype=args.dtype)
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
         max_len=5000,
@@ -184,6 +184,7 @@ def example_shell_gets(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     filter3 = dsp.parallelFilter(
         size=(
@@ -192,6 +193,7 @@ def example_shell_gets(args):
         ),
         nfft=args.nfft,
         device=args.device,
+        dtype=args.dtype,
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
@@ -199,6 +201,7 @@ def example_shell_gets(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     filters = OrderedDict(
         {"Gain": filter1, "Delay": filter2, "FIR": filter3, "SVF": filter4}
@@ -247,7 +250,7 @@ def example_shell_gets_2(args):
     in_ch = 2
     out_ch = 1
     # Filters
-    filter1 = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device)
+    filter1 = dsp.Gain(size=(out_ch, in_ch), nfft=args.nfft, device=args.device, dtype=args.dtype)
     filter2 = dsp.parallelDelay(
         size=(out_ch,),
         max_len=5000,
@@ -255,6 +258,7 @@ def example_shell_gets_2(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     filter3 = dsp.parallelFilter(
         size=(
@@ -263,6 +267,7 @@ def example_shell_gets_2(args):
         ),
         nfft=args.nfft,
         device=args.device,
+        dtype=args.dtype,
     )
     filter4 = dsp.parallelSVF(
         size=(out_ch,),
@@ -270,6 +275,7 @@ def example_shell_gets_2(args):
         nfft=args.nfft,
         fs=args.samplerate,
         device=args.device,
+        dtype=args.dtype,
     )
     filters = OrderedDict(
         {"Gain": filter1, "Delay": filter2, "FIR": filter3, "SVF": filter4}
@@ -324,6 +330,7 @@ def example_shell_training(args):
         nfft=args.nfft,
         requires_grad=True,
         device=args.device,
+        dtype=args.dtype,
     )
 
     # Shell instance
@@ -349,6 +356,7 @@ def example_shell_training(args):
         target_shape=(args.batch_size, args.nfft // 2 + 1, out_ch, in_ch),
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
@@ -412,6 +420,7 @@ def example_shell_training(args):
         ),  # The target has the a different shape now
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 

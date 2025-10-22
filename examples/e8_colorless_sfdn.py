@@ -127,6 +127,7 @@ def example_fdn(args):
         target_shape=(1, args.nfft // 2 + 1, 1),
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
