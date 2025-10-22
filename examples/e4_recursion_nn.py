@@ -84,6 +84,7 @@ class LossyBiquad(dsp.Biquad):
         fs: int = 48000,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
+        dtype: torch.dtype = torch.float32,
         device: Optional[str] = None,
     ):
         super().__init__(
@@ -95,6 +96,7 @@ class LossyBiquad(dsp.Biquad):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def get_map(self):
@@ -193,6 +195,7 @@ class nnComb(nn.Module):
             requires_grad=True,
             alias_decay_db=args.alias_decay_db,
             device=args.device,
+            dtype=args.dtype,
         )
 
         delays = dsp.parallelDelay(
@@ -203,6 +206,7 @@ class nnComb(nn.Module):
             requires_grad=False,
             alias_decay_db=args.alias_decay_db,
             device=args.device,
+            dtype=args.dtype,
         )
         delays.assign_value(delays.sample2s(delay_lengths))
         # To condition the biquad filter, we will need to pass the parameters estimated
