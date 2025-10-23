@@ -142,6 +142,7 @@ class LossProfile:
                 figsize=((len(self.criteria) + 2) // 3 * 5, 15),
             )
         steps = self.steps
+        steps = steps.cpu().numpy()
         for i_crit in range(len(self.criteria)):
             mean_loss = loss[:, :, i_crit].mean(0)
             std_loss = loss[:, :, i_crit].std(0)
@@ -470,7 +471,7 @@ class LossSurface(LossProfile):
         steps_0 = self.steps_0
         steps_1 = self.steps_1
         # create a meshgrid
-        steps_0, steps_1 = np.meshgrid(steps_0, steps_1)
+        steps_0, steps_1 = np.meshgrid(steps_0.cpu().numpy(), steps_1.cpu().numpy())
         title = ["mean", "std"]
         for i_plot in range(2):
             if len(self.criteria) == 1:
