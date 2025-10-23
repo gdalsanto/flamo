@@ -309,6 +309,7 @@ class LossProfile:
         audio distances are bad at pitch,” arXiv preprint arXiv:2012.04572, 2020.
         """
         steps = self.steps
+        steps = steps.cpu().numpy()
         # find the index in steps of the element closest to the target value
         target_indx = np.abs(steps - self.param_config.target_value).argmin()
         accuracy = np.empty(loss.shape)
@@ -635,6 +636,8 @@ class LossSurface(LossProfile):
         """
         steps_0 = self.steps_0
         steps_1 = self.steps_1
+        steps_0 = steps_0.cpu().numpy()
+        steps_1 = steps_1.cpu().numpy()
         # find the index in steps of the element closest to the target value
         target_indx_0 = np.abs(steps_0 - self.param_config[0].target_value).argmin()
         target_indx_1 = np.abs(steps_1 - self.param_config[1].target_value).argmin()
