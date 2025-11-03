@@ -1663,6 +1663,273 @@ class parallelBiquad(Biquad):
         self.output_channels = self.size[-1]
 
 
+class SOSFilter(Filter):
+    r"""
+    A class representing cascaded second-order sections (SOS) specified directly by
+    numerator/denominator coefficients (b/a).
+
+    Each section k has coefficients [b0_k, b1_k, b2_k, a0_k, a1_k, a2_k]. Sections are
+    applied in series. The frequency response is computed in double precision from the
+    time-domain polynomial coefficients with an anti time-aliasing envelope applied
+    to the 3 taps, and then cast back to a complex dtype matching the input param type.
+
+    Shape:
+        - input: (B, M, N_in, ...)
+        - param: (K, 6, N_out, N_in) with ordering [b0, b1, b2, a0, a1, a2]
+        - freq_response: (M, N_out, N_in)
+        - output: (B, M, N_out, ...)
+
+    where B is the batch size, M is the number of frequency bins, N_in is the number of
+    input channels, N_out is the number of output channels, and K is the number of SOS
+    sections (cascaded in series).
+
+        **Arguments / Attributes**:
+            - size (tuple, optional): (N_out, N_in). Default: (1, 1).
+            - n_sections (int, optional): Number of SOS sections (K). Default: 1.
+            - nfft (int, optional): Number of FFT points. Default: 2**11.
+            - fs (int, optional): Sampling frequency. Default: 48000.
+            - requires_grad (bool, optional): Whether the parameters require gradients. Default: False.
+            - alias_decay_db (float, optional): Anti time-aliasing envelope decay in dB after nfft samples. Default: 0.0.
+            - device (str, optional): Device for constructed tensors. Default: None.
+            - normalize_a0 (bool, optional): Normalize each section by a0 so a0=1. Default: True.
+
+        **Attributes**:
+            - param (nn.Parameter): Raw SOS coefficients with shape (K, 6, N_out, N_in).
+            - alias_envelope_dcy (torch.Tensor): Length-3 envelope for time anti-aliasing.
+            - freq_response (callable): Maps parameters to frequency response.
+            - input_channels (int): Number of input channels.
+            - output_channels (int): Number of output channels.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        n_sections: int = 1,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
+        normalize_a0: bool = True,
+    ):
+        self.n_sections = n_sections
+        self.fs = fs
+        self.device = device
+        self.normalize_a0 = normalize_a0
+        # 3-tap envelope for [b0, b1, b2] and [a0, a1, a2]
+        gamma = 10 ** (
+            -torch.abs(torch.tensor(alias_decay_db, device=self.device)) / (nfft) / 20
+        )
+        self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=self.device)
+        self.get_map()
+        super().__init__(
+            size=(n_sections, *self.get_size(), *size),
+            nfft=nfft,
+            map=self.map,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device,
+        )
+
+    def get_size(self):
+        r"""
+        Leading dimensions for SOS parameters.
+
+            - 6 for [b0, b1, b2, a0, a1, a2]
+        """
+        return (6,)
+
+    def get_map(self):
+        r"""
+        Mapping for raw SOS coefficients. Optionally normalizes each section so a0=1.
+        """
+
+        def _map(x: torch.Tensor) -> torch.Tensor:
+            if not self.normalize_a0:
+                return x
+            # x: (K, 6, N_out, N_in)
+            a0 = x[:, 3, ...]
+            eps = torch.finfo(x.dtype).eps
+            a0_safe = torch.where(torch.abs(a0) > eps, a0, eps * torch.ones_like(a0))
+            y = x.clone()
+            # divide all coeffs by a0; set a0 to 1
+            for idx in [0, 1, 2, 4, 5]:
+                y[:, idx, ...] = y[:, idx, ...] / a0_safe
+            y[:, 3, ...] = torch.ones_like(a0)
+            return y
+
+        self.map = _map
+
+    def init_param(self):
+        r"""
+        Initialize parameters to identity sections: b=[1,0,0], a=[1,0,0].
+        """
+        with torch.no_grad():
+            self.param.zero_()
+            # b0 = 1, a0 = 1
+            self.param[:, 0, ...] = 1.0
+            self.param[:, 3, ...] = 1.0
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the SOS parameters is valid.
+        """
+        assert (
+            len(self.size) == 4
+        ), "Parameter size must be 4D, expected (K, 6, N_out, N_in)."
+        assert (
+            self.size[1] == 6
+        ), "Second dimension must be 6: [b0,b1,b2,a0,a1,a2]."
+
+    def initialize_class(self):
+        r"""
+        Initialize the SosFilter class.
+        """
+        self.check_param_shape()
+        self.get_io()
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+    def get_freq_response(self):
+        r"""
+        Compute the frequency response of the cascaded SOS.
+        """
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param: torch.Tensor):
+        r"""
+        Split mapped parameters into b and a polynomials, apply anti-aliasing envelope,
+        and compute frequency response in double precision.
+
+            **Arguments**:
+                - param (torch.Tensor): (K, 6, N_out, N_in)
+
+            **Returns**:
+                - H (torch.Tensor): (M, N_out, N_in)
+                - B (torch.Tensor): (M, K, N_out, N_in)
+                - A (torch.Tensor): (M, K, N_out, N_in)
+        """
+        # Arrange to (3, K, N_out, N_in)
+        b = torch.stack((param[:, 0, ...], param[:, 1, ...], param[:, 2, ...]), dim=0)
+        a = torch.stack((param[:, 3, ...], param[:, 4, ...], param[:, 5, ...]), dim=0)
+
+        b_aa = torch.einsum(
+            "p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double)
+        )
+        a_aa = torch.einsum(
+            "p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double)
+        )
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        denom = torch.abs(torch.prod(A, dim=1))
+        H = torch.where(
+            denom != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp)
+        )
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
+
+    def get_freq_convolve(self):
+        r"""
+        Frequency-domain matrix product with the input.
+        """
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
+        )
+
+    def get_io(self):
+        r"""
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
+
+
+class parallelSOSFilter(SOSFilter):
+    r"""
+    Parallel counterpart of the SOSFilter class.
+
+    Accepts direct SOS coefficients for N parallel channels. Parameter shape is
+    (K, 6, N), with ordering [b0, b1, b2, a0, a1, a2] per section.
+
+    Shape:
+        - input: (B, M, N, ...)
+        - param: (K, 6, N)
+        - freq_response: (M, N)
+        - output: (B, M, N, ...)
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1,),
+        n_sections: int = 1,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
+        normalize_a0: bool = True,
+    ):
+        super().__init__(
+            size=size,
+            n_sections=n_sections,
+            nfft=nfft,
+            fs=fs,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device,
+            normalize_a0=normalize_a0,
+        )
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the SOS parameters is valid.
+        """
+        assert (
+            len(self.size) == 3
+        ), "Parameter size must be 3D, expected (K, 6, N)."
+        assert self.size[1] == 6, "Second dimension must be 6: [b0,b1,b2,a0,a1,a2]."
+
+    def get_freq_response(self):
+        r"""Compute the frequency response of the cascaded SOS."""
+        self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
+
+    def get_poly_coeff(self, param: torch.Tensor):
+        r"""
+        Split mapped parameters into b and a polynomials (parallel case), apply
+        anti-aliasing envelope, and compute frequency response in double precision.
+
+            **Arguments**:
+                - param (torch.Tensor): (K, 6, N)
+
+            **Returns**:
+                - H (torch.Tensor): (M, N)
+                - B (torch.Tensor): (M, K, N)
+                - A (torch.Tensor): (M, K, N)
+        """
+        b = torch.stack((param[:, 0, :], param[:, 1, :], param[:, 2, :]), dim=0)
+        a = torch.stack((param[:, 3, :], param[:, 4, :], param[:, 5, :]), dim=0)
+
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp))
+        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
+        return H.to(H_type), B, A
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
+        )
+
+    def get_io(self):
+        r"""Computes the number of input and output channels based on the size parameter."""
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
+
+
 class SVF(Filter):
     r"""
     A class for IIR filters as a serially cascaded state variable filters (SVFs). 
@@ -3105,3 +3372,151 @@ class parallelDelay(Delay):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+
+class GainDelay(DSP):
+    r"""
+    A class implementing a combined MIMO gain and delay stage operating in the frequency domain.
+
+    This class computes the frequency response of a gain matrix followed by per-channel delays
+    without constructing intermediate expanded tensors of size :math:`N_{out} \\times N_{in}`.
+
+    Shape:
+        - input: :math:`(B, M, N_{in}, ...)`
+        - param: :math:`(2, N_{out}, N_{in})`
+        - output: :math:`(B, M, N_{out}, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    :math:`N_{in}` is the number of input channels, and :math:`N_{out}` is the number of output channels.
+    Ellipsis :math:`(...)` represents additional dimensions.
+
+        **Arguments / Attributes**:
+            - **size** (tuple, optional): Size of the gain-delay stage as ``(N_{out}, N_{in})``. Default: (1, 1).
+            - **max_len** (int, optional): Maximum delay length expressed in samples. Default: 2000.
+            - **isint** (bool, optional): If ``True``, delays are rounded to the nearest integer sample. Default: False.
+            - **unit** (int, optional): Unit scaling factor for converting seconds to samples. Default: 100.
+            - **nfft** (int, optional): Number of FFT points. Default: 2 ** 11.
+            - **fs** (int, optional): Sampling rate. Default: 48000.
+            - **map_gain** (callable, optional): Mapping applied to raw gain parameters. Default: ``lambda x: x``.
+            - **map_delay** (callable, optional): Mapping applied to raw delay parameters (in seconds). Default: ``lambda x: x``.
+            - **requires_grad** (bool, optional): Whether parameters require gradients. Default: False.
+            - **alias_decay_db** (float, optional): Decay in dB applied by the anti aliasing envelope. Default: 0.0.
+            - **device** (str, optional): Device of the constructed tensors. Default: None.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1, 1),
+        max_len: int = 2000,
+        isint: bool = False,
+        unit: int = 100,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map_gain: Optional[callable] = None,
+        map_delay: Optional[callable] = None,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
+    ):
+        self.fs = fs
+        self.max_len = max_len
+        self.unit = unit
+        self.isint = isint
+        self._custom_gain_map = map_gain is not None
+        self._custom_delay_map = map_delay is not None
+        self.map_gain = map_gain if map_gain is not None else (lambda x: x)
+        self.map_delay = map_delay if map_delay is not None else (lambda x: x)
+        super().__init__(
+            size=(2, *size),
+            nfft=nfft,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device,
+        )
+        self.initialize_class()
+
+    def forward(self, x, ext_param=None):
+        self.check_input_shape(x)
+        if ext_param is None:
+            return self.freq_convolve(x, self.param)
+        with torch.no_grad():
+            self.assign_value(ext_param)
+        return self.freq_convolve(x, ext_param)
+
+    def init_param(self):
+        gain_shape = self.size[1:]
+        with torch.no_grad():
+            nn.init.ones_(self.param[0])
+            if self.isint:
+                delay_samples = torch.randint(
+                    1, self.max_len, gain_shape, device=self.device, dtype=torch.int64
+                ).to(self.param.dtype)
+            else:
+                delay_samples = torch.rand(gain_shape, device=self.device) * self.max_len
+            delay_seconds = self.sample2s(delay_samples)
+            self.param[1].copy_(delay_seconds)
+        max_delay = torch.ceil(delay_samples).max().item()
+        self.order = int(max_delay) + 1
+
+    def s2sample(self, delay: torch.Tensor):
+        return delay * self.fs / self.unit
+
+    def sample2s(self, delay: torch.Tensor):
+        return delay / self.fs * self.unit
+
+    def check_input_shape(self, x):
+        if (int(self.nfft / 2 + 1), self.input_channels) != (x.shape[1], x.shape[2]):
+            raise ValueError(
+                f"parameter shape = {self.param.shape} not compatible with input signal of shape = ({x.shape})."
+            )
+
+    def check_param_shape(self):
+        assert (
+            len(self.size) == 3 and self.size[0] == 2
+        ), "GainDelay parameters must have shape (2, N_out, N_in)."
+
+    def get_gains(self):
+        return lambda param: to_complex(self.map_gain(param[0]))
+
+    def get_delays(self):
+        return lambda param: self.s2sample(self.map_delay(param[1]))
+
+    def get_freq_response(self):
+        gains = self.get_gains()
+        delays = self.get_delays()
+        if self.isint:
+            self.freq_response = lambda param: self._combine_gain_delay(
+                gains(param), delays(param).round()
+            )
+        else:
+            self.freq_response = lambda param: self._combine_gain_delay(
+                gains(param), delays(param)
+            )
+
+    def get_freq_convolve(self):
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fmn,bfn...->bfm...", self.freq_response(param), x
+        )
+
+    def initialize_class(self):
+        self.check_param_shape()
+        self.get_io()
+        if self.requires_grad and not self._custom_delay_map:
+            self.map_delay = lambda x: F.softplus(x)
+        self.omega = (
+            2
+            * torch.pi
+            * torch.arange(0, self.nfft // 2 + 1, device=self.device)
+            / self.nfft
+        ).unsqueeze(1)
+        self.get_freq_response()
+        self.get_freq_convolve()
+
+    def get_io(self):
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-2]
+
+    def _combine_gain_delay(self, gain: torch.Tensor, delay_samples: torch.Tensor):
+        delay_samples = delay_samples.to(gain.real.dtype)
+        phase = torch.einsum("fo, omn -> fmn", self.omega, delay_samples.unsqueeze(0))
+        return gain.unsqueeze(0) * (self.gamma ** delay_samples) * torch.exp(-1j * phase)
