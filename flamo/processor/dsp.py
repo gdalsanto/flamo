@@ -1669,9 +1669,8 @@ class SOSFilter(Filter):
     numerator/denominator coefficients (b/a).
 
     Each section k has coefficients [b0_k, b1_k, b2_k, a0_k, a1_k, a2_k]. Sections are
-    applied in series. The frequency response is computed in double precision from the
-    time-domain polynomial coefficients with an anti time-aliasing envelope applied
-    to the 3 taps, and then cast back to a complex dtype matching the input param type.
+    applied in series. The frequency response is computed from the time-domain 
+    polynomial coefficients with an anti time-aliasing envelope applied to the 3 taps.
 
     Shape:
         - input: (B, M, N_in, ...)
@@ -1688,9 +1687,9 @@ class SOSFilter(Filter):
             - n_sections (int, optional): Number of SOS sections (K). Default: 1.
             - nfft (int, optional): Number of FFT points. Default: 2**11.
             - fs (int, optional): Sampling frequency. Default: 48000.
-            - requires_grad (bool, optional): Whether the parameters require gradients. Default: False.
             - alias_decay_db (float, optional): Anti time-aliasing envelope decay in dB after nfft samples. Default: 0.0.
             - device (str, optional): Device for constructed tensors. Default: None.
+            - dtype (torch.dtype, optional): Data type for tensors. Default: torch.float32.
             - normalize_a0 (bool, optional): Normalize each section by a0 so a0=1. Default: True.
 
         **Attributes**:
@@ -1707,18 +1706,19 @@ class SOSFilter(Filter):
         n_sections: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
         normalize_a0: bool = True,
     ):
         self.n_sections = n_sections
         self.fs = fs
         self.device = device
+        self.dtype = dtype
         self.normalize_a0 = normalize_a0
         # 3-tap envelope for [b0, b1, b2] and [a0, a1, a2]
         gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=self.device)) / (nfft) / 20
+            -torch.abs(torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype)) / (nfft) / 20
         )
         self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=self.device)
         self.get_map()
@@ -1726,9 +1726,10 @@ class SOSFilter(Filter):
             size=(n_sections, *self.get_size(), *size),
             nfft=nfft,
             map=self.map,
-            requires_grad=requires_grad,
+            requires_grad=False,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
 
     def get_size(self):
@@ -1814,11 +1815,9 @@ class SOSFilter(Filter):
         a = torch.stack((param[:, 3, ...], param[:, 4, ...], param[:, 5, ...]), dim=0)
 
         b_aa = torch.einsum(
-            "p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), b.to(torch.double)
-        )
+            "p, pomn -> pomn", self.alias_envelope_dcy, b)
         a_aa = torch.einsum(
-            "p, pomn -> pomn", self.alias_envelope_dcy.to(torch.double), a.to(torch.double)
-        )
+            "p, pomn -> pomn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
@@ -1826,15 +1825,14 @@ class SOSFilter(Filter):
         H = torch.where(
             denom != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp)
         )
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def get_freq_convolve(self):
         r"""
         Frequency-domain matrix product with the input.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "fmn,bfn...->bfm...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -1865,9 +1863,9 @@ class parallelSOSFilter(SOSFilter):
         n_sections: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
-        requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
         normalize_a0: bool = True,
     ):
         super().__init__(
@@ -1875,9 +1873,9 @@ class parallelSOSFilter(SOSFilter):
             n_sections=n_sections,
             nfft=nfft,
             fs=fs,
-            requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
             normalize_a0=normalize_a0,
         )
 
@@ -1910,14 +1908,13 @@ class parallelSOSFilter(SOSFilter):
         b = torch.stack((param[:, 0, :], param[:, 1, :], param[:, 2, :]), dim=0)
         a = torch.stack((param[:, 3, :], param[:, 4, :], param[:, 5, :]), dim=0)
 
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp))
-        H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        return H, B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -3402,6 +3399,7 @@ class GainDelay(DSP):
             - **requires_grad** (bool, optional): Whether parameters require gradients. Default: False.
             - **alias_decay_db** (float, optional): Decay in dB applied by the anti aliasing envelope. Default: 0.0.
             - **device** (str, optional): Device of the constructed tensors. Default: None.
+            - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
     """
 
     def __init__(
@@ -3417,6 +3415,7 @@ class GainDelay(DSP):
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
         device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         self.fs = fs
         self.max_len = max_len
@@ -3432,6 +3431,7 @@ class GainDelay(DSP):
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
             device=device,
+            dtype=dtype,
         )
         self.initialize_class()
 
@@ -3452,7 +3452,7 @@ class GainDelay(DSP):
                     1, self.max_len, gain_shape, device=self.device, dtype=torch.int64
                 ).to(self.param.dtype)
             else:
-                delay_samples = torch.rand(gain_shape, device=self.device) * self.max_len
+                delay_samples = torch.rand(gain_shape, device=self.device, dtype=self.dtype) * self.max_len
             delay_seconds = self.sample2s(delay_samples)
             self.param[1].copy_(delay_seconds)
         max_delay = torch.ceil(delay_samples).max().item()
@@ -3506,7 +3506,7 @@ class GainDelay(DSP):
         self.omega = (
             2
             * torch.pi
-            * torch.arange(0, self.nfft // 2 + 1, device=self.device)
+            * torch.arange(0, self.nfft // 2 + 1, device=self.device, dtype=self.dtype)
             / self.nfft
         ).unsqueeze(1)
         self.get_freq_response()
