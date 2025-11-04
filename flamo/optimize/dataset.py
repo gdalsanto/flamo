@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 import torch.utils.data as data
 from flamo.utils import get_device
@@ -21,6 +22,7 @@ class Dataset(torch.utils.data.Dataset):
             - **target** (torch.Tensor, optional): The target data tensor. Default: torch.randn(100, 100).
             - **expand** (int): The first shape dimention of the input and target tensor after expansion. Default: 1. This coincides with the length on the dataset.
             - **device** (torch.device, optional): The device to store the tensors on. Defaults to torch default device.
+            - **dtype** (torch.dtype, optional): The data type of the tensors. If None, the data type of the input tensor is used. Default: None.
     """
 
     def __init__(
@@ -29,8 +31,10 @@ class Dataset(torch.utils.data.Dataset):
         target: torch.Tensor = torch.randn(1, 1),
         expand: int = 1,
         device: torch.device = torch.get_default_device(),
-        dtype: torch.dtype = torch.float32,
+        dtype: Optional[torch.dtype] = None,
     ):
+        if dtype is None:
+            dtype = input.dtype
         self.input = input.to(device).to(dtype)
         self.target = target.to(device).to(dtype)
         self.expand = expand

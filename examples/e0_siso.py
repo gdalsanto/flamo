@@ -204,7 +204,7 @@ def example_fir(args) -> None:
 
     # Dataset
     dataset = Dataset(
-        input=unit_imp, target=target, expand=args.num, device=args.device
+        input=unit_imp, target=target, expand=args.num, device=args.device, dtype=args.dtype
     )
     train_loader, valid_loader = load_dataset(
         dataset, batch_size=args.batch_size, split=args.split
