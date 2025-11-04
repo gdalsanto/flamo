@@ -278,7 +278,7 @@ def example_comb_nn(args):
     )
 
     # Create a dataset
-    dataset = Dataset(args, ch, args.num, n_sections, delay_lengths)
+    dataset = Dataset(args, ch, args.num, n_sections, delay_lengths, dtype=args.dtype)
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
     trainer = Trainer(

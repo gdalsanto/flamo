@@ -175,7 +175,7 @@ def example_biquad_nn(args):
     )
 
     # Create a dataset
-    dataset = Dataset(args, in_ch, out_ch, args.num, n_sections)
+    dataset = Dataset(args, in_ch, out_ch, args.num, n_sections, dtype=args.dtype)
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
     trainer = Trainer(

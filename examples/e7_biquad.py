@@ -24,10 +24,10 @@ def example_biquad(args):
     n_sections = 2
     ## ---------------- TARGET ---------------- ##
     b, a = highpass_filter(
-        fc=torch.tensor(args.samplerate // 2)
-        * torch.rand(size=(n_sections, out_ch, in_ch)),
+        fc=torch.tensor(args.samplerate // 2, dtype=args.dtype)
+        * torch.rand(size=(n_sections, out_ch, in_ch), dtype=args.dtype),
         gain=torch.tensor(-1)
-        + (torch.tensor(2)) * torch.rand(size=(n_sections, out_ch, in_ch)),
+        + (torch.tensor(2)) * torch.rand(size=(n_sections, out_ch, in_ch), dtype=args.dtype),
         fs=args.samplerate,
     )
     B = torch.fft.rfft(b, args.nfft, dim=0)
@@ -65,6 +65,7 @@ def example_biquad(args):
         target=torch.abs(target),
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
@@ -171,6 +172,7 @@ def example_parallel_biquad(args):
         target=torch.abs(target),
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
