@@ -73,6 +73,7 @@ def example_geq(args):
         target=torch.abs(target),
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
@@ -181,6 +182,7 @@ def example_parallel_geq(args):
         target=torch.abs(target),
         expand=args.num,
         device=args.device,
+        dtype=args.dtype,
     )
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
