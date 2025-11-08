@@ -416,7 +416,8 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
             alias_decay_db=alias_decay_db,
             start_freq=start_freq,
             end_freq=end_freq,
-            device=device
+            device=device,
+            dtype=dtype
         )
         self.n_gains = self.size[0]
         self.size = (self.n_groups * self.size[0],)
