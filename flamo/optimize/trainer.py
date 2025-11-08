@@ -54,11 +54,13 @@ class Trainer:
         patience_delta: float = 0.01,
         step_size: int = 50,
         step_factor: float = 0.1,
+        log: bool = True,
         train_dir: str = None,
         device: str = "cpu",
     ):
 
         self.device = device
+        self.log = log
         self.net = net.to(device)
         self.max_epochs = max_epochs
         self.lr = lr
@@ -67,10 +69,10 @@ class Trainer:
         self.min_val_loss = float("inf")
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         self.n_loss = 0
-
-        assert os.path.isdir(
-            train_dir
-        ), "The directory specified in train_dir does not exist."
+        if self.log:
+            assert os.path.isdir(
+                train_dir
+            ), "The directory specified in train_dir does not exist."
         self.train_dir = train_dir
 
         self.criterion, self.alpha, self.requires_model = (
@@ -141,7 +143,8 @@ class Trainer:
             self.print_results(epoch, et_epoch - st_epoch)
 
             # save checkpoints
-            self.save_model(epoch)
+            if self.log:
+                self.save_model(epoch)
             if self.early_stop():
                 print("Early stopping at epoch: {}".format(epoch))
                 break
