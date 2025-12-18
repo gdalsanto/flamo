@@ -3,7 +3,7 @@
 
 Open-source library for frequency-domain differentiable audio processing.
 
-It contains differentiable implementation of common LTI audio systems modules with learnable parameters.
+It contains differentiable implementation of common LTI audio system modules with learnable parameters.
 
 ---
 
@@ -11,7 +11,7 @@ It contains differentiable implementation of common LTI audio systems modules wi
 
 Available differentiable audio signal processors - in `flamo.processor.dsp`: 
 - **Gains** : Gains, Matrices, Householder Matrices
-- **Filters** : Biquads, State Variable Filters (SVF), Graphic Equalizers (GEQ), Parametric Equiliers (PEQ - not released yet)
+- **Filters** : Biquads, State Variable Filters (SVF), Graphic Equalizers (GEQ), Parametric Equalizers (PEQ - not released yet)
 - **Delays** : Integer Delays, Fractional Delays 
 
 Transforms  - in `flamo.processor.dsp`: 
@@ -30,7 +30,7 @@ Optimization - in `flamo.optimize`:
 --- 
 
 ### 🛠️ Installation
-To install it via pip, on a new python virtual environment `flamo-env` 
+To install it via pip, on a new Python virtual environment `flamo-env` 
 ```shell
 python3.10 -m venv .flamo-env
 source .flamo-env/bin/activate
@@ -44,7 +44,7 @@ pip install flamo
 conda install -c conda-forge libsndfile
 ```
 
-For local installation: clone and install dependencies on a new pyton virtual environment `flamo-env` 
+For local installation: clone and install dependencies on a new Python virtual environment `flamo-env` 
 ```shell
 git clone https://github.com/gdalsanto/flamo
 cd flamo
@@ -113,7 +113,7 @@ model = system.Shell(core=filt, input_layer=input_layer, output_layer=output_lay
 estimation_init = model.get_freq_response()
 ````
 
-Set up optimization framework and launch it. The `Trainer` class is used to contain the model, training parameters, and training/valid steps in one class. 
+Set up the optimization framework and launch it. The `Trainer` class is used to contain the model, training parameters, and training/valid steps in one class. 
 
 ```python
 input = signal_gallery(1, n_samples=nfft, n=in_ch, signal_type='impulse', fs=fs)
