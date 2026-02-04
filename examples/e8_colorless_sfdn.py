@@ -142,7 +142,7 @@ def example_fdn(args):
     trainer.register_criterion(
         masked_mse_loss(
             nfft=args.nfft,
-            n_samples=2000,
+            n_samples=12000,
             n_sets=1,
             regenerate_mask=True,
             device=args.device,
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--nfft", type=int, default=48000 * 2, help="FFT size")
+    parser.add_argument("--nfft", type=int, default=48000 * 4, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
     parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     parser.add_argument(
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         "--batch_size", type=int, default=1, help="batch size for training"
     )
     parser.add_argument(
-        "--max_epochs", type=int, default=20, help="maximum number of epochs"
+        "--max_epochs", type=int, default=200, help="maximum number of epochs"
     )
     parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument(
