@@ -815,6 +815,7 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         delays: torch.Tensor =  None,
         alias_decay_db: float = 0.0,
         device: str = None,
+        requires_grad: bool = False,
         dtype: torch.dtype = torch.float32
     ):
         size = (2,)      # rt at DC and crossover frequency
@@ -828,6 +829,7 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
             map=map,
             alias_decay_db=alias_decay_db,
             device=device,
+            requires_grad=requires_grad,
             dtype=dtype
         )
         gamma = 10 ** (
