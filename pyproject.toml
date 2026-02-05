@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flamo"
-version = "0.2.10"
+version = "0.2.11"
 authors = [
   { name="Gloria Dal Santo", email="gloria.dalsanto@aalto.fi" },
   { name="Gian Marco De Bortoli", email="gian.debortoli@aalto.fi"},
