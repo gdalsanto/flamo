@@ -992,7 +992,7 @@ def find_onset(rir: torch.Tensor):
     # extract local energy envelope
     win_len = 64
     overlap = 0.75
-    win = torch.hann_window(win_len)
+    win = torch.hann_window(win_len, dtype=rir.dtype, device=rir.device)
 
     # pad rir
     rir = torch.nn.functional.pad(rir, (int(win_len * overlap), int(win_len * overlap)))

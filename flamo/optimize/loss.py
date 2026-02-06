@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from flamo.optimize.utils import generate_partitions
+from flamo.processor.dsp import HouseholderMatrix
 from nnAudio import features
 import pyfar as pf
 import torch.nn.functional as F
@@ -34,23 +35,30 @@ class sparsity_loss(nn.Module):
 
     def forward(self, y_pred: torch.Tensor, y_target: torch.Tensor, model: nn.Module):
         core = model.get_core()
+        # Try to get the mixing matrix from different possible locations
+        mixing_matrix = None
         try:
-            A = core.feedback_loop.feedback.map(core.feedback_loop.feedback.param)
+            mixing_matrix = core.feedback_loop.feedback
+            A = mixing_matrix.map(mixing_matrix.param)
         except:
             try:
-                A = core.feedback_loop.feedback.mixing_matrix.map(
-                    core.feedback_loop.feedback.mixing_matrix.param
-                )
+                mixing_matrix = core.feedback_loop.feedback.mixing_matrix
+                A = mixing_matrix.map(mixing_matrix.param)
             except:
-                A = core.branchA.feedback_loop.feedback.mixing_matrix.map(
-                    core.branchA.feedback_loop.feedback.mixing_matrix.param
-                )
+                mixing_matrix = core.branchA.feedback_loop.feedback.mixing_matrix
+                A = mixing_matrix.map(mixing_matrix.param)
+
+        if isinstance(mixing_matrix, HouseholderMatrix):
+            u = A 
+            A = torch.eye(u.shape[0], device=u.device, dtype=u.dtype) - 2 * u @ u.T
+            
         N = A.shape[-1]
         if len(A.shape) == 3:
             return torch.mean(
                 (torch.sum(torch.abs(A), dim=(-2, -1)) - N * np.sqrt(N))
                 / (N * (1 - np.sqrt(N)))
             )
+        
         # A = torch.matrix_exp(skew_matrix(A))
         return -(torch.sum(torch.abs(A)) - N * np.sqrt(N)) / (N * (np.sqrt(N) - 1))
 

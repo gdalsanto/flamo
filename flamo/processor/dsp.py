@@ -3520,3 +3520,80 @@ class GainDelay(DSP):
         delay_samples = delay_samples.to(gain.real.dtype)
         phase = torch.einsum("fo, omn -> fmn", self.omega, delay_samples.unsqueeze(0))
         return gain.unsqueeze(0) * (self.gamma ** delay_samples) * torch.exp(-1j * phase)
+
+
+class parallelGainDelay(GainDelay):
+    """
+    Parallel counterpart of the :class:`GainDelay` class.
+    For information about **attributes** and **methods** see :class:`GainDelay`.
+
+    Shape:
+        - input: :math:`(B, M, N, ...)`
+        - param: :math:`(2, N)`
+        - output: :math:`(B, M, N, ...)`
+
+    where :math:`B` is the batch size, :math:`M` is the number of frequency bins,
+    and :math:`N` is the number of input channels.
+    Ellipsis :math:`(...)` represents additional dimensions.
+    """
+
+    def __init__(
+        self,
+        size: tuple = (1,),
+        max_len: int = 2000,
+        isint: bool = False,
+        unit: int = 100,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        map_gain: Optional[callable] = None,
+        map_delay: Optional[callable] = None,
+        requires_grad: bool = False,
+        alias_decay_db: float = 0.0,
+        device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
+    ):
+        super().__init__(
+            size=size,
+            max_len=max_len,
+            isint=isint,
+            unit=unit,
+            nfft=nfft,
+            fs=fs,
+            map_gain=map_gain,
+            map_delay=map_delay,
+            requires_grad=requires_grad,
+            alias_decay_db=alias_decay_db,
+            device=device,
+            dtype=dtype,
+        )
+
+    def check_param_shape(self):
+        """
+        Checks if the shape of the gain-delay parameters is valid.
+        """
+        assert (
+            len(self.size) == 2 and self.size[0] == 2
+        ), "parallelGainDelay parameters must have shape (2, N), for MIMO use GainDelay module."
+
+    def get_freq_convolve(self):
+        """
+        Computes the frequency convolution function for parallel gain-delay processing.
+        """
+        self.freq_convolve = lambda x, param: torch.einsum(
+            "fn,bfn...->bfn...", self.freq_response(param), x
+        )
+
+    def get_io(self):
+        """
+        Computes the number of input and output channels based on the size parameter.
+        """
+        self.input_channels = self.size[-1]
+        self.output_channels = self.size[-1]
+
+    def _combine_gain_delay(self, gain: torch.Tensor, delay_samples: torch.Tensor):
+        """
+        Combines gain and delay for parallel processing (element-wise).
+        """
+        delay_samples = delay_samples.to(gain.real.dtype)
+        phase = torch.einsum("fo, on -> fn", self.omega, delay_samples.unsqueeze(0))
+        return gain.unsqueeze(0) * (self.gamma ** delay_samples) * torch.exp(-1j * phase)
