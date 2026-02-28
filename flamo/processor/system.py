@@ -529,6 +529,96 @@ class Recursion(nn.Module):
         A = I - F @ B
         return torch.linalg.solve(A, F)
 
+    def _split_ext_param(self, ext_param):
+        r"""Route ext_param to feedforward / feedback branches."""
+        ext_param_ff = None
+        ext_param_fb = None
+        if ext_param is not None:
+            for key, param in ext_param.items():
+                if 'feedback' in key:
+                    ext_param_fb = param
+                elif 'feedforward' in key:
+                    ext_param_ff = param
+        return ext_param_ff, ext_param_fb
+
+    def _eval_characteristic(self, z: torch.Tensor, ext_param=None):
+        r"""Compute the forward characteristic matrix P(z) = I - F(z) B(z)."""
+        ext_param_ff, ext_param_fb = self._split_ext_param(ext_param)
+        F = self.feedforward.probe(z, ext_param_ff)
+        B = self.feedback.probe(z, ext_param_fb)
+        N = F.shape[0]
+        I = torch.eye(N, dtype=F.dtype, device=F.device)
+        return I - F @ B
+
+    def probe_recursion(
+        self,
+        z: torch.Tensor,
+        ext_param=None,
+        derivative: bool = False,
+        include_shell_io: bool = False,
+        **kwargs,
+    ):
+        r"""
+        Evaluate the forward characteristic matrix at arbitrary complex z.
+
+        .. math::
+
+            P(z) = I - F(z)\,B(z)
+
+        where F is the feedforward path and B is the feedback path.
+
+            **Arguments**:
+                - **z** (torch.Tensor): Scalar complex z-plane point.
+                - **ext_param**: Optional external parameters (routed to branches).
+                - **derivative** (bool): If True, also return dP/dz. Default: False.
+                - **include_shell_io** (bool): Accepted for signature compatibility (unused).
+
+            **Returns**:
+                - If ``derivative=False``: ``P`` — complex tensor ``(N, N)``.
+                - If ``derivative=True``: ``(P, dP_dz)`` — tuple of complex
+                  tensors, each ``(N, N)``.
+        """
+        if not derivative:
+            return self._eval_characteristic(z, ext_param)
+
+        from flamo.processor.probe import wirtinger_derivative
+        return wirtinger_derivative(
+            lambda z_val: self._eval_characteristic(z_val, ext_param),
+            z,
+            create_graph=False,
+        )
+
+    def probe_recursion_with_derivative(
+        self,
+        z: torch.Tensor,
+        ext_param=None,
+        include_shell_io: bool = False,
+        create_graph: bool = False,
+        **kwargs,
+    ):
+        r"""
+        Evaluate characteristic matrix P(z) and its Wirtinger derivative dP/dz.
+
+        .. math::
+
+            P(z) = I - F(z)\,B(z)
+
+            **Arguments**:
+                - **z** (torch.Tensor): Scalar complex z-plane point.
+                - **ext_param**: Optional external parameters (routed to branches).
+                - **include_shell_io** (bool): Accepted for signature compatibility (unused).
+                - **create_graph** (bool): Preserve autograd graph. Default: False.
+
+            **Returns**:
+                tuple: ``(P, dP_dz)`` — complex tensors, each ``(N, N)``.
+        """
+        from flamo.processor.probe import wirtinger_derivative
+        return wirtinger_derivative(
+            lambda z_val: self._eval_characteristic(z_val, ext_param),
+            z,
+            create_graph=create_graph,
+        )
+
 # ============================= RECURSION ================================
 
 

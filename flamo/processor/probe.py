@@ -4,10 +4,11 @@ Autograd-based derivative helpers for z-plane probing.
 Provides:
     - ``probe_points``: Vectorized probe over multiple z-plane points.
     - ``probe_with_derivative``: Compute H(z) and dH/dz via Wirtinger calculus.
+    - ``wirtinger_derivative``: Generic Wirtinger dF/dz for any callable F(z).
 """
 
 import torch
-from typing import Optional
+from typing import Callable, Optional
 
 
 def probe_points(
@@ -72,6 +73,63 @@ def _compute_element_derivative(u_ij, v_ij, x, y, create_graph):
     return torch.complex(real_part, imag_part)
 
 
+def wirtinger_derivative(
+    eval_fn: Callable[[torch.Tensor], torch.Tensor],
+    z: torch.Tensor,
+    create_graph: bool = False,
+) -> tuple:
+    r"""
+    Generic Wirtinger derivative dF/dz for any callable ``eval_fn(z) -> Tensor``.
+
+    Constructs differentiable real/imag components of z, evaluates ``eval_fn``,
+    and computes:
+
+    .. math::
+
+        \frac{dF}{dz} = \frac{1}{2}\left(
+            \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}
+        \right) + \frac{j}{2}\left(
+            \frac{\partial v}{\partial x} - \frac{\partial u}{\partial y}
+        \right)
+
+    where F = u + jv and z = x + jy.
+
+    Args:
+        eval_fn: Callable that takes a complex scalar tensor and returns a
+            2-D complex tensor of shape ``(N, M)``.
+        z: Scalar complex tensor (the z-plane evaluation point).
+        create_graph: Preserve autograd graph for higher-order derivatives.
+
+    Returns:
+        tuple: ``(F_val, dF_dz)`` where ``F_val`` is the detached function
+            value and ``dF_dz`` is the Wirtinger derivative, both with shape
+            ``(N, M)``. When ``create_graph=True``, tensors retain grad_fn.
+    """
+    x = z.real.detach().clone().to(torch.float64).requires_grad_(True)
+    y = z.imag.detach().clone().to(torch.float64).requires_grad_(True)
+    z_reconst = torch.complex(x, y)
+
+    F = eval_fn(z_reconst)
+
+    u = F.real
+    v = F.imag
+    n_rows, n_cols = F.shape
+
+    rows = []
+    for i in range(n_rows):
+        cols = []
+        for j in range(n_cols):
+            cols.append(_compute_element_derivative(
+                u[i, j], v[i, j], x, y, create_graph,
+            ))
+        rows.append(torch.stack(cols))
+    dF_dz = torch.stack(rows)
+
+    if create_graph:
+        return F, dF_dz
+    return F.detach(), dF_dz.detach()
+
+
 def probe_with_derivative(
     module,
     z: torch.Tensor,
@@ -81,17 +139,7 @@ def probe_with_derivative(
     r"""
     Compute H(z) and dH/dz at a single complex z-plane point using autograd.
 
-    Uses the Wirtinger derivative reconstruction:
-
-    .. math::
-
-        \frac{dH}{dz} = \frac{1}{2}\left(
-            \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}
-        \right) + \frac{j}{2}\left(
-            \frac{\partial v}{\partial x} - \frac{\partial u}{\partial y}
-        \right)
-
-    where H = u + jv and z = x + jy.
+    Uses the Wirtinger derivative reconstruction via :func:`wirtinger_derivative`.
 
     Args:
         module: A FLAMO module with a ``probe(z)`` method.
@@ -104,32 +152,9 @@ def probe_with_derivative(
         tuple: ``(H, dH_dz)`` where both are complex tensors of shape
             ``(N_out, N_in)``.
     """
-    x = z.real.detach().clone().to(torch.float64).requires_grad_(True)
-    y = z.imag.detach().clone().to(torch.float64).requires_grad_(True)
-    z_reconst = torch.complex(x, y)
+    def _eval(z_val):
+        if hasattr(module, '_Shell__core'):
+            return module.probe(z_val, include_shell_io=include_shell_io)
+        return module.probe(z_val)
 
-    if hasattr(module, '_Shell__core'):
-        H = module.probe(z_reconst, include_shell_io=include_shell_io)
-    else:
-        H = module.probe(z_reconst)
-
-    u = H.real
-    v = H.imag
-
-    n_out, n_in = H.shape
-
-    # Build dH_dz from a list of rows to preserve autograd graph
-    # when create_graph=True (in-place indexing would detach).
-    rows = []
-    for i in range(n_out):
-        cols = []
-        for j in range(n_in):
-            cols.append(_compute_element_derivative(
-                u[i, j], v[i, j], x, y, create_graph,
-            ))
-        rows.append(torch.stack(cols))
-    dH_dz = torch.stack(rows)
-
-    if create_graph:
-        return H, dH_dz
-    return H.detach(), dH_dz.detach()
+    return wirtinger_derivative(_eval, z, create_graph=create_graph)
