@@ -61,6 +61,10 @@ class Transform(nn.Module):
         """
         return self.transform(x)
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""Identity transfer for Shell compatibility. Returns None."""
+        return None
+
 
 class FFT(Transform):
     r"""
@@ -84,6 +88,10 @@ class FFT(Transform):
         transform = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
         super().__init__(transform=transform, dtype=self.dtype)
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""Identity transfer for Shell compatibility."""
+        return None
+
 
 class iFFT(Transform):
     r"""
@@ -105,6 +113,10 @@ class iFFT(Transform):
         self.dtype = dtype
         transform = lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
         super().__init__(transform=transform, dtype=self.dtype)
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""Identity transfer for Shell compatibility."""
+        return None
 
 
 class FFTAntiAlias(Transform):
@@ -315,6 +327,21 @@ class DSP(nn.Module):
             self.param[indx].copy_(new_value)
             self.new_value = 1  # flag indicating new values have been assigned
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at an arbitrary complex z-plane point.
+
+            **Arguments**:
+                - **z** (torch.Tensor): A scalar complex tensor representing the z-plane point.
+                - **ext_param**: Optional external parameters (same semantics as forward).
+
+            **Returns**:
+                torch.Tensor: Transfer matrix of shape ``(N_out, N_in)`` (complex).
+        """
+        raise NotImplementedError(
+            f"probe() not implemented for {self.__class__.__name__}"
+        )
+
 
 # ============================= GAINS ================================
 
@@ -449,6 +476,18 @@ class Gain(DSP):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at arbitrary complex z.
+
+        For a frequency-independent gain, H(z) = to_complex(map(param)).
+
+            **Returns**:
+                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
+        """
+        param = ext_param if ext_param is not None else self.param
+        return to_complex(self.map(param))
+
 
 class parallelGain(Gain):
     """
@@ -513,6 +552,19 @@ class parallelGain(Gain):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at arbitrary complex z.
+
+        Returns a diagonal matrix built from the parallel gains.
+
+            **Returns**:
+                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
+        """
+        param = ext_param if ext_param is not None else self.param
+        h = to_complex(self.map(param))
+        return torch.diag(h)
 
 
 # ============================= MATRICES ================================
@@ -884,6 +936,26 @@ class Filter(DSP):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at arbitrary complex z.
+
+        H(z) = sum_k coeff[k] * gamma^k * z^{-k}
+
+            **Returns**:
+                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
+        """
+        param = ext_param if ext_param is not None else self.param
+        coeff = self.map(param)
+        K = coeff.shape[0]
+        k_indices = torch.arange(K, device=coeff.device, dtype=coeff.dtype)
+        gamma_k = self.gamma ** k_indices
+        z_neg_k = z ** (-k_indices)
+        weights = gamma_k * z_neg_k
+        weights = weights.view(-1, *([1] * (coeff.dim() - 1)))
+        H = (to_complex(coeff) * weights).sum(dim=0)
+        return H
+
 
 class parallelFilter(Filter):
     """
@@ -951,6 +1023,26 @@ class parallelFilter(Filter):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at arbitrary complex z.
+
+        Returns a diagonal matrix from the parallel filter evaluation.
+
+            **Returns**:
+                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
+        """
+        param = ext_param if ext_param is not None else self.param
+        coeff = self.map(param)
+        K = coeff.shape[0]
+        k_indices = torch.arange(K, device=coeff.device, dtype=coeff.dtype)
+        gamma_k = self.gamma ** k_indices
+        z_neg_k = z ** (-k_indices)
+        weights = gamma_k * z_neg_k
+        weights = weights.view(-1, *([1] * (coeff.dim() - 1)))
+        h = (to_complex(coeff) * weights).sum(dim=0)
+        return torch.diag(h)
 
 
 class ScatteringMatrix(Filter):
@@ -1842,6 +1934,30 @@ class SOSFilter(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at arbitrary complex z.
+
+        For each SOS section k: B_k(z) = b0 + b1*gamma*z^{-1} + b2*gamma^2*z^{-2},
+        A_k(z) = a0 + a1*gamma*z^{-1} + a2*gamma^2*z^{-2}.
+        H(z) = prod_k B_k(z) / A_k(z).
+
+            **Returns**:
+                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
+        """
+        param = ext_param if ext_param is not None else self.param
+        mapped = self.map(param)
+        gamma = self.alias_envelope_dcy
+        z_inv = z ** (-1)
+        H = torch.ones(mapped.shape[2:], dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64, device=mapped.device)
+        for k in range(mapped.shape[0]):
+            b0, b1, b2 = mapped[k, 0, ...], mapped[k, 1, ...], mapped[k, 2, ...]
+            a0, a1, a2 = mapped[k, 3, ...], mapped[k, 4, ...], mapped[k, 5, ...]
+            B_k = to_complex(b0) * gamma[0] + to_complex(b1) * gamma[1] * z_inv + to_complex(b2) * gamma[2] * z_inv**2
+            A_k = to_complex(a0) * gamma[0] + to_complex(a1) * gamma[1] * z_inv + to_complex(a2) * gamma[2] * z_inv**2
+            H = H * B_k / A_k
+        return H
+
 
 class parallelSOSFilter(SOSFilter):
     r"""
@@ -1925,6 +2041,29 @@ class parallelSOSFilter(SOSFilter):
         r"""Computes the number of input and output channels based on the size parameter."""
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at arbitrary complex z.
+
+        Returns a diagonal matrix from the parallel SOS evaluation.
+
+            **Returns**:
+                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
+        """
+        param = ext_param if ext_param is not None else self.param
+        mapped = self.map(param)
+        gamma = self.alias_envelope_dcy
+        z_inv = z ** (-1)
+        N = mapped.shape[2]
+        H_diag = torch.ones(N, dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64, device=mapped.device)
+        for k in range(mapped.shape[0]):
+            b0, b1, b2 = mapped[k, 0, :], mapped[k, 1, :], mapped[k, 2, :]
+            a0, a1, a2 = mapped[k, 3, :], mapped[k, 4, :], mapped[k, 5, :]
+            B_k = to_complex(b0) * gamma[0] + to_complex(b1) * gamma[1] * z_inv + to_complex(b2) * gamma[2] * z_inv**2
+            A_k = to_complex(a0) * gamma[0] + to_complex(a1) * gamma[1] * z_inv + to_complex(a2) * gamma[2] * z_inv**2
+            H_diag = H_diag * B_k / A_k
+        return torch.diag(H_diag)
 
 
 class SVF(Filter):
@@ -3283,6 +3422,22 @@ class Delay(DSP):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at arbitrary complex z.
+
+        H_elem(z) = gamma^m * z^{-m}
+
+            **Returns**:
+                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
+        """
+        param = ext_param if ext_param is not None else self.param
+        m = self.s2sample(self.map(param))
+        if self.isint:
+            m = m.round()
+        H = (self.gamma ** m) * (z ** (-m))
+        return H
+
 
 class parallelDelay(Delay):
     """
@@ -3369,6 +3524,22 @@ class parallelDelay(Delay):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix H(z) at arbitrary complex z.
+
+        Returns a diagonal matrix from the parallel delay evaluation.
+
+            **Returns**:
+                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
+        """
+        param = ext_param if ext_param is not None else self.param
+        m = self.s2sample(self.map(param))
+        if self.isint:
+            m = m.round()
+        h = (self.gamma ** m) * (z ** (-m))
+        return torch.diag(h)
 
 
 class GainDelay(DSP):

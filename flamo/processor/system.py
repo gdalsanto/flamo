@@ -4,6 +4,7 @@ import warnings
 from collections import OrderedDict
 from flamo.processor.dsp import FFT, iFFT, Transform
 from flamo.functional import signal_gallery
+from flamo.utils import to_complex
 
 # ============================= SERIES ================================
 
@@ -300,6 +301,29 @@ class Series(nn.Sequential):
                 input = module(input)
         return input
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the series transfer matrix at arbitrary complex z.
+
+        H(z) = H_n @ ... @ H_1  (right-to-left composition).
+
+            **Arguments**:
+                - **z** (torch.Tensor): Complex z-plane point.
+                - **ext_param**: Optional external parameters.
+
+            **Returns**:
+                torch.Tensor: Transfer matrix ``(N_out, N_in)`` (complex).
+        """
+        H = None
+        for module in self:
+            if not hasattr(module, 'probe'):
+                continue
+            Hi = module.probe(z, ext_param)
+            if Hi is None:
+                continue
+            H = Hi if H is None else Hi @ H
+        return H
+
 
 # ============================= RECURSION ================================
 
@@ -486,6 +510,26 @@ class Recursion(nn.Module):
 
         return ff_in_ch, ff_out_ch
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the closed-loop transfer matrix at arbitrary complex z.
+
+        H(z) = solve(I - F(z) @ B(z), F(z))
+
+            **Arguments**:
+                - **z** (torch.Tensor): Complex z-plane point.
+                - **ext_param**: Optional external parameters.
+
+            **Returns**:
+                torch.Tensor: Transfer matrix ``(N_out, N_in)`` (complex).
+        """
+        F = self.feedforward.probe(z, ext_param)
+        B = self.feedback.probe(z, ext_param)
+        N = F.shape[0]
+        I = torch.eye(N, dtype=F.dtype, device=F.device)
+        A = I - F @ B
+        return torch.linalg.solve(A, F)
+
 # ============================= RECURSION ================================
 
 
@@ -658,7 +702,28 @@ class Parallel(nn.Module):
             return brA_in_ch, brA_out_ch
         else:
             return brA_in_ch, brA_out_ch + brB_out_ch
-    
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the parallel transfer matrix at arbitrary complex z.
+
+        If sum_output: H = H_A + H_B
+        Else: H = cat([H_A, H_B], dim=0)
+
+            **Arguments**:
+                - **z** (torch.Tensor): Complex z-plane point.
+                - **ext_param**: Optional external parameters.
+
+            **Returns**:
+                torch.Tensor: Transfer matrix (complex).
+        """
+        H_A = self.branchA.probe(z, ext_param)
+        H_B = self.branchB.probe(z, ext_param)
+        if self.sum_output:
+            return H_A + H_B
+        else:
+            return torch.cat([H_A, H_B], dim=0)
+
 
 # ============================= SHELL ================================
 
@@ -864,6 +929,40 @@ class Shell(nn.Module):
             out_ch = getattr(self.__core, "output_channels")
 
         return in_ch, out_ch
+
+    def probe(self, z: torch.Tensor, ext_param=None, include_shell_io: bool = False):
+        r"""
+        Evaluate the transfer matrix at arbitrary complex z.
+
+        By default returns the core probe. If ``include_shell_io=True``, includes
+        input and output layers (when they support probe).
+
+            **Arguments**:
+                - **z** (torch.Tensor): Complex z-plane point.
+                - **ext_param**: Optional external parameters.
+                - **include_shell_io** (bool): Include input/output layer probes. Default: False.
+
+            **Returns**:
+                torch.Tensor: Transfer matrix (complex).
+        """
+        H = self.__core.probe(z, ext_param)
+
+        if include_shell_io:
+            in_H = None
+            if hasattr(self.__input_layer, 'probe'):
+                in_H = self.__input_layer.probe(z, ext_param)
+            out_H = None
+            if hasattr(self.__output_layer, 'probe'):
+                out_H = self.__output_layer.probe(z, ext_param)
+            if in_H is not None and H is not None:
+                H = H @ in_H
+            elif in_H is not None:
+                H = in_H
+            if out_H is not None and H is not None:
+                H = out_H @ H
+            elif out_H is not None:
+                H = out_H
+        return H
 
     # ---------------------- Responses methods ----------------------
     def get_time_response(
