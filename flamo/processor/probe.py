@@ -37,6 +37,80 @@ def probe_points(
     return torch.stack(results, dim=0)
 
 
+def wirtinger_derivative_scalar(
+    eval_fn: Callable[[torch.Tensor], torch.Tensor],
+    z: torch.Tensor,
+    create_graph: bool = False,
+) -> tuple:
+    r"""
+    Wirtinger derivative dF/dz for a callable ``eval_fn(z) -> complex scalar``.
+
+    Uses autograd to compute (d/dz) F(z) where F is complex-differentiable.
+    More stable than forming trace(P^{-1} P') when F = log det P, since
+    it avoids explicitly inverting P.
+
+    .. math::
+
+        \frac{dF}{dz} = \frac{1}{2}\left(
+            \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}
+        \right) + \frac{j}{2}\left(
+            \frac{\partial v}{\partial x} - \frac{\partial u}{\partial y}
+        \right)
+
+    where F = u + jv and z = x + jy.
+
+    Args:
+        eval_fn: Callable that takes a complex scalar tensor and returns a
+            complex scalar tensor.
+        z: Scalar complex tensor (the z-plane evaluation point).
+        create_graph: Preserve autograd graph for higher-order derivatives.
+
+    Returns:
+        tuple: ``(F_val, dF_dz)`` where both are complex scalars (0-dim tensors).
+    """
+    x = z.real.detach().clone().to(torch.float64).requires_grad_(True)
+    y = z.imag.detach().clone().to(torch.float64).requires_grad_(True)
+    z_reconst = torch.complex(x, y)
+
+    F = eval_fn(z_reconst)
+    u = F.real
+    v = F.imag
+
+    du_dx = du_dy = dv_dx = dv_dy = None
+    if u.grad_fn is not None:
+        grads_u = torch.autograd.grad(
+            u, [x, y],
+            retain_graph=True,
+            create_graph=create_graph,
+            allow_unused=True,
+        )
+        du_dx = grads_u[0] if grads_u[0] is not None else torch.zeros_like(x)
+        du_dy = grads_u[1] if grads_u[1] is not None else torch.zeros_like(y)
+    else:
+        du_dx = torch.zeros_like(x)
+        du_dy = torch.zeros_like(y)
+    if v.grad_fn is not None:
+        grads_v = torch.autograd.grad(
+            v, [x, y],
+            retain_graph=True,
+            create_graph=create_graph,
+            allow_unused=True,
+        )
+        dv_dx = grads_v[0] if grads_v[0] is not None else torch.zeros_like(x)
+        dv_dy = grads_v[1] if grads_v[1] is not None else torch.zeros_like(y)
+    else:
+        dv_dx = torch.zeros_like(x)
+        dv_dy = torch.zeros_like(y)
+
+    real_part = 0.5 * (du_dx + dv_dy)
+    imag_part = 0.5 * (dv_dx - du_dy)
+    dF_dz = torch.complex(real_part, imag_part)
+
+    if create_graph:
+        return F, dF_dz
+    return F.detach(), dF_dz.detach()
+
+
 def _compute_element_derivative(u_ij, v_ij, x, y, create_graph):
     """Compute Wirtinger dH/dz for a single (i,j) element."""
     has_u_grad = u_ij.grad_fn is not None

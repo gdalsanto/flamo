@@ -488,6 +488,10 @@ class Gain(DSP):
         param = ext_param if ext_param is not None else self.param
         return to_complex(self.map(param))
 
+    def probe_w(self, w: torch.Tensor, ext_param=None):
+        r"""Evaluate at :math:`w = z^{-1}`; gain is constant, so same as :meth:`probe`."""
+        return self.probe(w, ext_param)
+
 
 class parallelGain(Gain):
     """
@@ -565,6 +569,10 @@ class parallelGain(Gain):
         param = ext_param if ext_param is not None else self.param
         h = to_complex(self.map(param))
         return torch.diag(h)
+
+    def probe_w(self, w: torch.Tensor, ext_param=None):
+        r"""Evaluate at :math:`w = z^{-1}`; gain is constant, so same as :meth:`probe`."""
+        return self.probe(w, ext_param)
 
 
 # ============================= MATRICES ================================
@@ -3292,14 +3300,12 @@ class Delay(DSP):
     :math:`N_{in}` is the number of input channels, and :math:`N_{out}` is the number of output channels.
     Ellipsis :math:`(...)` represents additional dimensions.
 
-    For a delay of :math:`d` seconds, the frequency response of the delay without anti-aliasing is computed as:
-
-    .. math::
-
-        e^{-j \omega d}\; \text{for}\; \omega = 2\pi \frac{m}{\texttt{nfft}}
-
-
-    where :math:`\texttt{nfft}` is the number of FFT points, and :math:`m` is the frequency index :math:`m=0, 1, \dots, \lfloor\texttt{nfft}/2 +1\rfloor` .
+    For a delay of :math:`d` samples, the frequency response without anti-aliasing is
+    :math:`e^{-j \omega d}` with :math:`\omega = 2\pi m/\texttt{nfft}` (rad/sample).
+    Here :math:`\texttt{nfft}` is the number of FFT points and :math:`m` is the
+    frequency index :math:`m=0, 1, \dots, \lfloor\texttt{nfft}/2 +1\rfloor`.
+    Stored parameters are in seconds and converted to samples via :attr:`fs` and
+    :attr:`unit`; :meth:`probe` uses the same convention: :math:`H(z) = \gamma^d z^{-d}` with :math:`d` in samples.
 
         **Arguments / Attributes**:
             - **size** (tuple, optional): Size of the delay module. Default: (1, 1).
@@ -3490,9 +3496,9 @@ class Delay(DSP):
 
     def probe(self, z: torch.Tensor, ext_param=None):
         r"""
-        Evaluate the transfer matrix H(z) at arbitrary complex z.
+        Evaluate the transfer matrix at :math:`z` (probe variable in z).
 
-        H_elem(z) = gamma^m * z^{-m}
+        Returns :math:`H(z) = \\gamma^m z^{-m}` (delay of :math:`m` samples).
 
             **Returns**:
                 torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
@@ -3501,7 +3507,21 @@ class Delay(DSP):
         m = self.s2sample(self.map(param))
         if self.isint:
             m = m.round()
-        H = (self.gamma ** m) * (z ** (-m))
+        z_inv_m = (1.0 / z) ** m
+        H = (self.gamma ** m) * z_inv_m
+        return H
+
+    def probe_w(self, w: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the transfer matrix at :math:`w = z^{-1}` (probe variable in w).
+        Returns :math:`H(w) = \\gamma^m w^m` (same as :math:`H(z) = z^{-m}` when :math:`w = 1/z`).
+        Used for numerical stability when :math:`|z| < 1` (evaluate in w-plane).
+        """
+        param = ext_param if ext_param is not None else self.param
+        m = self.s2sample(self.map(param))
+        if self.isint:
+            m = m.round()
+        H = (self.gamma ** m) * (w ** m)
         return H
 
 
@@ -3593,9 +3613,7 @@ class parallelDelay(Delay):
 
     def probe(self, z: torch.Tensor, ext_param=None):
         r"""
-        Evaluate the transfer matrix H(z) at arbitrary complex z.
-
-        Returns a diagonal matrix from the parallel delay evaluation.
+        Evaluate at :math:`z`; returns diagonal :math:`H(z) = \\gamma^m z^{-m}` (delay of :math:`m` samples).
 
             **Returns**:
                 torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
@@ -3604,7 +3622,17 @@ class parallelDelay(Delay):
         m = self.s2sample(self.map(param))
         if self.isint:
             m = m.round()
-        h = (self.gamma ** m) * (z ** (-m))
+        z_inv_m = (1.0 / z) ** m
+        h = (self.gamma ** m) * z_inv_m
+        return torch.diag(h)
+
+    def probe_w(self, w: torch.Tensor, ext_param=None):
+        r"""Evaluate at :math:`w = z^{-1}`; returns diagonal :math:`H(w) = \\gamma^m w^m`."""
+        param = ext_param if ext_param is not None else self.param
+        m = self.s2sample(self.map(param))
+        if self.isint:
+            m = m.round()
+        h = (self.gamma ** m) * (w ** m)
         return torch.diag(h)
 
 

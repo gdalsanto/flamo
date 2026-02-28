@@ -323,6 +323,22 @@ class Series(nn.Sequential):
             H = Hi if H is None else Hi @ H
         return H
 
+    def probe_w(self, w: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the series transfer matrix at :math:`w = z^{-1}`.
+        Uses each module's :meth:`probe_w` if present, else :meth:`probe(w)`.
+        """
+        H = None
+        for module in self:
+            probe_fn = getattr(module, 'probe_w', None) or getattr(module, 'probe', None)
+            if probe_fn is None:
+                continue
+            Hi = probe_fn(w, ext_param)
+            if Hi is None:
+                continue
+            H = Hi if H is None else Hi @ H
+        return H
+
 
 # ============================= RECURSION ================================
 
@@ -542,7 +558,7 @@ class Recursion(nn.Module):
         return ext_param_ff, ext_param_fb
 
     def _eval_characteristic(self, z: torch.Tensor, ext_param=None):
-        r"""Compute the forward characteristic matrix P(z) = I - F(z) B(z)."""
+        r"""Compute P(z) = I - B(z) F(z) in z (normal convention: P(z) = I - A @ D(z), delays on columns)."""
         ext_param_ff, ext_param_fb = self._split_ext_param(ext_param)
         F = self.feedforward.probe(z, ext_param_ff)
         B = self.feedback.probe(z, ext_param_fb)
@@ -559,13 +575,10 @@ class Recursion(nn.Module):
         **kwargs,
     ):
         r"""
-        Evaluate the forward characteristic matrix at arbitrary complex z.
+        Evaluate the characteristic matrix at z.
 
-        .. math::
-
-            P(z) = I - F(z)\,B(z)
-
-        where F is the feedforward path and B is the feedback path.
+        P(z) = I - B(z) F(z) (normal convention: P(z) = I - A @ D(z), delays on columns).
+        All probe variable is z (no w = z^{-1}).
 
             **Arguments**:
                 - **z** (torch.Tensor): Scalar complex z-plane point.
@@ -575,18 +588,18 @@ class Recursion(nn.Module):
 
             **Returns**:
                 - If ``derivative=False``: ``P`` — complex tensor ``(N, N)``.
-                - If ``derivative=True``: ``(P, dP_dz)`` — tuple of complex
-                  tensors, each ``(N, N)``.
+                - If ``derivative=True``: ``(P, dP_dz)`` — tuple of complex tensors.
         """
         if not derivative:
             return self._eval_characteristic(z, ext_param)
 
         from flamo.processor.probe import wirtinger_derivative
-        return wirtinger_derivative(
+        P, dP_dz = wirtinger_derivative(
             lambda z_val: self._eval_characteristic(z_val, ext_param),
             z,
             create_graph=False,
         )
+        return P, dP_dz
 
     def probe_recursion_with_derivative(
         self,
@@ -597,27 +610,76 @@ class Recursion(nn.Module):
         **kwargs,
     ):
         r"""
-        Evaluate characteristic matrix P(z) and its Wirtinger derivative dP/dz.
-
-        .. math::
-
-            P(z) = I - F(z)\,B(z)
-
-            **Arguments**:
-                - **z** (torch.Tensor): Scalar complex z-plane point.
-                - **ext_param**: Optional external parameters (routed to branches).
-                - **include_shell_io** (bool): Accepted for signature compatibility (unused).
-                - **create_graph** (bool): Preserve autograd graph. Default: False.
-
-            **Returns**:
-                tuple: ``(P, dP_dz)`` — complex tensors, each ``(N, N)``.
+        Evaluate P(z) and dP/dz (derivative with respect to z).
+        Probe variable is z. Returns (P, dP/dz) so that (d/dz) log det P = trace(P^{-1} dP/dz).
         """
         from flamo.processor.probe import wirtinger_derivative
-        return wirtinger_derivative(
+        P, dP_dz = wirtinger_derivative(
             lambda z_val: self._eval_characteristic(z_val, ext_param),
             z,
             create_graph=create_graph,
         )
+        return P, dP_dz
+
+    def log_det_derivative(self, z: torch.Tensor, ext_param=None) -> torch.Tensor:
+        r"""
+        Compute :math:`(d/dz) \\log \\det P(z)` with probe variable :math:`z`.
+        """
+        from flamo.processor.probe import wirtinger_derivative_scalar
+
+        def _log_det(z_val):
+            P = self._eval_characteristic(z_val, ext_param)
+            return torch.log(torch.linalg.det(P))
+
+        _, d_log_det_dz = wirtinger_derivative_scalar(
+            _log_det, z, create_graph=False
+        )
+        return d_log_det_dz
+
+    def _eval_characteristic_w(self, w: torch.Tensor, ext_param=None):
+        r"""
+        Compute P(w) = I - B(w) F(w) with :math:`w = z^{-1}` (probe variable in w).
+        F(w) = feedforward.probe_w(w), B(w) = feedback.probe_w(w).
+        Used for numerical stability when :math:`|z| < 1` (evaluate in w-plane).
+        """
+        ext_param_ff, ext_param_fb = self._split_ext_param(ext_param)
+        probe_ff = getattr(self.feedforward, 'probe_w', None) or self.feedforward.probe
+        probe_fb = getattr(self.feedback, 'probe_w', None) or self.feedback.probe
+        F = probe_ff(w, ext_param_ff)
+        B = probe_fb(w, ext_param_fb)
+        N = F.shape[0]
+        I = torch.eye(N, dtype=F.dtype, device=F.device)
+        return I - F @ B 
+
+    def log_det_derivative_w(self, w: torch.Tensor, ext_param=None) -> torch.Tensor:
+        r"""
+        Compute :math:`(d/dw) \\log \\det P(w)` with probe variable :math:`w = z^{-1}`.
+        Used when :math:`|z| < 1` for numerical stability (evaluate in w-plane).
+        Then :math:`(d/dz) \\log \\det P = -z^{-2} \\, (d/dw) \\log \\det P(w)`.
+        """
+        from flamo.processor.probe import wirtinger_derivative_scalar
+
+        def _log_det(w_val):
+            P = self._eval_characteristic_w(w_val, ext_param)
+            return torch.log(torch.linalg.det(P))
+
+        _, d_log_det_dw = wirtinger_derivative_scalar(
+            _log_det, w, create_graph=False
+        )
+        return d_log_det_dw
+
+    def probe_recursion_w_with_derivative(self, w: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate P(w) and dP/dw at :math:`w = z^{-1}`.
+        Returns (P(w), dP_dw). Then q = det(P), qp = q * trace(P^{-1} dP/dw) = Q'(w).
+        """
+        from flamo.processor.probe import wirtinger_derivative
+        P, dP_dw = wirtinger_derivative(
+            lambda w_val: self._eval_characteristic_w(w_val, ext_param),
+            w,
+            create_graph=False,
+        )
+        return P, dP_dw
 
 # ============================= RECURSION ================================
 
