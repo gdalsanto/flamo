@@ -36,6 +36,42 @@ def probe_points(
     return torch.stack(results, dim=0)
 
 
+def _compute_element_derivative(u_ij, v_ij, x, y, create_graph):
+    """Compute Wirtinger dH/dz for a single (i,j) element."""
+    has_u_grad = u_ij.grad_fn is not None
+    has_v_grad = v_ij.grad_fn is not None
+
+    if has_u_grad:
+        grads_u = torch.autograd.grad(
+            u_ij, [x, y],
+            retain_graph=True,
+            create_graph=create_graph,
+            allow_unused=True,
+        )
+        du_dx = grads_u[0] if grads_u[0] is not None else torch.zeros_like(x)
+        du_dy = grads_u[1] if grads_u[1] is not None else torch.zeros_like(y)
+    else:
+        du_dx = torch.zeros_like(x)
+        du_dy = torch.zeros_like(y)
+
+    if has_v_grad:
+        grads_v = torch.autograd.grad(
+            v_ij, [x, y],
+            retain_graph=True,
+            create_graph=create_graph,
+            allow_unused=True,
+        )
+        dv_dx = grads_v[0] if grads_v[0] is not None else torch.zeros_like(x)
+        dv_dy = grads_v[1] if grads_v[1] is not None else torch.zeros_like(y)
+    else:
+        dv_dx = torch.zeros_like(x)
+        dv_dy = torch.zeros_like(y)
+
+    real_part = 0.5 * (du_dx + dv_dy)
+    imag_part = 0.5 * (dv_dx - du_dy)
+    return torch.complex(real_part, imag_part)
+
+
 def probe_with_derivative(
     module,
     z: torch.Tensor,
@@ -81,32 +117,19 @@ def probe_with_derivative(
     v = H.imag
 
     n_out, n_in = H.shape
-    dH_dz = torch.zeros(n_out, n_in, dtype=torch.complex128, device=H.device)
 
+    # Build dH_dz from a list of rows to preserve autograd graph
+    # when create_graph=True (in-place indexing would detach).
+    rows = []
     for i in range(n_out):
+        cols = []
         for j in range(n_in):
-            if u[i, j].requires_grad or u[i, j].grad_fn is not None:
-                du_dx, du_dy = torch.autograd.grad(
-                    u[i, j], [x, y],
-                    retain_graph=True,
-                    create_graph=create_graph,
-                )
-            else:
-                du_dx = torch.zeros_like(x)
-                du_dy = torch.zeros_like(y)
+            cols.append(_compute_element_derivative(
+                u[i, j], v[i, j], x, y, create_graph,
+            ))
+        rows.append(torch.stack(cols))
+    dH_dz = torch.stack(rows)
 
-            if v[i, j].requires_grad or v[i, j].grad_fn is not None:
-                dv_dx, dv_dy = torch.autograd.grad(
-                    v[i, j], [x, y],
-                    retain_graph=True,
-                    create_graph=create_graph,
-                )
-            else:
-                dv_dx = torch.zeros_like(x)
-                dv_dy = torch.zeros_like(y)
-
-            real_part = 0.5 * (du_dx + dv_dy)
-            imag_part = 0.5 * (dv_dx - du_dy)
-            dH_dz[i, j] = torch.complex(real_part, imag_part)
-
-    return H.detach(), dH_dz.detach() if not create_graph else dH_dz
+    if create_graph:
+        return H, dH_dz
+    return H.detach(), dH_dz.detach()

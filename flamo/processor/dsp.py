@@ -1198,6 +1198,12 @@ class ScatteringMatrix(Filter):
         self.get_freq_response()
         self.get_freq_convolve()
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for ScatteringMatrix"
+        )
+
+
 class VelvetNoiseMatrix(Filter):
     r"""
     A class representing a Velvet Noise Filter matrix.
@@ -1340,6 +1346,11 @@ class VelvetNoiseMatrix(Filter):
         self.get_io()
         self.get_freq_response()
         self.get_freq_convolve()
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for VelvetNoiseMatrix"
+        )
 
 
 class Biquad(Filter):
@@ -1594,6 +1605,11 @@ class Biquad(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for Biquad. Use SOSFilter instead."
+        )
+
 
 class parallelBiquad(Biquad):
     r"""
@@ -1753,6 +1769,11 @@ class parallelBiquad(Biquad):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for parallelBiquad. Use parallelSOSFilter instead."
+        )
 
 
 class SOSFilter(Filter):
@@ -2365,6 +2386,11 @@ class SVF(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for SVF"
+        )
+
 
 class parallelSVF(SVF):
     r"""
@@ -2454,6 +2480,11 @@ class parallelSVF(SVF):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for parallelSVF"
+        )
 
 
 class GEQ(Filter):
@@ -2602,6 +2633,11 @@ class GEQ(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for GEQ"
+        )
+
 
 class parallelGEQ(GEQ):
     r"""
@@ -2682,6 +2718,12 @@ class parallelGEQ(GEQ):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for parallelGEQ"
+        )
+
 
 class PEQ(Filter):
     r"""
@@ -2866,7 +2908,13 @@ class PEQ(Filter):
             dim=0,
         )
         return param
-    
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for PEQ"
+        )
+
+
 class parallelPEQ(PEQ):
     r"""
     Parallel counterpart of the :class:`PEQ` class
@@ -2988,7 +3036,13 @@ class parallelPEQ(PEQ):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
-        
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for parallelPEQ"
+        )
+
+
 class AccurateGEQ(Filter):
     r"""
     Graphic Equilizer filter. Inherits from the :class:`Filter` class.
@@ -3124,6 +3178,12 @@ class AccurateGEQ(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for AccurateGEQ"
+        )
+
+
 class parallelAccurateGEQ(AccurateGEQ):
     r"""
     Parallel counterpart of the :class:`GEQ` class
@@ -3206,6 +3266,12 @@ class parallelAccurateGEQ(AccurateGEQ):
         """
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
+
+    def probe(self, z: torch.Tensor, ext_param=None):
+        raise NotImplementedError(
+            "probe() is not implemented for parallelAccurateGEQ"
+        )
+
 
 # ============================= DELAYS ================================
 

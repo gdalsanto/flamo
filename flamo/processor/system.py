@@ -4,7 +4,6 @@ import warnings
 from collections import OrderedDict
 from flamo.processor.dsp import FFT, iFFT, Transform
 from flamo.functional import signal_gallery
-from flamo.utils import to_complex
 
 # ============================= SERIES ================================
 

@@ -7,7 +7,7 @@ import math
 from flamo.processor.dsp import (
     Gain, parallelGain, Matrix, Filter, parallelFilter,
     Delay, parallelDelay, SOSFilter, parallelSOSFilter,
-    FFT, iFFT, Transform,
+    FFT, iFFT, Transform, Biquad, SVF,
 )
 from flamo.processor.system import Series, Recursion, Parallel, Shell
 from flamo.processor.probe import probe_points, probe_with_derivative
@@ -301,6 +301,28 @@ class TestProbeWithDerivative:
         dH_fd = self._finite_diff_derivative(sf, z)
         assert torch.allclose(dH_auto, dH_fd, atol=1e-5)
 
+    def test_trainable_gain_derivative_is_zero(self):
+        """Trainable Gain (requires_grad=True) has grad_fn from params but
+        probe output doesn't depend on z. Must not crash (issue: allow_unused)."""
+        g = Gain(size=(2, 2), nfft=NFFT, dtype=DTYPE, requires_grad=True)
+        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
+        _, dH = probe_with_derivative(g, z)
+        assert torch.allclose(dH, torch.zeros_like(dH), atol=1e-10)
+
+    def test_create_graph_preserves_autograd(self):
+        """When create_graph=True, dH_dz must retain a grad_fn."""
+        d = Delay(
+            size=(1, 1), max_len=10, isint=True, nfft=NFFT,
+            fs=48000, unit=100, dtype=DTYPE,
+        )
+        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
+        H, dH_dz = probe_with_derivative(d, z, create_graph=True)
+        assert dH_dz.grad_fn is not None or all(
+            dH_dz[i, j].grad_fn is not None
+            for i in range(dH_dz.shape[0])
+            for j in range(dH_dz.shape[1])
+        )
+
 
 # ---------------------------------------------------------------------------
 # 7. test_shell_probe_core_only_default
@@ -385,6 +407,23 @@ class TestProbePoints:
         H_all = probe_points(f, z_pts)
         for i, z in enumerate(z_pts):
             assert torch.allclose(H_all[i], f.probe(z), atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Extra: incompatible subclasses raise NotImplementedError
+# ---------------------------------------------------------------------------
+class TestIncompatibleSubclassGuard:
+    def test_biquad_probe_raises(self):
+        b = Biquad(size=(1, 1), n_sections=1, nfft=NFFT, fs=48000, dtype=DTYPE)
+        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
+        with pytest.raises(NotImplementedError):
+            b.probe(z)
+
+    def test_svf_probe_raises(self):
+        s = SVF(size=(1, 1), n_sections=1, nfft=NFFT, fs=48000, dtype=DTYPE)
+        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
+        with pytest.raises(NotImplementedError):
+            s.probe(z)
 
 
 # ---------------------------------------------------------------------------
