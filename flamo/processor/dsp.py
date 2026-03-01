@@ -340,6 +340,16 @@ class DSP(nn.Module):
             f"probe() not implemented for {self.__class__.__name__}"
         )
 
+    def probe_w(self, w: torch.Tensor):
+        r"""
+        Evaluate the transfer matrix H(w) at an arbitrary complex w-plane point.
+
+            **Arguments**:
+                - **w** (torch.Tensor): A scalar complex tensor w = 1/z representing the w-plane point.
+            **Returns**:
+                torch.Tensor: Transfer matrix of shape ``(N_out, N_in)`` (complex).
+        """
+        return self.probe(1/w)
 
 # ============================= GAINS ================================
 
@@ -485,10 +495,6 @@ class Gain(DSP):
         """
         return to_complex(self.map(self.param))
 
-    def probe_w(self, w: torch.Tensor):
-        r"""Evaluate at :math:`w = z^{-1}`; gain is constant, so same as :meth:`probe`."""
-        return self.probe(w)
-
 
 class parallelGain(Gain):
     """
@@ -565,10 +571,6 @@ class parallelGain(Gain):
         """
         h = to_complex(self.map(self.param))
         return torch.diag(h)
-
-    def probe_w(self, w: torch.Tensor):
-        r"""Evaluate at :math:`w = z^{-1}`; gain is constant, so same as :meth:`probe`."""
-        return self.probe(w)
 
 
 # ============================= MATRICES ================================
@@ -2086,26 +2088,6 @@ class parallelSOSFilter(SOSFilter):
             H_diag = H_diag * B_k / A_k
         return torch.diag(H_diag)
 
-    def probe_w(self, w: torch.Tensor):
-        r"""
-        Evaluate H(z) at :math:`z = w^{-1}` (i.e. at :math:`w = z^{-1}`).
-
-        So :math:`H(1/w)` with the same biquad formula using :math:`z^{-1} = w`.
-        Ensures correct w-domain probing when the SOS is in a Series with delay (e.g. in a recursion).
-        """
-        mapped = self.map(self.param)
-        gamma = self.alias_envelope_dcy
-        z_inv = w  # w = z^{-1}, so H(1/w) uses z_inv = w
-        N = mapped.shape[2]
-        H_diag = torch.ones(N, dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64, device=mapped.device)
-        for k in range(mapped.shape[0]):
-            b0, b1, b2 = mapped[k, 0, :], mapped[k, 1, :], mapped[k, 2, :]
-            a0, a1, a2 = mapped[k, 3, :], mapped[k, 4, :], mapped[k, 5, :]
-            B_k = to_complex(b0) * gamma[0] + to_complex(b1) * gamma[1] * z_inv + to_complex(b2) * gamma[2] * z_inv**2
-            A_k = to_complex(a0) * gamma[0] + to_complex(a1) * gamma[1] * z_inv + to_complex(a2) * gamma[2] * z_inv**2
-            H_diag = H_diag * B_k / A_k
-        return torch.diag(H_diag)
-
 
 class SVF(Filter):
     r"""
@@ -3522,18 +3504,6 @@ class Delay(DSP):
         H = (self.gamma ** m) * z_inv_m
         return H
 
-    def probe_w(self, w: torch.Tensor):
-        r"""
-        Evaluate the transfer matrix at :math:`w = z^{-1}` (probe variable in w).
-        Returns :math:`H(w) = \\gamma^m w^m` (same as :math:`H(z) = z^{-m}` when :math:`w = 1/z`).
-        Used for numerical stability when :math:`|z| < 1` (evaluate in w-plane).
-        """
-        m = self.s2sample(self.map(self.param))
-        if self.isint:
-            m = m.round()
-        H = (self.gamma ** m) * (w ** m)
-        return H
-
 
 class parallelDelay(Delay):
     """
@@ -3633,14 +3603,6 @@ class parallelDelay(Delay):
             m = m.round()
         z_inv_m = (1.0 / z) ** m
         h = (self.gamma ** m) * z_inv_m
-        return torch.diag(h)
-
-    def probe_w(self, w: torch.Tensor):
-        r"""Evaluate at :math:`w = z^{-1}`; returns diagonal :math:`H(w) = \\gamma^m w^m`."""
-        m = self.s2sample(self.map(self.param))
-        if self.isint:
-            m = m.round()
-        h = (self.gamma ** m) * (w ** m)
         return torch.diag(h)
 
 

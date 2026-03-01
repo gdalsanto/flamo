@@ -314,31 +314,21 @@ class Series(nn.Sequential):
         """
         H = None
         for module in self:
-            if not hasattr(module, 'probe'):
-                continue
+            # if not hasattr(module, 'probe'):
+            #     continue
             Hi = module.probe(z)
-            if Hi is None:
-                continue
+            # if Hi is None:
+                # continue
             H = Hi if H is None else Hi @ H
         return H
 
     def probe_w(self, w: torch.Tensor):
         r"""
         Evaluate the series transfer matrix at :math:`w = z^{-1}` (i.e. at :math:`z = 1/w`).
-        Uses each module's :meth:`probe_w` if present, else :meth:`probe(1/w)` so that
-        the result is :math:`H(1/w)` for z-domain-only modules.
         """
         H = None
         for module in self:
-            probe_w_fn = getattr(module, 'probe_w', None)
-            if probe_w_fn is not None:
-                Hi = probe_w_fn(w)
-            elif getattr(module, 'probe', None) is not None:
-                Hi = module.probe(1.0 / w)
-            else:
-                continue
-            if Hi is None:
-                continue
+            Hi = module.probe_w(w)
             H = Hi if H is None else Hi @ H
         return H
 
@@ -567,15 +557,13 @@ class Recursion(nn.Module):
 
     def probe_recursion_w(self, w: torch.Tensor):
         r"""
-        Evaluate the characteristic matrix at :math:`w = z^{-1}`.
+        Evaluate the characteristic matrix at :math:`w = 1/z`.
 
         P(w) = I - B(w) F(w). Use for w-domain probing when modules expose probe_w
         (numerical stability when :math:`|z| < 1`).
         """
-        probe_ff = getattr(self.feedforward, 'probe_w', None) or self.feedforward.probe
-        probe_fb = getattr(self.feedback, 'probe_w', None) or self.feedback.probe
-        F = probe_ff(w)
-        B = probe_fb(w)
+        F = self.feedforward.probe_w(w)
+        B = self.feedback.probe_w(w)
         N = F.shape[0]
         I = torch.eye(N, dtype=F.dtype, device=F.device)
         return I - F @ B
@@ -773,7 +761,19 @@ class Parallel(nn.Module):
         else:
             return torch.cat([H_A, H_B], dim=0)
 
+    def probe_w(self, w: torch.Tensor):
+        r"""
+        Evaluate the parallel transfer matrix at arbitrary complex w.
 
+        If sum_output: H = H_A + H_B
+        Else: H = cat([H_A, H_B], dim=0)
+        """
+        H_A = self.branchA.probe_w(w)
+        H_B = self.branchB.probe_w(w)
+        if self.sum_output:
+            return H_A + H_B
+        else:
+            return torch.cat([H_A, H_B], dim=0)
 # ============================= SHELL ================================
 
 
