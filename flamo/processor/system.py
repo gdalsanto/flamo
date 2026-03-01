@@ -314,11 +314,7 @@ class Series(nn.Sequential):
         """
         H = None
         for module in self:
-            # if not hasattr(module, 'probe'):
-            #     continue
             Hi = module.probe(z)
-            # if Hi is None:
-                # continue
             H = Hi if H is None else Hi @ H
         return H
 
