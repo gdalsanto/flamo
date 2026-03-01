@@ -580,8 +580,8 @@ class Recursion(nn.Module):
         if not derivative:
             return self._eval_characteristic(z)
 
-        from flamo.processor.probe import wirtinger_derivative
-        P, dP_dz = wirtinger_derivative(
+        from flamo.processor.probe import complex_derivative
+        P, dP_dz = complex_derivative(
             lambda z_val: self._eval_characteristic(z_val),
             z,
             create_graph=False,
@@ -599,8 +599,8 @@ class Recursion(nn.Module):
         Evaluate P(z) and dP/dz (derivative with respect to z).
         Probe variable is z. Returns (P, dP/dz) so that (d/dz) log det P = trace(P^{-1} dP/dz).
         """
-        from flamo.processor.probe import wirtinger_derivative
-        P, dP_dz = wirtinger_derivative(
+        from flamo.processor.probe import complex_derivative
+        P, dP_dz = complex_derivative(
             lambda z_val: self._eval_characteristic(z_val),
             z,
             create_graph=create_graph,
@@ -611,13 +611,13 @@ class Recursion(nn.Module):
         r"""
         Compute :math:`(d/dz) \\log \\det P(z)` with probe variable :math:`z`.
         """
-        from flamo.processor.probe import wirtinger_derivative_scalar
+        from flamo.processor.probe import complex_derivative_scalar
 
         def _log_det(z_val):
             P = self._eval_characteristic(z_val)
             return torch.logdet(P)
 
-        _, d_log_det_dz = wirtinger_derivative_scalar(
+        _, d_log_det_dz = complex_derivative_scalar(
             _log_det, z, create_graph=False
         )
         return d_log_det_dz
@@ -651,13 +651,13 @@ class Recursion(nn.Module):
         Used when :math:`|z| < 1` for numerical stability (evaluate in w-plane).
         Then :math:`(d/dz) \\log \\det P = -z^{-2} \\, (d/dw) \\log \\det P(w)`.
         """
-        from flamo.processor.probe import wirtinger_derivative_scalar
+        from flamo.processor.probe import complex_derivative_scalar
 
         def _log_det(w_val):
             P = self._eval_characteristic_w(w_val)
             return torch.logdet(P)
 
-        _, d_log_det_dw = wirtinger_derivative_scalar(
+        _, d_log_det_dw = complex_derivative_scalar(
             _log_det, w, create_graph=False
         )
         return d_log_det_dw
@@ -667,8 +667,8 @@ class Recursion(nn.Module):
         Evaluate P(w) and dP/dw at :math:`w = z^{-1}`.
         Returns (P(w), dP_dw). Then q = det(P), qp = q * trace(P^{-1} dP/dw) = Q'(w).
         """
-        from flamo.processor.probe import wirtinger_derivative
-        P, dP_dw = wirtinger_derivative(
+        from flamo.processor.probe import complex_derivative
+        P, dP_dw = complex_derivative(
             lambda w_val: self._eval_characteristic_w(w_val),
             w,
             create_graph=False,

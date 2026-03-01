@@ -10,7 +10,7 @@ from flamo.processor.dsp import (
     FFT, iFFT, Transform, Biquad, SVF,
 )
 from flamo.processor.system import Series, Recursion, Parallel, Shell
-from flamo.processor.probe import probe_points, probe_with_derivative, wirtinger_derivative
+from flamo.processor.probe import probe_points, probe_with_derivative, complex_derivative
 from flamo.utils import to_complex
 
 DTYPE = torch.float64
@@ -682,7 +682,7 @@ class TestRecursionProbeNonRegression:
         assert H.shape == (N, N)
         assert dH.shape == (N, N)
 
-    def test_wirtinger_derivative_is_exported(self):
-        """wirtinger_derivative should be importable from flamo.processor."""
-        from flamo.processor import wirtinger_derivative as wd
-        assert callable(wd)
+    def test_complex_derivative_is_exported(self):
+        """complex_derivative should be importable from flamo.processor."""
+        from flamo.processor import complex_derivative as cd
+        assert callable(cd)

@@ -3,8 +3,9 @@ Autograd-based derivative helpers for z-plane probing.
 
 Provides:
     - ``probe_points``: Vectorized probe over multiple z-plane points.
-    - ``probe_with_derivative``: Compute H(z) and dH/dz via Wirtinger calculus.
-    - ``wirtinger_derivative``: Generic Wirtinger dF/dz for any callable F(z).
+    - ``probe_with_derivative``: Compute H(z) and dH/dz via PyTorch native complex autograd.
+    - ``complex_derivative_scalar``: Holomorphic dF/dz for scalar F(z) (native backward + conj).
+    - ``complex_derivative``: Holomorphic dF/dz for matrix F(z) (native backward + conj).
 """
 
 import torch
@@ -37,27 +38,26 @@ def probe_points(
     return torch.stack(results, dim=0)
 
 
-def wirtinger_derivative_scalar(
+def _ensure_complex_tensor(z: torch.Tensor) -> torch.Tensor:
+    """Return a complex tensor with requires_grad, same device/dtype as z if complex."""
+    if not isinstance(z, torch.Tensor):
+        z = torch.as_tensor(z, dtype=torch.complex128)
+    z = z.detach().clone()
+    if not z.is_complex():
+        z = torch.complex(z, torch.zeros_like(z))
+    return z.to(torch.complex128).requires_grad_(True)
+
+
+def complex_derivative_scalar(
     eval_fn: Callable[[torch.Tensor], torch.Tensor],
     z: torch.Tensor,
     create_graph: bool = False,
 ) -> tuple:
     r"""
-    Wirtinger derivative dF/dz for a callable ``eval_fn(z) -> complex scalar``.
+    Holomorphic derivative dF/dz for a callable ``eval_fn(z) -> complex scalar``.
 
-    Uses autograd to compute (d/dz) F(z) where F is complex-differentiable.
-    More stable than forming trace(P^{-1} P') when F = log det P, since
-    it avoids explicitly inverting P.
-
-    .. math::
-
-        \frac{dF}{dz} = \frac{1}{2}\left(
-            \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}
-        \right) + \frac{j}{2}\left(
-            \frac{\partial v}{\partial x} - \frac{\partial u}{\partial y}
-        \right)
-
-    where F = u + jv and z = x + jy.
+    Uses PyTorch native complex autograd: backward gives the conjugate Wirtinger
+    derivative, so dF/dz = conj(z.grad) for holomorphic F.
 
     Args:
         eval_fn: Callable that takes a complex scalar tensor and returns a
@@ -68,105 +68,27 @@ def wirtinger_derivative_scalar(
     Returns:
         tuple: ``(F_val, dF_dz)`` where both are complex scalars (0-dim tensors).
     """
-    x = z.real.detach().clone().to(torch.float64).requires_grad_(True)
-    y = z.imag.detach().clone().to(torch.float64).requires_grad_(True)
-    z_reconst = torch.complex(x, y)
-
-    F = eval_fn(z_reconst)
-    u = F.real
-    v = F.imag
-
-    du_dx = du_dy = dv_dx = dv_dy = None
-    if u.grad_fn is not None:
-        grads_u = torch.autograd.grad(
-            u, [x, y],
-            retain_graph=True,
-            create_graph=create_graph,
-            allow_unused=True,
-        )
-        du_dx = grads_u[0] if grads_u[0] is not None else torch.zeros_like(x)
-        du_dy = grads_u[1] if grads_u[1] is not None else torch.zeros_like(y)
-    else:
-        du_dx = torch.zeros_like(x)
-        du_dy = torch.zeros_like(y)
-    if v.grad_fn is not None:
-        grads_v = torch.autograd.grad(
-            v, [x, y],
-            retain_graph=True,
-            create_graph=create_graph,
-            allow_unused=True,
-        )
-        dv_dx = grads_v[0] if grads_v[0] is not None else torch.zeros_like(x)
-        dv_dy = grads_v[1] if grads_v[1] is not None else torch.zeros_like(y)
-    else:
-        dv_dx = torch.zeros_like(x)
-        dv_dy = torch.zeros_like(y)
-
-    real_part = 0.5 * (du_dx + dv_dy)
-    imag_part = 0.5 * (dv_dx - du_dy)
-    dF_dz = torch.complex(real_part, imag_part)
-
+    z_var = _ensure_complex_tensor(z)
+    F = eval_fn(z_var)
+    one = torch.ones((), device=z_var.device, dtype=z_var.dtype)
+    dF_dz = torch.autograd.grad(
+        F, z_var, grad_outputs=one, create_graph=create_graph, retain_graph=create_graph
+    )[0].conj()
     if create_graph:
         return F, dF_dz
     return F.detach(), dF_dz.detach()
 
 
-def _compute_element_derivative(u_ij, v_ij, x, y, create_graph):
-    """Compute Wirtinger dH/dz for a single (i,j) element."""
-    has_u_grad = u_ij.grad_fn is not None
-    has_v_grad = v_ij.grad_fn is not None
-
-    if has_u_grad:
-        grads_u = torch.autograd.grad(
-            u_ij, [x, y],
-            retain_graph=True,
-            create_graph=create_graph,
-            allow_unused=True,
-        )
-        du_dx = grads_u[0] if grads_u[0] is not None else torch.zeros_like(x)
-        du_dy = grads_u[1] if grads_u[1] is not None else torch.zeros_like(y)
-    else:
-        du_dx = torch.zeros_like(x)
-        du_dy = torch.zeros_like(y)
-
-    if has_v_grad:
-        grads_v = torch.autograd.grad(
-            v_ij, [x, y],
-            retain_graph=True,
-            create_graph=create_graph,
-            allow_unused=True,
-        )
-        dv_dx = grads_v[0] if grads_v[0] is not None else torch.zeros_like(x)
-        dv_dy = grads_v[1] if grads_v[1] is not None else torch.zeros_like(y)
-    else:
-        dv_dx = torch.zeros_like(x)
-        dv_dy = torch.zeros_like(y)
-
-    real_part = 0.5 * (du_dx + dv_dy)
-    imag_part = 0.5 * (dv_dx - du_dy)
-    return torch.complex(real_part, imag_part)
-
-
-def wirtinger_derivative(
+def complex_derivative(
     eval_fn: Callable[[torch.Tensor], torch.Tensor],
     z: torch.Tensor,
     create_graph: bool = False,
 ) -> tuple:
     r"""
-    Generic Wirtinger derivative dF/dz for any callable ``eval_fn(z) -> Tensor``.
+    Holomorphic derivative dF/dz for a callable ``eval_fn(z) -> Tensor`` (matrix output).
 
-    Constructs differentiable real/imag components of z, evaluates ``eval_fn``,
-    and computes:
-
-    .. math::
-
-        \frac{dF}{dz} = \frac{1}{2}\left(
-            \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y}
-        \right) + \frac{j}{2}\left(
-            \frac{\partial v}{\partial x} - \frac{\partial u}{\partial y}
-        \right)
-
-    where F = u + jv and z = x + jy.
+    Uses PyTorch native complex autograd per element: for each (i,j), grad of F[i,j]
+    w.r.t. z is the conjugate Wirtinger derivative; conj gives dF_ij/dz.
 
     Args:
         eval_fn: Callable that takes a complex scalar tensor and returns a
@@ -176,29 +98,23 @@ def wirtinger_derivative(
 
     Returns:
         tuple: ``(F_val, dF_dz)`` where ``F_val`` is the detached function
-            value and ``dF_dz`` is the Wirtinger derivative, both with shape
-            ``(N, M)``. When ``create_graph=True``, tensors retain grad_fn.
+            value and ``dF_dz`` is the holomorphic derivative, both shape ``(N, M)``.
     """
-    x = z.real.detach().clone().to(torch.float64).requires_grad_(True)
-    y = z.imag.detach().clone().to(torch.float64).requires_grad_(True)
-    z_reconst = torch.complex(x, y)
-
-    F = eval_fn(z_reconst)
-
-    u = F.real
-    v = F.imag
+    z_var = _ensure_complex_tensor(z)
+    F = eval_fn(z_var)
     n_rows, n_cols = F.shape
-
-    rows = []
+    one = torch.ones((), device=z_var.device, dtype=z_var.dtype)
+    dF_dz_list = []
     for i in range(n_rows):
-        cols = []
+        row = []
         for j in range(n_cols):
-            cols.append(_compute_element_derivative(
-                u[i, j], v[i, j], x, y, create_graph,
-            ))
-        rows.append(torch.stack(cols))
-    dF_dz = torch.stack(rows)
-
+            g = torch.autograd.grad(
+                F[i, j], z_var, grad_outputs=one, retain_graph=True,
+                create_graph=create_graph,
+            )[0].conj()
+            row.append(g)
+        dF_dz_list.append(torch.stack(row))
+    dF_dz = torch.stack(dF_dz_list)
     if create_graph:
         return F, dF_dz
     return F.detach(), dF_dz.detach()
@@ -213,7 +129,7 @@ def probe_with_derivative(
     r"""
     Compute H(z) and dH/dz at a single complex z-plane point using autograd.
 
-    Uses the Wirtinger derivative reconstruction via :func:`wirtinger_derivative`.
+    Uses PyTorch native complex autograd via :func:`complex_derivative`.
 
     Args:
         module: A FLAMO module with a ``probe(z)`` method.
@@ -231,4 +147,4 @@ def probe_with_derivative(
             return module.probe(z_val, include_shell_io=include_shell_io)
         return module.probe(z_val)
 
-    return wirtinger_derivative(_eval, z, create_graph=create_graph)
+    return complex_derivative(_eval, z, create_graph=create_graph)
