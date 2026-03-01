@@ -2094,6 +2094,27 @@ class parallelSOSFilter(SOSFilter):
             H_diag = H_diag * B_k / A_k
         return torch.diag(H_diag)
 
+    def probe_w(self, w: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate H(z) at :math:`z = w^{-1}` (i.e. at :math:`w = z^{-1}`).
+
+        So :math:`H(1/w)` with the same biquad formula using :math:`z^{-1} = w`.
+        Ensures correct w-domain probing when the SOS is in a Series with delay (e.g. in a recursion).
+        """
+        param = ext_param if ext_param is not None else self.param
+        mapped = self.map(param)
+        gamma = self.alias_envelope_dcy
+        z_inv = w  # w = z^{-1}, so H(1/w) uses z_inv = w
+        N = mapped.shape[2]
+        H_diag = torch.ones(N, dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64, device=mapped.device)
+        for k in range(mapped.shape[0]):
+            b0, b1, b2 = mapped[k, 0, :], mapped[k, 1, :], mapped[k, 2, :]
+            a0, a1, a2 = mapped[k, 3, :], mapped[k, 4, :], mapped[k, 5, :]
+            B_k = to_complex(b0) * gamma[0] + to_complex(b1) * gamma[1] * z_inv + to_complex(b2) * gamma[2] * z_inv**2
+            A_k = to_complex(a0) * gamma[0] + to_complex(a1) * gamma[1] * z_inv + to_complex(a2) * gamma[2] * z_inv**2
+            H_diag = H_diag * B_k / A_k
+        return torch.diag(H_diag)
+
 
 class SVF(Filter):
     r"""

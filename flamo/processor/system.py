@@ -325,15 +325,19 @@ class Series(nn.Sequential):
 
     def probe_w(self, w: torch.Tensor, ext_param=None):
         r"""
-        Evaluate the series transfer matrix at :math:`w = z^{-1}`.
-        Uses each module's :meth:`probe_w` if present, else :meth:`probe(w)`.
+        Evaluate the series transfer matrix at :math:`w = z^{-1}` (i.e. at :math:`z = 1/w`).
+        Uses each module's :meth:`probe_w` if present, else :meth:`probe(1/w)` so that
+        the result is :math:`H(1/w)` for z-domain-only modules.
         """
         H = None
         for module in self:
-            probe_fn = getattr(module, 'probe_w', None) or getattr(module, 'probe', None)
-            if probe_fn is None:
+            probe_w_fn = getattr(module, 'probe_w', None)
+            if probe_w_fn is not None:
+                Hi = probe_w_fn(w, ext_param)
+            elif getattr(module, 'probe', None) is not None:
+                Hi = module.probe(1.0 / w, ext_param)
+            else:
                 continue
-            Hi = probe_fn(w, ext_param)
             if Hi is None:
                 continue
             H = Hi if H is None else Hi @ H
