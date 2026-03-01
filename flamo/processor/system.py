@@ -558,7 +558,6 @@ class Recursion(nn.Module):
     def probe_recursion(
         self,
         z: torch.Tensor,
-        derivative: bool = False,
         include_shell_io: bool = False,
         **kwargs,
     ):
@@ -567,60 +566,9 @@ class Recursion(nn.Module):
 
         P(z) = I - B(z) F(z) (normal convention: P(z) = I - A @ D(z), delays on columns).
         All probe variable is z (no w = z^{-1}).
-
-            **Arguments**:
-                - **z** (torch.Tensor): Scalar complex z-plane point.
-                - **derivative** (bool): If True, also return dP/dz. Default: False.
-                - **include_shell_io** (bool): Accepted for signature compatibility (unused).
-
-            **Returns**:
-                - If ``derivative=False``: ``P`` — complex tensor ``(N, N)``.
-                - If ``derivative=True``: ``(P, dP_dz)`` — tuple of complex tensors.
+        Derivatives (dP/dz, d/dz log det P, etc.) are built by callers (e.g. pyFDN) via JVP/grad.
         """
-        if not derivative:
-            return self._eval_characteristic(z)
-
-        from flamo.processor.probe import complex_derivative
-        P, dP_dz = complex_derivative(
-            lambda z_val: self._eval_characteristic(z_val),
-            z,
-            create_graph=False,
-        )
-        return P, dP_dz
-
-    def probe_recursion_with_derivative(
-        self,
-        z: torch.Tensor,
-        include_shell_io: bool = False,
-        create_graph: bool = False,
-        **kwargs,
-    ):
-        r"""
-        Evaluate P(z) and dP/dz (derivative with respect to z).
-        Probe variable is z. Returns (P, dP/dz) so that (d/dz) log det P = trace(P^{-1} dP/dz).
-        """
-        from flamo.processor.probe import complex_derivative
-        P, dP_dz = complex_derivative(
-            lambda z_val: self._eval_characteristic(z_val),
-            z,
-            create_graph=create_graph,
-        )
-        return P, dP_dz
-
-    def log_det_derivative(self, z: torch.Tensor) -> torch.Tensor:
-        r"""
-        Compute :math:`(d/dz) \\log \\det P(z)` with probe variable :math:`z`.
-        """
-        from flamo.processor.probe import complex_derivative_scalar
-
-        def _log_det(z_val):
-            P = self._eval_characteristic(z_val)
-            return torch.logdet(P)
-
-        _, d_log_det_dz = complex_derivative_scalar(
-            _log_det, z, create_graph=False
-        )
-        return d_log_det_dz
+        return self._eval_characteristic(z)
 
     def _eval_characteristic_w(self, w: torch.Tensor):
         r"""
@@ -644,36 +592,6 @@ class Recursion(nn.Module):
         probe_recursion(1/w) when modules expose probe_w for numerical stability.
         """
         return self._eval_characteristic_w(w)
-
-    def log_det_derivative_w(self, w: torch.Tensor) -> torch.Tensor:
-        r"""
-        Compute :math:`(d/dw) \\log \\det P(w)` with probe variable :math:`w = z^{-1}`.
-        Used when :math:`|z| < 1` for numerical stability (evaluate in w-plane).
-        Then :math:`(d/dz) \\log \\det P = -z^{-2} \\, (d/dw) \\log \\det P(w)`.
-        """
-        from flamo.processor.probe import complex_derivative_scalar
-
-        def _log_det(w_val):
-            P = self._eval_characteristic_w(w_val)
-            return torch.logdet(P)
-
-        _, d_log_det_dw = complex_derivative_scalar(
-            _log_det, w, create_graph=False
-        )
-        return d_log_det_dw
-
-    def probe_recursion_w_with_derivative(self, w: torch.Tensor):
-        r"""
-        Evaluate P(w) and dP/dw at :math:`w = z^{-1}`.
-        Returns (P(w), dP_dw). Then q = det(P), qp = q * trace(P^{-1} dP/dw) = Q'(w).
-        """
-        from flamo.processor.probe import complex_derivative
-        P, dP_dw = complex_derivative(
-            lambda w_val: self._eval_characteristic_w(w_val),
-            w,
-            create_graph=False,
-        )
-        return P, dP_dw
 
 # ============================= RECURSION ================================
 

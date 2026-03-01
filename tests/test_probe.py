@@ -10,7 +10,7 @@ from flamo.processor.dsp import (
     FFT, iFFT, Transform, Biquad, SVF,
 )
 from flamo.processor.system import Series, Recursion, Parallel, Shell
-from flamo.processor.probe import probe_points, probe_with_derivative, complex_derivative
+from flamo.processor.probe import probe_points
 from flamo.utils import to_complex
 
 DTYPE = torch.float64
@@ -232,100 +232,7 @@ class TestSystemProbe:
 
 
 # ---------------------------------------------------------------------------
-# 6. test_probe_with_derivative_matches_finite_difference
-# ---------------------------------------------------------------------------
-class TestProbeWithDerivative:
-    def _finite_diff_derivative(self, module, z, eps=1e-7):
-        """Compute dH/dz via central finite differences."""
-        z_xp = z + eps
-        z_xn = z - eps
-        z_yp = z + 1j * eps
-        z_yn = z - 1j * eps
-
-        H_xp = module.probe(z_xp)
-        H_xn = module.probe(z_xn)
-        H_yp = module.probe(z_yp)
-        H_yn = module.probe(z_yn)
-
-        du_dx = (H_xp.real - H_xn.real) / (2 * eps)
-        dv_dx = (H_xp.imag - H_xn.imag) / (2 * eps)
-        du_dy = (H_yp.real - H_yn.real) / (2 * eps)
-        dv_dy = (H_yp.imag - H_yn.imag) / (2 * eps)
-
-        real_part = 0.5 * (du_dx + dv_dy)
-        imag_part = 0.5 * (dv_dx - du_dy)
-        return torch.complex(real_part.to(torch.float64), imag_part.to(torch.float64))
-
-    def test_gain_derivative_is_zero(self):
-        g = Gain(size=(2, 2), nfft=NFFT, dtype=DTYPE)
-        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
-        _, dH = probe_with_derivative(g, z)
-        assert torch.allclose(dH, torch.zeros_like(dH), atol=1e-10)
-
-    def test_delay_derivative_matches_fd(self):
-        d = Delay(
-            size=(2, 2), max_len=20, isint=True, nfft=NFFT,
-            fs=48000, unit=100, dtype=DTYPE,
-        )
-        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
-        _, dH_auto = probe_with_derivative(d, z)
-        dH_fd = self._finite_diff_derivative(d, z)
-        assert torch.allclose(dH_auto, dH_fd, atol=1e-5)
-
-    def test_filter_derivative_matches_fd(self):
-        f = Filter(size=(3, 2, 2), nfft=NFFT, dtype=DTYPE)
-        z = torch.tensor(0.85 + 0.15j, dtype=CDTYPE)
-        _, dH_auto = probe_with_derivative(f, z)
-        dH_fd = self._finite_diff_derivative(f, z)
-        assert torch.allclose(dH_auto, dH_fd, atol=1e-5)
-
-    def test_recursion_derivative_matches_fd(self):
-        N = 2
-        fF = Gain(size=(N, N), nfft=NFFT, dtype=DTYPE)
-        fB_delay = Delay(
-            size=(N, N), max_len=10, isint=True, nfft=NFFT,
-            fs=48000, unit=100, dtype=DTYPE,
-        )
-        with torch.no_grad():
-            fF.param.fill_(0.5)
-        rec = Recursion(fF, fB_delay)
-        z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
-        _, dH_auto = probe_with_derivative(rec, z)
-        dH_fd = self._finite_diff_derivative(rec, z)
-        assert torch.allclose(dH_auto, dH_fd, atol=1e-5)
-
-    def test_sos_derivative_matches_fd(self):
-        sf = SOSFilter(size=(1, 1), n_sections=2, nfft=NFFT, fs=48000, dtype=DTYPE)
-        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
-        _, dH_auto = probe_with_derivative(sf, z)
-        dH_fd = self._finite_diff_derivative(sf, z)
-        assert torch.allclose(dH_auto, dH_fd, atol=1e-5)
-
-    def test_trainable_gain_derivative_is_zero(self):
-        """Trainable Gain (requires_grad=True) has grad_fn from params but
-        probe output doesn't depend on z. Must not crash (issue: allow_unused)."""
-        g = Gain(size=(2, 2), nfft=NFFT, dtype=DTYPE, requires_grad=True)
-        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
-        _, dH = probe_with_derivative(g, z)
-        assert torch.allclose(dH, torch.zeros_like(dH), atol=1e-10)
-
-    def test_create_graph_preserves_autograd(self):
-        """When create_graph=True, dH_dz must retain a grad_fn."""
-        d = Delay(
-            size=(1, 1), max_len=10, isint=True, nfft=NFFT,
-            fs=48000, unit=100, dtype=DTYPE,
-        )
-        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
-        H, dH_dz = probe_with_derivative(d, z, create_graph=True)
-        assert dH_dz.grad_fn is not None or all(
-            dH_dz[i, j].grad_fn is not None
-            for i in range(dH_dz.shape[0])
-            for j in range(dH_dz.shape[1])
-        )
-
-
-# ---------------------------------------------------------------------------
-# 7. test_shell_probe_core_only_default
+# 6. test_shell_probe_core_only_default
 # ---------------------------------------------------------------------------
 class TestShellProbeCoreOnly:
     def test_shell_core_only(self):
@@ -504,79 +411,7 @@ class TestRecursionCharacteristicValue:
 
 
 # ---------------------------------------------------------------------------
-# B) Derivative correctness: dP/dz vs finite difference
-# ---------------------------------------------------------------------------
-class TestRecursionCharacteristicDerivative:
-    def _finite_diff_P(self, rec, z, eps=1e-7):
-        """Compute dP/dz via central finite differences."""
-        P_xp = rec.probe_recursion(z + eps)
-        P_xn = rec.probe_recursion(z - eps)
-        P_yp = rec.probe_recursion(z + 1j * eps)
-        P_yn = rec.probe_recursion(z - 1j * eps)
-
-        du_dx = (P_xp.real - P_xn.real) / (2 * eps)
-        dv_dx = (P_xp.imag - P_xn.imag) / (2 * eps)
-        du_dy = (P_yp.real - P_yn.real) / (2 * eps)
-        dv_dy = (P_yp.imag - P_yn.imag) / (2 * eps)
-
-        real_part = 0.5 * (du_dx + dv_dy)
-        imag_part = 0.5 * (dv_dx - du_dy)
-        return torch.complex(real_part.to(torch.float64), imag_part.to(torch.float64))
-
-    def test_derivative_via_probe_recursion(self):
-        N = 2
-        fF = Gain(size=(N, N), nfft=NFFT, dtype=DTYPE)
-        fB = Delay(
-            size=(N, N), max_len=10, isint=True, nfft=NFFT,
-            fs=48000, unit=100, dtype=DTYPE,
-        )
-        rec = Recursion(fF, fB)
-        z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
-
-        P, dP = rec.probe_recursion(z, derivative=True)
-        dP_fd = self._finite_diff_P(rec, z)
-        assert torch.allclose(dP, dP_fd, atol=1e-5)
-
-    def test_derivative_via_probe_recursion_with_derivative(self):
-        N = 2
-        fF = Gain(size=(N, N), nfft=NFFT, dtype=DTYPE)
-        fB = Delay(
-            size=(N, N), max_len=10, isint=True, nfft=NFFT,
-            fs=48000, unit=100, dtype=DTYPE,
-        )
-        rec = Recursion(fF, fB)
-        z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
-
-        P, dP = rec.probe_recursion_with_derivative(z)
-        dP_fd = self._finite_diff_P(rec, z)
-        assert torch.allclose(dP, dP_fd, atol=1e-5)
-
-    def test_constant_gain_derivative_is_zero(self):
-        """If both branches are constant Gains, dP/dz = 0."""
-        N = 3
-        fF = Gain(size=(N, N), nfft=NFFT, dtype=DTYPE)
-        fB = Gain(size=(N, N), nfft=NFFT, dtype=DTYPE)
-        rec = Recursion(fF, fB)
-        z = torch.tensor(0.9 + 0.1j, dtype=CDTYPE)
-
-        _, dP = rec.probe_recursion(z, derivative=True)
-        assert torch.allclose(dP, torch.zeros_like(dP), atol=1e-10)
-
-    def test_filter_feedback_derivative(self):
-        """Feedback with FIR Filter: derivative should match finite diff."""
-        N = 2
-        fF = Gain(size=(N, N), nfft=NFFT, dtype=DTYPE)
-        fB = Filter(size=(3, N, N), nfft=NFFT, dtype=DTYPE)
-        rec = Recursion(fF, fB)
-        z = torch.tensor(0.85 + 0.1j, dtype=CDTYPE)
-
-        P, dP = rec.probe_recursion_with_derivative(z)
-        dP_fd = self._finite_diff_P(rec, z)
-        assert torch.allclose(dP, dP_fd, atol=1e-5)
-
-
-# ---------------------------------------------------------------------------
-# C) API behavior checks
+# B) API behavior checks (P(z) / P(w) only; derivatives built by callers e.g. pyFDN)
 # ---------------------------------------------------------------------------
 class TestRecursionProbeAPI:
     def _make_recursion(self):
@@ -588,7 +423,7 @@ class TestRecursionProbeAPI:
         )
         return Recursion(fF, fB), N
 
-    def test_probe_recursion_no_derivative_returns_tensor(self):
+    def test_probe_recursion_returns_tensor(self):
         rec, N = self._make_recursion()
         z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
         P = rec.probe_recursion(z)
@@ -596,53 +431,10 @@ class TestRecursionProbeAPI:
         assert P.shape == (N, N)
         assert P.is_complex()
 
-    def test_probe_recursion_derivative_returns_tuple(self):
-        rec, N = self._make_recursion()
-        z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
-        result = rec.probe_recursion(z, derivative=True)
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        P, dP = result
-        assert P.shape == (N, N)
-        assert dP.shape == (N, N)
-        assert P.is_complex()
-        assert dP.is_complex()
-
-    def test_probe_recursion_with_derivative_returns_tuple(self):
-        rec, N = self._make_recursion()
-        z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
-        result = rec.probe_recursion_with_derivative(z)
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        P, dP = result
-        assert P.shape == (N, N)
-        assert dP.shape == (N, N)
-
     def test_accepts_include_shell_io_kwarg(self):
         rec, _ = self._make_recursion()
         z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
         rec.probe_recursion(z, include_shell_io=True)
-        rec.probe_recursion_with_derivative(z, include_shell_io=True)
-
-    def test_create_graph_preserves_autograd(self):
-        rec, N = self._make_recursion()
-        z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
-        P, dP = rec.probe_recursion_with_derivative(z, create_graph=True)
-        has_grad = dP.grad_fn is not None or any(
-            dP[i, j].grad_fn is not None
-            for i in range(N) for j in range(N)
-        )
-        assert has_grad
-
-    def test_consistency_between_methods(self):
-        """probe_recursion(derivative=True) and probe_recursion_with_derivative
-        should return the same values."""
-        rec, _ = self._make_recursion()
-        z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
-        P1, dP1 = rec.probe_recursion(z, derivative=True)
-        P2, dP2 = rec.probe_recursion_with_derivative(z)
-        assert torch.allclose(P1, P2, atol=1e-12)
-        assert torch.allclose(dP1, dP2, atol=1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -666,23 +458,3 @@ class TestRecursionProbeNonRegression:
         H_expected = torch.linalg.solve(I - F @ B, F)
         assert torch.allclose(H, H_expected, atol=1e-10)
 
-    def test_existing_probe_with_derivative_unchanged(self):
-        """probe_with_derivative on Recursion must still work."""
-        N = 2
-        fF = Gain(size=(N, N), nfft=NFFT, dtype=DTYPE)
-        fB = Delay(
-            size=(N, N), max_len=10, isint=True, nfft=NFFT,
-            fs=48000, unit=100, dtype=DTYPE,
-        )
-        with torch.no_grad():
-            fF.param.fill_(0.5)
-        rec = Recursion(fF, fB)
-        z = torch.tensor(0.9 + 0.05j, dtype=CDTYPE)
-        H, dH = probe_with_derivative(rec, z)
-        assert H.shape == (N, N)
-        assert dH.shape == (N, N)
-
-    def test_complex_derivative_is_exported(self):
-        """complex_derivative should be importable from flamo.processor."""
-        from flamo.processor import complex_derivative as cd
-        assert callable(cd)

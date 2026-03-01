@@ -1,8 +1,3 @@
 from .dsp import *
 from .system import *
-from .probe import (
-    probe_points,
-    probe_with_derivative,
-    complex_derivative,
-    complex_derivative_scalar,
-)
+from .probe import probe_points
