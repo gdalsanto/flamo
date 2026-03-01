@@ -61,7 +61,7 @@ class Transform(nn.Module):
         """
         return self.transform(x)
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""Identity transfer for Shell compatibility. Returns None."""
         return None
 
@@ -88,7 +88,7 @@ class FFT(Transform):
         transform = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
         super().__init__(transform=transform, dtype=self.dtype)
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""Identity transfer for Shell compatibility."""
         return None
 
@@ -114,7 +114,7 @@ class iFFT(Transform):
         transform = lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
         super().__init__(transform=transform, dtype=self.dtype)
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""Identity transfer for Shell compatibility."""
         return None
 
@@ -327,14 +327,12 @@ class DSP(nn.Module):
             self.param[indx].copy_(new_value)
             self.new_value = 1  # flag indicating new values have been assigned
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the transfer matrix H(z) at an arbitrary complex z-plane point.
 
             **Arguments**:
                 - **z** (torch.Tensor): A scalar complex tensor representing the z-plane point.
-                - **ext_param**: Optional external parameters (same semantics as forward).
-
             **Returns**:
                 torch.Tensor: Transfer matrix of shape ``(N_out, N_in)`` (complex).
         """
@@ -476,7 +474,7 @@ class Gain(DSP):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the transfer matrix H(z) at arbitrary complex z.
 
@@ -485,12 +483,11 @@ class Gain(DSP):
             **Returns**:
                 torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
         """
-        param = ext_param if ext_param is not None else self.param
-        return to_complex(self.map(param))
+        return to_complex(self.map(self.param))
 
-    def probe_w(self, w: torch.Tensor, ext_param=None):
+    def probe_w(self, w: torch.Tensor):
         r"""Evaluate at :math:`w = z^{-1}`; gain is constant, so same as :meth:`probe`."""
-        return self.probe(w, ext_param)
+        return self.probe(w)
 
 
 class parallelGain(Gain):
@@ -557,7 +554,7 @@ class parallelGain(Gain):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the transfer matrix H(z) at arbitrary complex z.
 
@@ -566,13 +563,12 @@ class parallelGain(Gain):
             **Returns**:
                 torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
         """
-        param = ext_param if ext_param is not None else self.param
-        h = to_complex(self.map(param))
+        h = to_complex(self.map(self.param))
         return torch.diag(h)
 
-    def probe_w(self, w: torch.Tensor, ext_param=None):
+    def probe_w(self, w: torch.Tensor):
         r"""Evaluate at :math:`w = z^{-1}`; gain is constant, so same as :meth:`probe`."""
-        return self.probe(w, ext_param)
+        return self.probe(w)
 
 
 # ============================= MATRICES ================================
@@ -944,7 +940,7 @@ class Filter(DSP):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the transfer matrix H(z) at arbitrary complex z.
 
@@ -953,8 +949,7 @@ class Filter(DSP):
             **Returns**:
                 torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
         """
-        param = ext_param if ext_param is not None else self.param
-        coeff = self.map(param)
+        coeff = self.map(self.param)
         K = coeff.shape[0]
         k_indices = torch.arange(K, device=coeff.device, dtype=coeff.dtype)
         gamma_k = self.gamma ** k_indices
@@ -1032,7 +1027,7 @@ class parallelFilter(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the transfer matrix H(z) at arbitrary complex z.
 
@@ -1041,8 +1036,7 @@ class parallelFilter(Filter):
             **Returns**:
                 torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
         """
-        param = ext_param if ext_param is not None else self.param
-        coeff = self.map(param)
+        coeff = self.map(self.param)
         K = coeff.shape[0]
         k_indices = torch.arange(K, device=coeff.device, dtype=coeff.dtype)
         gamma_k = self.gamma ** k_indices
@@ -1206,7 +1200,7 @@ class ScatteringMatrix(Filter):
         self.get_freq_response()
         self.get_freq_convolve()
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for ScatteringMatrix"
         )
@@ -1355,7 +1349,7 @@ class VelvetNoiseMatrix(Filter):
         self.get_freq_response()
         self.get_freq_convolve()
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for VelvetNoiseMatrix"
         )
@@ -1613,7 +1607,7 @@ class Biquad(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for Biquad. Use SOSFilter instead."
         )
@@ -1778,7 +1772,7 @@ class parallelBiquad(Biquad):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for parallelBiquad. Use parallelSOSFilter instead."
         )
@@ -1963,7 +1957,7 @@ class SOSFilter(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the transfer matrix H(z) at arbitrary complex z.
 
@@ -1974,8 +1968,7 @@ class SOSFilter(Filter):
             **Returns**:
                 torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
         """
-        param = ext_param if ext_param is not None else self.param
-        mapped = self.map(param)
+        mapped = self.map(self.param)
         gamma = self.alias_envelope_dcy
         z_inv = z ** (-1)
         H = torch.ones(mapped.shape[2:], dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64, device=mapped.device)
@@ -2071,7 +2064,7 @@ class parallelSOSFilter(SOSFilter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the transfer matrix H(z) at arbitrary complex z.
 
@@ -2080,8 +2073,7 @@ class parallelSOSFilter(SOSFilter):
             **Returns**:
                 torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
         """
-        param = ext_param if ext_param is not None else self.param
-        mapped = self.map(param)
+        mapped = self.map(self.param)
         gamma = self.alias_envelope_dcy
         z_inv = z ** (-1)
         N = mapped.shape[2]
@@ -2094,15 +2086,14 @@ class parallelSOSFilter(SOSFilter):
             H_diag = H_diag * B_k / A_k
         return torch.diag(H_diag)
 
-    def probe_w(self, w: torch.Tensor, ext_param=None):
+    def probe_w(self, w: torch.Tensor):
         r"""
         Evaluate H(z) at :math:`z = w^{-1}` (i.e. at :math:`w = z^{-1}`).
 
         So :math:`H(1/w)` with the same biquad formula using :math:`z^{-1} = w`.
         Ensures correct w-domain probing when the SOS is in a Series with delay (e.g. in a recursion).
         """
-        param = ext_param if ext_param is not None else self.param
-        mapped = self.map(param)
+        mapped = self.map(self.param)
         gamma = self.alias_envelope_dcy
         z_inv = w  # w = z^{-1}, so H(1/w) uses z_inv = w
         N = mapped.shape[2]
@@ -2415,7 +2406,7 @@ class SVF(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for SVF"
         )
@@ -2510,7 +2501,7 @@ class parallelSVF(SVF):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for parallelSVF"
         )
@@ -2662,7 +2653,7 @@ class GEQ(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for GEQ"
         )
@@ -2748,7 +2739,7 @@ class parallelGEQ(GEQ):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for parallelGEQ"
         )
@@ -2938,7 +2929,7 @@ class PEQ(Filter):
         )
         return param
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for PEQ"
         )
@@ -3066,7 +3057,7 @@ class parallelPEQ(PEQ):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for parallelPEQ"
         )
@@ -3207,7 +3198,7 @@ class AccurateGEQ(Filter):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for AccurateGEQ"
         )
@@ -3296,7 +3287,7 @@ class parallelAccurateGEQ(AccurateGEQ):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         raise NotImplementedError(
             "probe() is not implemented for parallelAccurateGEQ"
         )
@@ -3515,7 +3506,7 @@ class Delay(DSP):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-2]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the transfer matrix at :math:`z` (probe variable in z).
 
@@ -3524,22 +3515,20 @@ class Delay(DSP):
             **Returns**:
                 torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
         """
-        param = ext_param if ext_param is not None else self.param
-        m = self.s2sample(self.map(param))
+        m = self.s2sample(self.map(self.param))
         if self.isint:
             m = m.round()
         z_inv_m = (1.0 / z) ** m
         H = (self.gamma ** m) * z_inv_m
         return H
 
-    def probe_w(self, w: torch.Tensor, ext_param=None):
+    def probe_w(self, w: torch.Tensor):
         r"""
         Evaluate the transfer matrix at :math:`w = z^{-1}` (probe variable in w).
         Returns :math:`H(w) = \\gamma^m w^m` (same as :math:`H(z) = z^{-m}` when :math:`w = 1/z`).
         Used for numerical stability when :math:`|z| < 1` (evaluate in w-plane).
         """
-        param = ext_param if ext_param is not None else self.param
-        m = self.s2sample(self.map(param))
+        m = self.s2sample(self.map(self.param))
         if self.isint:
             m = m.round()
         H = (self.gamma ** m) * (w ** m)
@@ -3632,25 +3621,23 @@ class parallelDelay(Delay):
         self.input_channels = self.size[-1]
         self.output_channels = self.size[-1]
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate at :math:`z`; returns diagonal :math:`H(z) = \\gamma^m z^{-m}` (delay of :math:`m` samples).
 
             **Returns**:
                 torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
         """
-        param = ext_param if ext_param is not None else self.param
-        m = self.s2sample(self.map(param))
+        m = self.s2sample(self.map(self.param))
         if self.isint:
             m = m.round()
         z_inv_m = (1.0 / z) ** m
         h = (self.gamma ** m) * z_inv_m
         return torch.diag(h)
 
-    def probe_w(self, w: torch.Tensor, ext_param=None):
+    def probe_w(self, w: torch.Tensor):
         r"""Evaluate at :math:`w = z^{-1}`; returns diagonal :math:`H(w) = \\gamma^m w^m`."""
-        param = ext_param if ext_param is not None else self.param
-        m = self.s2sample(self.map(param))
+        m = self.s2sample(self.map(self.param))
         if self.isint:
             m = m.round()
         h = (self.gamma ** m) * (w ** m)

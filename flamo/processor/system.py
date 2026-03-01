@@ -300,7 +300,7 @@ class Series(nn.Sequential):
                 input = module(input)
         return input
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the series transfer matrix at arbitrary complex z.
 
@@ -308,7 +308,6 @@ class Series(nn.Sequential):
 
             **Arguments**:
                 - **z** (torch.Tensor): Complex z-plane point.
-                - **ext_param**: Optional external parameters.
 
             **Returns**:
                 torch.Tensor: Transfer matrix ``(N_out, N_in)`` (complex).
@@ -317,13 +316,13 @@ class Series(nn.Sequential):
         for module in self:
             if not hasattr(module, 'probe'):
                 continue
-            Hi = module.probe(z, ext_param)
+            Hi = module.probe(z)
             if Hi is None:
                 continue
             H = Hi if H is None else Hi @ H
         return H
 
-    def probe_w(self, w: torch.Tensor, ext_param=None):
+    def probe_w(self, w: torch.Tensor):
         r"""
         Evaluate the series transfer matrix at :math:`w = z^{-1}` (i.e. at :math:`z = 1/w`).
         Uses each module's :meth:`probe_w` if present, else :meth:`probe(1/w)` so that
@@ -333,9 +332,9 @@ class Series(nn.Sequential):
         for module in self:
             probe_w_fn = getattr(module, 'probe_w', None)
             if probe_w_fn is not None:
-                Hi = probe_w_fn(w, ext_param)
+                Hi = probe_w_fn(w)
             elif getattr(module, 'probe', None) is not None:
-                Hi = module.probe(1.0 / w, ext_param)
+                Hi = module.probe(1.0 / w)
             else:
                 continue
             if Hi is None:
@@ -529,7 +528,7 @@ class Recursion(nn.Module):
 
         return ff_in_ch, ff_out_ch
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the closed-loop transfer matrix at arbitrary complex z.
 
@@ -537,35 +536,21 @@ class Recursion(nn.Module):
 
             **Arguments**:
                 - **z** (torch.Tensor): Complex z-plane point.
-                - **ext_param**: Optional external parameters.
 
             **Returns**:
                 torch.Tensor: Transfer matrix ``(N_out, N_in)`` (complex).
         """
-        F = self.feedforward.probe(z, ext_param)
-        B = self.feedback.probe(z, ext_param)
+        F = self.feedforward.probe(z)
+        B = self.feedback.probe(z)
         N = F.shape[0]
         I = torch.eye(N, dtype=F.dtype, device=F.device)
         A = I - F @ B
         return torch.linalg.solve(A, F)
 
-    def _split_ext_param(self, ext_param):
-        r"""Route ext_param to feedforward / feedback branches."""
-        ext_param_ff = None
-        ext_param_fb = None
-        if ext_param is not None:
-            for key, param in ext_param.items():
-                if 'feedback' in key:
-                    ext_param_fb = param
-                elif 'feedforward' in key:
-                    ext_param_ff = param
-        return ext_param_ff, ext_param_fb
-
-    def _eval_characteristic(self, z: torch.Tensor, ext_param=None):
+    def _eval_characteristic(self, z: torch.Tensor):
         r"""Compute P(z) = I - B(z) F(z) in z (normal convention: P(z) = I - A @ D(z), delays on columns)."""
-        ext_param_ff, ext_param_fb = self._split_ext_param(ext_param)
-        F = self.feedforward.probe(z, ext_param_ff)
-        B = self.feedback.probe(z, ext_param_fb)
+        F = self.feedforward.probe(z)
+        B = self.feedback.probe(z)
         N = F.shape[0]
         I = torch.eye(N, dtype=F.dtype, device=F.device)
         return I - F @ B
@@ -573,7 +558,6 @@ class Recursion(nn.Module):
     def probe_recursion(
         self,
         z: torch.Tensor,
-        ext_param=None,
         derivative: bool = False,
         include_shell_io: bool = False,
         **kwargs,
@@ -586,7 +570,6 @@ class Recursion(nn.Module):
 
             **Arguments**:
                 - **z** (torch.Tensor): Scalar complex z-plane point.
-                - **ext_param**: Optional external parameters (routed to branches).
                 - **derivative** (bool): If True, also return dP/dz. Default: False.
                 - **include_shell_io** (bool): Accepted for signature compatibility (unused).
 
@@ -595,11 +578,11 @@ class Recursion(nn.Module):
                 - If ``derivative=True``: ``(P, dP_dz)`` — tuple of complex tensors.
         """
         if not derivative:
-            return self._eval_characteristic(z, ext_param)
+            return self._eval_characteristic(z)
 
         from flamo.processor.probe import wirtinger_derivative
         P, dP_dz = wirtinger_derivative(
-            lambda z_val: self._eval_characteristic(z_val, ext_param),
+            lambda z_val: self._eval_characteristic(z_val),
             z,
             create_graph=False,
         )
@@ -608,7 +591,6 @@ class Recursion(nn.Module):
     def probe_recursion_with_derivative(
         self,
         z: torch.Tensor,
-        ext_param=None,
         include_shell_io: bool = False,
         create_graph: bool = False,
         **kwargs,
@@ -619,20 +601,20 @@ class Recursion(nn.Module):
         """
         from flamo.processor.probe import wirtinger_derivative
         P, dP_dz = wirtinger_derivative(
-            lambda z_val: self._eval_characteristic(z_val, ext_param),
+            lambda z_val: self._eval_characteristic(z_val),
             z,
             create_graph=create_graph,
         )
         return P, dP_dz
 
-    def log_det_derivative(self, z: torch.Tensor, ext_param=None) -> torch.Tensor:
+    def log_det_derivative(self, z: torch.Tensor) -> torch.Tensor:
         r"""
         Compute :math:`(d/dz) \\log \\det P(z)` with probe variable :math:`z`.
         """
         from flamo.processor.probe import wirtinger_derivative_scalar
 
         def _log_det(z_val):
-            P = self._eval_characteristic(z_val, ext_param)
+            P = self._eval_characteristic(z_val)
             return torch.logdet(P)
 
         _, d_log_det_dz = wirtinger_derivative_scalar(
@@ -640,31 +622,30 @@ class Recursion(nn.Module):
         )
         return d_log_det_dz
 
-    def _eval_characteristic_w(self, w: torch.Tensor, ext_param=None):
+    def _eval_characteristic_w(self, w: torch.Tensor):
         r"""
         Compute P(w) = I - B(w) F(w) with :math:`w = z^{-1}` (probe variable in w).
         F(w) = feedforward.probe_w(w), B(w) = feedback.probe_w(w).
         Used for numerical stability when :math:`|z| < 1` (evaluate in w-plane).
         """
-        ext_param_ff, ext_param_fb = self._split_ext_param(ext_param)
         probe_ff = getattr(self.feedforward, 'probe_w', None) or self.feedforward.probe
         probe_fb = getattr(self.feedback, 'probe_w', None) or self.feedback.probe
-        F = probe_ff(w, ext_param_ff)
-        B = probe_fb(w, ext_param_fb)
+        F = probe_ff(w)
+        B = probe_fb(w)
         N = F.shape[0]
         I = torch.eye(N, dtype=F.dtype, device=F.device)
         return I - F @ B
 
-    def probe_recursion_w(self, w: torch.Tensor, ext_param=None):
+    def probe_recursion_w(self, w: torch.Tensor):
         r"""
         Evaluate the characteristic matrix at :math:`w = z^{-1}`.
 
         P(w) = I - B(w) F(w). Use this for w-domain probing instead of
         probe_recursion(1/w) when modules expose probe_w for numerical stability.
         """
-        return self._eval_characteristic_w(w, ext_param)
+        return self._eval_characteristic_w(w)
 
-    def log_det_derivative_w(self, w: torch.Tensor, ext_param=None) -> torch.Tensor:
+    def log_det_derivative_w(self, w: torch.Tensor) -> torch.Tensor:
         r"""
         Compute :math:`(d/dw) \\log \\det P(w)` with probe variable :math:`w = z^{-1}`.
         Used when :math:`|z| < 1` for numerical stability (evaluate in w-plane).
@@ -673,7 +654,7 @@ class Recursion(nn.Module):
         from flamo.processor.probe import wirtinger_derivative_scalar
 
         def _log_det(w_val):
-            P = self._eval_characteristic_w(w_val, ext_param)
+            P = self._eval_characteristic_w(w_val)
             return torch.logdet(P)
 
         _, d_log_det_dw = wirtinger_derivative_scalar(
@@ -681,14 +662,14 @@ class Recursion(nn.Module):
         )
         return d_log_det_dw
 
-    def probe_recursion_w_with_derivative(self, w: torch.Tensor, ext_param=None):
+    def probe_recursion_w_with_derivative(self, w: torch.Tensor):
         r"""
         Evaluate P(w) and dP/dw at :math:`w = z^{-1}`.
         Returns (P(w), dP_dw). Then q = det(P), qp = q * trace(P^{-1} dP/dw) = Q'(w).
         """
         from flamo.processor.probe import wirtinger_derivative
         P, dP_dw = wirtinger_derivative(
-            lambda w_val: self._eval_characteristic_w(w_val, ext_param),
+            lambda w_val: self._eval_characteristic_w(w_val),
             w,
             create_graph=False,
         )
@@ -867,7 +848,7 @@ class Parallel(nn.Module):
         else:
             return brA_in_ch, brA_out_ch + brB_out_ch
 
-    def probe(self, z: torch.Tensor, ext_param=None):
+    def probe(self, z: torch.Tensor):
         r"""
         Evaluate the parallel transfer matrix at arbitrary complex z.
 
@@ -876,13 +857,12 @@ class Parallel(nn.Module):
 
             **Arguments**:
                 - **z** (torch.Tensor): Complex z-plane point.
-                - **ext_param**: Optional external parameters.
 
             **Returns**:
                 torch.Tensor: Transfer matrix (complex).
         """
-        H_A = self.branchA.probe(z, ext_param)
-        H_B = self.branchB.probe(z, ext_param)
+        H_A = self.branchA.probe(z)
+        H_B = self.branchB.probe(z)
         if self.sum_output:
             return H_A + H_B
         else:
@@ -1094,7 +1074,7 @@ class Shell(nn.Module):
 
         return in_ch, out_ch
 
-    def probe(self, z: torch.Tensor, ext_param=None, include_shell_io: bool = False):
+    def probe(self, z: torch.Tensor, include_shell_io: bool = False):
         r"""
         Evaluate the transfer matrix at arbitrary complex z.
 
@@ -1103,21 +1083,20 @@ class Shell(nn.Module):
 
             **Arguments**:
                 - **z** (torch.Tensor): Complex z-plane point.
-                - **ext_param**: Optional external parameters.
                 - **include_shell_io** (bool): Include input/output layer probes. Default: False.
 
             **Returns**:
                 torch.Tensor: Transfer matrix (complex).
         """
-        H = self.__core.probe(z, ext_param)
+        H = self.__core.probe(z)
 
         if include_shell_io:
             in_H = None
             if hasattr(self.__input_layer, 'probe'):
-                in_H = self.__input_layer.probe(z, ext_param)
+                in_H = self.__input_layer.probe(z)
             out_H = None
             if hasattr(self.__output_layer, 'probe'):
-                out_H = self.__output_layer.probe(z, ext_param)
+                out_H = self.__output_layer.probe(z)
             if in_H is not None and H is not None:
                 H = H @ in_H
             elif in_H is not None:
