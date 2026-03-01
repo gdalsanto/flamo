@@ -633,7 +633,7 @@ class Recursion(nn.Module):
 
         def _log_det(z_val):
             P = self._eval_characteristic(z_val, ext_param)
-            return torch.log(torch.linalg.det(P))
+            return torch.logdet(P)
 
         _, d_log_det_dz = wirtinger_derivative_scalar(
             _log_det, z, create_graph=False
@@ -653,7 +653,16 @@ class Recursion(nn.Module):
         B = probe_fb(w, ext_param_fb)
         N = F.shape[0]
         I = torch.eye(N, dtype=F.dtype, device=F.device)
-        return I - F @ B 
+        return I - F @ B
+
+    def probe_recursion_w(self, w: torch.Tensor, ext_param=None):
+        r"""
+        Evaluate the characteristic matrix at :math:`w = z^{-1}`.
+
+        P(w) = I - B(w) F(w). Use this for w-domain probing instead of
+        probe_recursion(1/w) when modules expose probe_w for numerical stability.
+        """
+        return self._eval_characteristic_w(w, ext_param)
 
     def log_det_derivative_w(self, w: torch.Tensor, ext_param=None) -> torch.Tensor:
         r"""
@@ -665,7 +674,7 @@ class Recursion(nn.Module):
 
         def _log_det(w_val):
             P = self._eval_characteristic_w(w_val, ext_param)
-            return torch.log(torch.linalg.det(P))
+            return torch.logdet(P)
 
         _, d_log_det_dw = wirtinger_derivative_scalar(
             _log_det, w, create_graph=False
