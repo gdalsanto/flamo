@@ -547,14 +547,6 @@ class Recursion(nn.Module):
         A = I - F @ B
         return torch.linalg.solve(A, F)
 
-    def _eval_characteristic(self, z: torch.Tensor):
-        r"""Compute P(z) = I - B(z) F(z) in z (normal convention: P(z) = I - A @ D(z), delays on columns)."""
-        F = self.feedforward.probe(z)
-        B = self.feedback.probe(z)
-        N = F.shape[0]
-        I = torch.eye(N, dtype=F.dtype, device=F.device)
-        return I - F @ B
-
     def probe_recursion(
         self,
         z: torch.Tensor,
@@ -565,21 +557,10 @@ class Recursion(nn.Module):
         Evaluate the characteristic matrix at z.
 
         P(z) = I - B(z) F(z) (normal convention: P(z) = I - A @ D(z), delays on columns).
-        All probe variable is z (no w = z^{-1}).
         Derivatives (dP/dz, d/dz log det P, etc.) are built by callers (e.g. pyFDN) via JVP/grad.
         """
-        return self._eval_characteristic(z)
-
-    def _eval_characteristic_w(self, w: torch.Tensor):
-        r"""
-        Compute P(w) = I - B(w) F(w) with :math:`w = z^{-1}` (probe variable in w).
-        F(w) = feedforward.probe_w(w), B(w) = feedback.probe_w(w).
-        Used for numerical stability when :math:`|z| < 1` (evaluate in w-plane).
-        """
-        probe_ff = getattr(self.feedforward, 'probe_w', None) or self.feedforward.probe
-        probe_fb = getattr(self.feedback, 'probe_w', None) or self.feedback.probe
-        F = probe_ff(w)
-        B = probe_fb(w)
+        F = self.feedforward.probe(z)
+        B = self.feedback.probe(z)
         N = F.shape[0]
         I = torch.eye(N, dtype=F.dtype, device=F.device)
         return I - F @ B
@@ -588,10 +569,16 @@ class Recursion(nn.Module):
         r"""
         Evaluate the characteristic matrix at :math:`w = z^{-1}`.
 
-        P(w) = I - B(w) F(w). Use this for w-domain probing instead of
-        probe_recursion(1/w) when modules expose probe_w for numerical stability.
+        P(w) = I - B(w) F(w). Use for w-domain probing when modules expose probe_w
+        (numerical stability when :math:`|z| < 1`).
         """
-        return self._eval_characteristic_w(w)
+        probe_ff = getattr(self.feedforward, 'probe_w', None) or self.feedforward.probe
+        probe_fb = getattr(self.feedback, 'probe_w', None) or self.feedback.probe
+        F = probe_ff(w)
+        B = probe_fb(w)
+        N = F.shape[0]
+        I = torch.eye(N, dtype=F.dtype, device=F.device)
+        return I - F @ B
 
 # ============================= RECURSION ================================
 
