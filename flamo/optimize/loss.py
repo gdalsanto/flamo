@@ -259,7 +259,7 @@ class mel_mss_loss(nn.Module):
                 n_mels=nfft // 8,
                 verbose=False,
             )
-            mel_stft = mel_stft.to(self.device)
+            mel_stft = mel_stft.to(self.device).to(y_pred.dtype)
 
             h, w = tuple(mel_stft(y_pred).shape[-2:])
             Y_pred_lin = torch.reshape(mel_stft(y_pred), (batch_size, h, w, n_channels))
@@ -400,7 +400,7 @@ class mss_loss(nn.Module):
                 output_format="Magnitude",
                 verbose=False,
             )
-            lin_stft = lin_stft.to(self.device)
+            lin_stft = lin_stft.to(self.device).to(y_pred.dtype)
 
             h, w = tuple(lin_stft(y_pred).shape[-2:])
             Y_pred_lin = torch.reshape(lin_stft(y_pred), (batch_size, h, w, n_channels))
