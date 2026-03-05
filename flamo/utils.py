@@ -30,6 +30,24 @@ def save_audio(filepath, x, fs=48000, subtype='PCM_24'):
     sf.write(filepath, x.cpu().numpy(), fs, subtype=subtype)
 
 
+def get_frequency_samples(num: int, rho: float = 1.0, device='cpu', dtype=torch.float64):
+    '''
+    Get frequency samples (in radians) sampled at linearly spaced points along a circle with radius rho.
+
+        **Args**:
+            num (int): number of frequency samples
+            rho (float): radius of the circle
+            device (str): device to use for computation
+            dtype (torch.dtype): data type for tensors
+
+        **Returns**:
+            torch.Tensor: frequency samples in radians between [0, pi]
+    '''
+    angle = torch.linspace(0, 1, num, device=device, dtype=dtype)
+    abs = rho * torch.ones(num, device=device, dtype=dtype)
+
+    return abs * torch.exp(1j * angle * torch.pi) 
+
 class RegularGridInterpolator:
     """
     Interpolates values on a regular grid.
