@@ -300,6 +300,34 @@ class Series(nn.Sequential):
                 input = module(input)
         return input
 
+    def probe(self, z: torch.Tensor):
+        r"""
+        Evaluate the series transfer matrix at arbitrary complex z.
+
+        H(z) = H_n @ ... @ H_1  (right-to-left composition).
+
+            **Arguments**:
+                - **z** (torch.Tensor): Complex z-plane point.
+
+            **Returns**:
+                torch.Tensor: Transfer matrix ``(N_out, N_in)`` (complex).
+        """
+        H = None
+        for module in self:
+            Hi = module.probe(z)
+            H = Hi if H is None else Hi @ H
+        return H
+
+    def probe_w(self, w: torch.Tensor):
+        r"""
+        Evaluate the series transfer matrix at :math:`w = z^{-1}` (i.e. at :math:`z = 1/w`).
+        """
+        H = None
+        for module in self:
+            Hi = module.probe_w(w)
+            H = Hi if H is None else Hi @ H
+        return H
+
 
 # ============================= RECURSION ================================
 
@@ -486,6 +514,56 @@ class Recursion(nn.Module):
 
         return ff_in_ch, ff_out_ch
 
+    def probe(self, z: torch.Tensor):
+        r"""
+        Evaluate the closed-loop transfer matrix at arbitrary complex z.
+
+        H(z) = solve(I - F(z) @ B(z), F(z))
+
+            **Arguments**:
+                - **z** (torch.Tensor): Complex z-plane point.
+
+            **Returns**:
+                torch.Tensor: Transfer matrix ``(N_out, N_in)`` (complex).
+        """
+        F = self.feedforward.probe(z)
+        B = self.feedback.probe(z)
+        N = F.shape[0]
+        I = torch.eye(N, dtype=F.dtype, device=F.device)
+        A = I - F @ B
+        return torch.linalg.solve(A, F)
+
+    def probe_recursion(
+        self,
+        z: torch.Tensor,
+        include_shell_io: bool = False,
+        **kwargs,
+    ):
+        r"""
+        Evaluate the characteristic matrix at z.
+
+        P(z) = I - B(z) F(z) (normal convention: P(z) = I - A @ D(z), delays on columns).
+        Derivatives (dP/dz, d/dz log det P, etc.) are built by callers (e.g. pyFDN) via JVP/grad.
+        """
+        F = self.feedforward.probe(z)
+        B = self.feedback.probe(z)
+        N = F.shape[0]
+        I = torch.eye(N, dtype=F.dtype, device=F.device)
+        return I - F @ B
+
+    def probe_recursion_w(self, w: torch.Tensor):
+        r"""
+        Evaluate the characteristic matrix at :math:`w = 1/z`.
+
+        P(w) = I - B(w) F(w). Use for w-domain probing when modules expose probe_w
+        (numerical stability when :math:`|z| < 1`).
+        """
+        F = self.feedforward.probe_w(w)
+        B = self.feedback.probe_w(w)
+        N = F.shape[0]
+        I = torch.eye(N, dtype=F.dtype, device=F.device)
+        return I - F @ B
+
 # ============================= RECURSION ================================
 
 
@@ -658,8 +736,40 @@ class Parallel(nn.Module):
             return brA_in_ch, brA_out_ch
         else:
             return brA_in_ch, brA_out_ch + brB_out_ch
-    
 
+    def probe(self, z: torch.Tensor):
+        r"""
+        Evaluate the parallel transfer matrix at arbitrary complex z.
+
+        If sum_output: H = H_A + H_B
+        Else: H = cat([H_A, H_B], dim=0)
+
+            **Arguments**:
+                - **z** (torch.Tensor): Complex z-plane point.
+
+            **Returns**:
+                torch.Tensor: Transfer matrix (complex).
+        """
+        H_A = self.branchA.probe(z)
+        H_B = self.branchB.probe(z)
+        if self.sum_output:
+            return H_A + H_B
+        else:
+            return torch.cat([H_A, H_B], dim=0)
+
+    def probe_w(self, w: torch.Tensor):
+        r"""
+        Evaluate the parallel transfer matrix at arbitrary complex w.
+
+        If sum_output: H = H_A + H_B
+        Else: H = cat([H_A, H_B], dim=0)
+        """
+        H_A = self.branchA.probe_w(w)
+        H_B = self.branchB.probe_w(w)
+        if self.sum_output:
+            return H_A + H_B
+        else:
+            return torch.cat([H_A, H_B], dim=0)
 # ============================= SHELL ================================
 
 
@@ -864,6 +974,39 @@ class Shell(nn.Module):
             out_ch = getattr(self.__core, "output_channels")
 
         return in_ch, out_ch
+
+    def probe(self, z: torch.Tensor, include_shell_io: bool = False):
+        r"""
+        Evaluate the transfer matrix at arbitrary complex z.
+
+        By default returns the core probe. If ``include_shell_io=True``, includes
+        input and output layers (when they support probe).
+
+            **Arguments**:
+                - **z** (torch.Tensor): Complex z-plane point.
+                - **include_shell_io** (bool): Include input/output layer probes. Default: False.
+
+            **Returns**:
+                torch.Tensor: Transfer matrix (complex).
+        """
+        H = self.__core.probe(z)
+
+        if include_shell_io:
+            in_H = None
+            if hasattr(self.__input_layer, 'probe'):
+                in_H = self.__input_layer.probe(z)
+            out_H = None
+            if hasattr(self.__output_layer, 'probe'):
+                out_H = self.__output_layer.probe(z)
+            if in_H is not None and H is not None:
+                H = H @ in_H
+            elif in_H is not None:
+                H = in_H
+            if out_H is not None and H is not None:
+                H = out_H @ H
+            elif out_H is not None:
+                H = out_H
+        return H
 
     # ---------------------- Responses methods ----------------------
     def get_time_response(
