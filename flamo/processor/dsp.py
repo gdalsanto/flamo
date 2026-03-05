@@ -3547,8 +3547,8 @@ class parallelDelay(Delay):
         if self.isint:
             m = m.round()
         z_inv_m = (1.0 / z) ** m
-        h = (self.gamma ** m) * z_inv_m
-        return torch.diag(h)
+        H = (self.gamma ** m) * z_inv_m
+        return torch.diag_embed(H)
 
 
 class GainDelay(DSP):

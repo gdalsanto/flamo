@@ -528,7 +528,7 @@ class Recursion(nn.Module):
         """
         F = self.feedforward.probe(z)
         B = self.feedback.probe(z)
-        N = F.shape[0]
+        N = F.shape[-1]
         I = torch.eye(N, dtype=F.dtype, device=F.device)
         A = I - F @ B
         return torch.linalg.solve(A, F)
