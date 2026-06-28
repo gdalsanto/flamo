@@ -5,6 +5,7 @@ This mirrors examples/e8_fdn.py::example_fdn but replaces the ML training stack
 loop over the single fixed (impulse, target RIR) pair. The FDN construction and
 losses are identical.
 """
+
 import torch
 import torch.nn as nn
 import argparse
@@ -42,27 +43,50 @@ def example_fdn_optimize(args):
     ## ---------------- CONSTRUCT FDN ---------------- ##
 
     input_gain = dsp.Gain(
-        size=(N, 1), nfft=args.nfft, requires_grad=True,
-        alias_decay_db=alias_decay_db, device=args.device, dtype=args.dtype,
+        size=(N, 1),
+        nfft=args.nfft,
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+        dtype=args.dtype,
     )
     output_gain = dsp.Gain(
-        size=(1, N), nfft=args.nfft, requires_grad=True,
-        alias_decay_db=alias_decay_db, device=args.device, dtype=args.dtype,
+        size=(1, N),
+        nfft=args.nfft,
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+        dtype=args.dtype,
     )
     delays = dsp.parallelDelay(
-        size=(N,), max_len=delay_lengths.max(), nfft=args.nfft, isint=True,
-        requires_grad=False, alias_decay_db=alias_decay_db,
-        device=args.device, dtype=args.dtype,
+        size=(N,),
+        max_len=delay_lengths.max(),
+        nfft=args.nfft,
+        isint=True,
+        requires_grad=False,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+        dtype=args.dtype,
     )
     delays.assign_value(delays.sample2s(delay_lengths))
     mixing_matrix = dsp.Matrix(
-        size=(N, N), nfft=args.nfft, matrix_type="orthogonal", requires_grad=True,
-        alias_decay_db=alias_decay_db, device=args.device, dtype=args.dtype,
+        size=(N, N),
+        nfft=args.nfft,
+        matrix_type="orthogonal",
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+        dtype=args.dtype,
     )
     attenuation = dsp.parallelGEQ(
-        size=(N,), octave_interval=1, nfft=args.nfft, fs=args.samplerate,
-        requires_grad=True, alias_decay_db=alias_decay_db,
-        device=args.device, dtype=args.dtype,
+        size=(N,),
+        octave_interval=1,
+        nfft=args.nfft,
+        fs=args.samplerate,
+        requires_grad=True,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+        dtype=args.dtype,
     )
     attenuation.map = lambda x: 20 * torch.log10(torch.sigmoid(x))
     feedback = system.Series(
@@ -81,8 +105,10 @@ def example_fdn_optimize(args):
 
     input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
     output_layer = dsp.iFFTAntiAlias(
-        nfft=args.nfft, alias_decay_db=alias_decay_db,
-        device=args.device, dtype=args.dtype,
+        nfft=args.nfft,
+        alias_decay_db=alias_decay_db,
+        device=args.device,
+        dtype=args.dtype,
     )
     model = system.Shell(core=FDN, input_layer=input_layer, output_layer=output_layer)
 
@@ -90,14 +116,20 @@ def example_fdn_optimize(args):
         ir_init = model.get_time_response(identity=False, fs=args.samplerate).squeeze()
         save_audio(
             os.path.join(args.train_dir, "ir_init.wav"),
-            ir_init / torch.max(torch.abs(ir_init)), fs=args.samplerate,
+            ir_init / torch.max(torch.abs(ir_init)),
+            fs=args.samplerate,
         )
 
     ## ---------------- OPTIMIZATION SET UP ---------------- ##
 
     input = signal_gallery(
-        1, n_samples=args.nfft, n=1, signal_type="impulse", fs=args.samplerate,
-        device=args.device, dtype=args.dtype,
+        1,
+        n_samples=args.nfft,
+        n=1,
+        signal_type="impulse",
+        fs=args.samplerate,
+        device=args.device,
+        dtype=args.dtype,
     )
     target_rir = torch.tensor(sf.read(args.target_rir)[0], dtype=torch.float32)
     target_rir = target_rir / torch.max(torch.abs(target_rir))
@@ -124,28 +156,43 @@ def example_fdn_optimize(args):
         ir_optim = model.get_time_response(identity=False, fs=args.samplerate).squeeze()
         save_audio(
             os.path.join(args.train_dir, "ir_optim_eager.wav"),
-            ir_optim / torch.max(torch.abs(ir_optim)), fs=args.samplerate,
+            ir_optim / torch.max(torch.abs(ir_optim)),
+            fs=args.samplerate,
         )
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
-    parser.add_argument("--dtype", type=str, default="float64",
-                        choices=["float32", "float64"], help="tensor data type")
-    parser.add_argument("--device", type=str, default="cuda",
-                        help="device to use for computation")
-    parser.add_argument("--max_steps", type=int, default=1600,
-                        help="number of optimization steps")
-    parser.add_argument("--optimizer", type=str, default="adam",
-                        choices=["adam", "lbfgs"], help="optimizer")
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        default="float64",
+        choices=["float32", "float64"],
+        help="tensor data type",
+    )
+    parser.add_argument(
+        "--device", type=str, default="cuda", help="device to use for computation"
+    )
+    parser.add_argument(
+        "--max_steps", type=int, default=1600, help="number of optimization steps"
+    )
+    parser.add_argument(
+        "--optimizer",
+        type=str,
+        default="adam",
+        choices=["adam", "lbfgs"],
+        help="optimizer",
+    )
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--train_dir", type=str, help="directory to save results")
-    parser.add_argument("--target_rir", type=str,
-                        default="rirs/arni_35_3541_4_2.wav",
-                        help="filepath to target RIR")
+    parser.add_argument(
+        "--target_rir",
+        type=str,
+        default="rirs/arni_35_3541_4_2.wav",
+        help="filepath to target RIR",
+    )
 
     args = parser.parse_args()
 
@@ -163,8 +210,10 @@ if __name__ == "__main__":
     with open(os.path.join(args.train_dir, "args.txt"), "w") as f:
         f.write(
             "\n".join(
-                [str(k) + "," + str(v)
-                 for k, v in sorted(vars(args).items(), key=lambda x: x[0])]
+                [
+                    str(k) + "," + str(v)
+                    for k, v in sorted(vars(args).items(), key=lambda x: x[0])
+                ]
             )
         )
 
