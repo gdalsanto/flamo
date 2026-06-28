@@ -9,7 +9,7 @@ from collections import OrderedDict
 from flamo.optimize.dataset import DatasetColorless, load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
-from flamo.optimize.loss import sparsity_loss, masked_mse_loss
+from flamo.optimize.loss import mse_loss, sparsity_loss
 from flamo.utils import save_audio
 
 torch.manual_seed(130709)
@@ -134,16 +134,7 @@ def example_fdn(args):
         train_dir=args.train_dir,
         device=args.device,
     )
-    trainer.register_criterion(
-        masked_mse_loss(
-            nfft=args.nfft,
-            n_samples=12000,
-            n_sets=1,
-            regenerate_mask=True,
-            device=args.device,
-        ),
-        1,
-    )
+    trainer.register_criterion(mse_loss(nfft=args.nfft, device=args.device), 1)
     trainer.register_criterion(sparsity_loss(), 0.2, requires_model=True)
 
     ## ---------------- TRAIN ---------------- ##
@@ -201,7 +192,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--nfft", type=int, default=48000 * 4, help="FFT size")
+    parser.add_argument("--nfft", type=int, default=96000, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
     parser.add_argument("--dtype", type=str, default="float64", choices=["float32", "float64"], help="data type for tensors")
     parser.add_argument("--num", type=int, default=2**8, help="dataset size")
@@ -212,7 +203,7 @@ if __name__ == "__main__":
         "--batch_size", type=int, default=1, help="batch size for training"
     )
     parser.add_argument(
-        "--max_epochs", type=int, default=200, help="maximum number of epochs"
+        "--max_epochs", type=int, default=10, help="maximum number of epochs"
     )
     parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument(
