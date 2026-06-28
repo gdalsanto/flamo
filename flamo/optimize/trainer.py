@@ -6,7 +6,6 @@ import warnings
 import torch.nn as nn
 from typing import Optional
 from tqdm import trange
-import json
 
 
 class Trainer:
@@ -61,7 +60,6 @@ class Trainer:
         train_dir: str = None,
         device: str = "cpu",
     ):
-
         self.device = device
         self.log = log
         self.net = net.to(device)
@@ -73,9 +71,9 @@ class Trainer:
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         self.n_loss = 0
         if self.log:
-            assert os.path.isdir(
-                train_dir
-            ), "The directory specified in train_dir does not exist."
+            assert os.path.isdir(train_dir), (
+                "The directory specified in train_dir does not exist."
+            )
         self.train_dir = train_dir
 
         self.criterion, self.alpha, self.requires_model = (
@@ -368,9 +366,7 @@ class EagerTrainer:
             )
             self.scheduler = None
         else:
-            raise ValueError(
-                f"Unknown optimizer '{optimizer}'. Use 'adam' or 'lbfgs'."
-            )
+            raise ValueError(f"Unknown optimizer '{optimizer}'. Use 'adam' or 'lbfgs'.")
 
     def register_criterion(
         self, criterion: nn.Module, alpha: int = 1, requires_model: bool = False
@@ -455,9 +451,7 @@ class EagerTrainer:
                 self.optimizer.step(closure)
                 with torch.no_grad():
                     est = self.net(input)
-                    total = self._compute_loss(
-                        est, target, self.loss_history
-                    ).item()
+                    total = self._compute_loss(est, target, self.loss_history).item()
 
             self.loss_history["total"].append(total)
             pbar.set_postfix_str(f"loss: {total:.6f}")
