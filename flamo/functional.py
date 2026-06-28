@@ -4,7 +4,10 @@ import torch.nn as nn
 import numpy as np
 import scipy.signal
 from typing import Optional
-from flamo.utils import RegularGridInterpolator
+from flamo.utils import RegularGridInterpolator, to_complex
+
+
+# ============================= BASIC ================================
 
 
 def get_magnitude(x: torch.Tensor):
@@ -39,126 +42,74 @@ def get_eigenvalues(x: torch.Tensor):
     return torch.linalg.eigvals(x)
 
 
-def skew_matrix(X):
+def hertz2rad(hertz: torch.Tensor, fs: int):
     r"""
-    Generate a skew symmetric matrix from a given matrix :math:`\mathbf{X}_{\textrm{Tr}}` as follows
+    Convert frequency from Hz to rad.
 
     .. math::
+        \omega = \frac{2\pi f}{f_s}
 
-        \mathbf{X} = \mathbf{X}_{\textrm{Tr}} - \mathbf{X}_{\textrm{Tr}}^\top
-
-    where :math:`\mathbf{X_{\textrm{Tr}}}` is the upper triangular part of :math:`\mathbf{X}`, and :math:`\cdot^\top` denotes the transpose operation.
-
-    **Arguments**:
-        **X** (torch.Tensor): The input matrix.
-    """
-    A = X.triu(1)
-    return A - A.transpose(-1, -2)
-
-
-def get_frequency_samples(num: int, device: str | torch.device = None, dtype: torch.dtype = torch.float32):
-    r"""
-    Get frequency samples (in radians) sampled at linearly spaced points along the unit circle.
-
-    **Arguments**
-        - **num** (int): number of frequency samples
-        - **device** (torch.device, str): The device of constructed tensors. Default: None.
-        - **dtype** (torch.dtype): The dtype of constructed tensors. Default: torch.float32.
-
-    **Returns**
-        - frequency samples in radians between [0, pi]
-    """
-    angle = torch.linspace(0, 1, num, device=device, dtype=dtype)
-    abs = torch.ones(num, device=device, dtype=dtype)
-    return torch.polar(abs, angle * np.pi)
-
-
-class HadamardMatrix(nn.Module):
-    """
-    Generate a Hadamard matrix of size N as a nn.Module.
-    """
-
-    def __init__(self, N, device: Optional[str] = None, dtype: torch.dtype = torch.float32):
-        super().__init__()
-        self.N = N
-        self.device = device
-        self.dtype = dtype
-
-    def forward(self, x):
-        U = torch.tensor([[1.0]], device=self.device, dtype=self.dtype)
-        while U.shape[0] < self.N:
-            U = torch.kron(
-                U, torch.tensor([[1, 1], [1, -1]], dtype=U.dtype, device=U.device)
-            ) / torch.sqrt(torch.tensor(2.0, device=U.device, dtype=U.dtype))
-        return U
-
-
-class RotationMatrix(nn.Module):
-    """
-    Generate a rotation matrix of size N as a nn.Module from a given angle.
-    """
-
-    def __init__(
-        self,
-        N: int,
-        min_angle: float = 0,
-        max_angle: float = torch.pi / 4,
-        iter: Optional[int] = None,
-        device: Optional[str] = None,
-        dtype: torch.dtype = torch.float32,
-    ):
-
-        super().__init__()
-        self.N = N
-        self.min_angle = min_angle
-        self.max_angle = max_angle
-        self.iter = iter
-        self.device = device
-        self.dtype = dtype
-
-    def create_submatrix(self, angles: torch.Tensor, iters: int = 1):
-        """Create a submatrix for each group."""
-        X = torch.zeros(2, 2, device=self.device, dtype=self.dtype)
-        angles[0] = torch.clamp(angles[0], self.min_angle, self.max_angle)
-        X.fill_diagonal_(torch.cos(angles[0]))
-        X[1, 0] = -torch.sin(angles[0])
-        X[0, 1] = torch.sin(angles[0])
-
-        if iters is None:
-            iters = torch.log2(torch.tensor(self.N)).int().item() - 1
-        for i in range(iters):
-            if len(angles) > 1:
-                X = torch.kron(X, self.create_submatrix([angles[i]]))
-            else:
-                X = torch.kron(X, X)
-        return X
-
-    def forward(self, theta):
-
-        return self.create_submatrix(theta, self.iter)
-
-
-def biquad2tf(b: torch.Tensor, a: torch.Tensor, nfft: int):
-    r"""
-    Converts a biquad filter representation to a transfer function.
-    Shape of :attr:`b` and :attr:`a` is (3, n_sections)
+    where :math:`f` is the frequency in Hz and :math:`f_s` is the sampling frequency in Hz.
 
     **Arguments**:
-        - **b** (torch.Tensor): Coefficients of the numerator polynomial of the biquad filter.
-        - **a** (torch.Tensor): Coefficients of the denominator polynomial of the biquad filter.
-        - **nfft** (int): The number of FFT points to compute teh transfer function.
+        - **hertz** (torch.Tensor): The frequency in Hz.
+        - **fs** (int): The sampling frequency in Hz.
+    """
+    return torch.divide(hertz, fs) * 2 * torch.pi
+
+
+def rad2hertz(rad: torch.Tensor, fs: int):
+    r"""
+    Convert frequency from rad to Hz
+
+    .. math::
+        f = \frac{\omega f_s}{2\pi}
+
+    where :math:`\omega` is the frequency in rad and :math:`f_s` is the sampling frequency in Hz.
+
+    **Arguments**:
+        - rad (torch.Tensor): The frequency in rad.
+        - fs (int): The sampling frequency in Hz.
+    """
+    return torch.divide(rad * fs, 2 * torch.pi)
+
+
+def db2mag(dB: torch.Tensor | float):
+    r"""
+    Convert a value from decibels (dB) to magnitude.
+
+    .. math::
+        \text{magnitude} = 10^{dB/20}
+
+    where :math:`dB` is the input value in decibels.
+
+    **Arguments**:
+        **dB** (torch.tensor | float): The value in decibels.
+    **Returns**:
+        - float: The corresponding magnitude value.
+    """
+
+    return 10 ** (dB / 20)
+
+
+def mag2db(mag: torch.Tensor):
+    r"""
+    Convert a value from magnitude to decibels (dB).
+
+    .. math::
+        \text{dB} = 20\log_{10}(\text{magnitude})
+
+    where :math:`\text{magnitude}` is the input value in magnitude.
+
+    **Arguments**:
+
+        - **mag** (torch.tensor): The value in magnitude.
 
     **Returns**:
-        - torch.Tensor: Transfer function of the biquad filter evaluated at x.
+        - float: The corresponding value in decibels.
     """
-    if len(b.shape) < 2:
-        b = b.unsqueeze(-1)
-    if len(a.shape) < 2:
-        a = a.unsqueeze(-1)
-    B = torch.fft.rfft(b, nfft, dim=0)
-    A = torch.fft.rfft(a, nfft, dim=0)
-    H = torch.prod(B, dim=1) / torch.prod(A, dim=1)
-    return H
+
+    return 20 * torch.log10(torch.abs(mag))
 
 
 def signal_gallery(
@@ -257,7 +208,9 @@ def signal_gallery(
             x = torch.empty((batch_size, n_samples, n), device=device, dtype=dtype)
             for i_batch in range(batch_size):
                 for i_ch in range(n):
-                    x[i_batch, :, i_ch] = gen_velvet_noise(n_samples, fs, rate, device, dtype)
+                    x[i_batch, :, i_ch] = gen_velvet_noise(
+                        n_samples, fs, rate, device, dtype
+                    )
             return x
         case "reference":
             if isinstance(reference, torch.Tensor):
@@ -270,7 +223,230 @@ def signal_gallery(
             return torch.randn((batch_size, n_samples, n), device=device, dtype=dtype)
 
 
-def gen_velvet_noise(n_samples: int, fs: int, density: float, device: str | torch.device = None, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+def get_frequency_samples(
+    num: int, device: str | torch.device = None, dtype: torch.dtype = torch.float32
+):
+    r"""
+    Get frequency samples (in radians) sampled at linearly spaced points along the unit circle.
+
+    **Arguments**
+        - **num** (int): number of frequency samples
+        - **device** (torch.device, str): The device of constructed tensors. Default: None.
+        - **dtype** (torch.dtype): The dtype of constructed tensors. Default: torch.float32.
+
+    **Returns**
+        - frequency samples in radians between [0, pi]
+    """
+    angle = torch.linspace(0, 1, num, device=device, dtype=dtype)
+    abs = torch.ones(num, device=device, dtype=dtype)
+    return torch.polar(abs, angle * np.pi)
+
+
+# ============================= MATRIX ================================
+
+
+def skew_matrix(X):
+    r"""
+    Generate a skew symmetric matrix from a given matrix :math:`\mathbf{X}_{\textrm{Tr}}` as follows
+
+    .. math::
+
+        \mathbf{X} = \mathbf{X}_{\textrm{Tr}} - \mathbf{X}_{\textrm{Tr}}^\top
+
+    where :math:`\mathbf{X_{\textrm{Tr}}}` is the upper triangular part of :math:`\mathbf{X}`, and :math:`\cdot^\top` denotes the transpose operation.
+
+    **Arguments**:
+        **X** (torch.Tensor): The input matrix.
+    """
+    A = X.triu(1)
+    return A - A.transpose(-1, -2)
+
+
+def _block_rotation_matrix(angles: torch.Tensor) -> torch.Tensor:
+    blocks = []
+    for theta in angles:
+        c = torch.cos(theta)
+        s = torch.sin(theta)
+        blocks.append(torch.stack([torch.stack([c, -s]), torch.stack([s, c])]))
+    return torch.block_diag(*blocks)
+
+
+class HadamardMatrix(nn.Module):
+    """
+    Generate a Hadamard matrix of size N as a nn.Module.
+    """
+
+    def __init__(
+        self, N, device: Optional[str] = None, dtype: torch.dtype = torch.float32
+    ):
+        super().__init__()
+        self.N = N
+        self.device = device
+        self.dtype = dtype
+
+    def forward(self, x):
+        U = torch.tensor([[1.0]], device=self.device, dtype=self.dtype)
+        while U.shape[0] < self.N:
+            U = torch.kron(
+                U, torch.tensor([[1, 1], [1, -1]], dtype=U.dtype, device=U.device)
+            ) / torch.sqrt(torch.tensor(2.0, device=U.device, dtype=U.dtype))
+        return U
+
+
+class RotationMatrix(nn.Module):
+    """
+    Generate a rotation matrix of size N as a nn.Module from a given angle.
+    """
+
+    def __init__(
+        self,
+        N: int,
+        min_angle: float = 0,
+        max_angle: float = torch.pi / 4,
+        iter: Optional[int] = None,
+        device: Optional[str] = None,
+        dtype: torch.dtype = torch.float32,
+    ):
+        super().__init__()
+        self.N = N
+        self.min_angle = min_angle
+        self.max_angle = max_angle
+        self.iter = iter
+        self.device = device
+        self.dtype = dtype
+
+    def create_submatrix(self, angles: torch.Tensor, iters: int = 1):
+        """Create a submatrix for each group."""
+        X = torch.zeros(2, 2, device=self.device, dtype=self.dtype)
+        angles[0] = torch.clamp(angles[0], self.min_angle, self.max_angle)
+        X.fill_diagonal_(torch.cos(angles[0]))
+        X[1, 0] = -torch.sin(angles[0])
+        X[0, 1] = torch.sin(angles[0])
+
+        if iters is None:
+            iters = torch.log2(torch.tensor(self.N)).int().item() - 1
+        for i in range(iters):
+            if len(angles) > 1:
+                X = torch.kron(X, self.create_submatrix([angles[i]]))
+            else:
+                X = torch.kron(X, X)
+        return X
+
+    def forward(self, theta):
+        return self.create_submatrix(theta, self.iter)
+
+
+class AllpassFDNMatrix(nn.Module):
+    """
+    Feedback matrix for all-pass FDNs using
+        A_AP = [[-QG, Q],
+                [I - G^2, G]]
+    where Q is unitary and G is diagonal with entries in (-1, 1).
+    """
+
+    def __init__(
+        self,
+        N: int,
+        nfft: int,
+        alias_decay_db: float = 0.0,
+        q_type: str = "block_rotation",
+        requires_grad: bool = True,
+        device: str | None = None,
+        dtype: torch.dtype = torch.float32,
+    ):
+        super().__init__()
+        if q_type == "block_rotation" and (N % 2 != 0):
+            raise ValueError("block_rotation requires an even N")
+
+        self.N = N
+        self.nfft = nfft
+        self.dtype = dtype
+        self.device = device
+        self.alias_decay_db = torch.tensor(
+            alias_decay_db, device=self.device, dtype=self.dtype
+        )
+        self.input_channels = 2 * N
+        self.output_channels = 2 * N
+        self.q_type = q_type
+
+        if q_type == "block_rotation":
+            self.q_param = nn.Parameter(
+                torch.randn(N // 2, device=self.device, dtype=self.dtype),
+                requires_grad=requires_grad,
+            )
+        elif q_type == "orthogonal":
+            self.q_param = nn.Parameter(
+                torch.randn(N, N, device=self.device, dtype=self.dtype),
+                requires_grad=requires_grad,
+            )
+        else:
+            raise ValueError(f"Unknown q_type: {q_type}")
+
+        self.g_param = nn.Parameter(
+            torch.randn(N, device=self.device, dtype=self.dtype),
+            requires_grad=requires_grad,
+        )
+
+    def _map_q(self) -> torch.Tensor:
+        if self.q_type == "block_rotation":
+            angles = math.pi * torch.tanh(self.q_param)
+            return _block_rotation_matrix(angles)
+        return torch.matrix_exp(skew_matrix(self.q_param))
+
+    def _map_g(self) -> torch.Tensor:
+        return 0.99 * torch.tanh(self.g_param)
+
+    def get_matrix(self) -> torch.Tensor:
+        Q = self._map_q()
+        g = self._map_g()
+        Id = torch.eye(self.N, device=Q.device, dtype=Q.dtype)
+        G = torch.diag(g)
+        A_top = torch.cat([-(Q * g), Q], dim=1)
+        A_bottom = torch.cat([Id - torch.diag(g**2), G], dim=1)
+        return torch.cat([A_top, A_bottom], dim=0)
+
+    def forward(self, x: torch.Tensor, ext_param=None) -> torch.Tensor:
+        if ext_param is not None:
+            raise ValueError(
+                "External parameters are not supported for AllpassFDNMatrix."
+            )
+        A = self.get_matrix()
+        return torch.einsum("mn,bfn...->bfm...", to_complex(A), x)
+
+
+# ============================= FILTERS ================================
+
+
+def biquad2tf(b: torch.Tensor, a: torch.Tensor, nfft: int):
+    r"""
+    Converts a biquad filter representation to a transfer function.
+    Shape of :attr:`b` and :attr:`a` is (3, n_sections)
+
+    **Arguments**:
+        - **b** (torch.Tensor): Coefficients of the numerator polynomial of the biquad filter.
+        - **a** (torch.Tensor): Coefficients of the denominator polynomial of the biquad filter.
+        - **nfft** (int): The number of FFT points to compute teh transfer function.
+
+    **Returns**:
+        - torch.Tensor: Transfer function of the biquad filter evaluated at x.
+    """
+    if len(b.shape) < 2:
+        b = b.unsqueeze(-1)
+    if len(a.shape) < 2:
+        a = a.unsqueeze(-1)
+    B = torch.fft.rfft(b, nfft, dim=0)
+    A = torch.fft.rfft(a, nfft, dim=0)
+    H = torch.prod(B, dim=1) / torch.prod(A, dim=1)
+    return H
+
+
+def gen_velvet_noise(
+    n_samples: int,
+    fs: int,
+    density: float,
+    device: str | torch.device = None,
+    dtype: torch.dtype = torch.float32,
+) -> torch.Tensor:
     r"""
     Generate a velvet noise sequence.
     **Arguments**:
@@ -282,8 +458,8 @@ def gen_velvet_noise(n_samples: int, fs: int, density: float, device: str | torc
     **Returns**:
         - torch.Tensor: A tensor of shape (n_samples,) containing the velvet noise sequence.
     """
-    Td = fs / density # average distance between impulses
-    num_impulses = n_samples / Td # expected number of impulses
+    Td = fs / density  # average distance between impulses
+    num_impulses = n_samples / Td  # expected number of impulses
     floor_impulses = math.floor(num_impulses)
     grid = torch.arange(floor_impulses, dtype=dtype) * Td
 
@@ -293,84 +469,15 @@ def gen_velvet_noise(n_samples: int, fs: int, density: float, device: str | torc
     # first impulse is at position 0 and all indices are within bounds
     impulse_indices[0] = 0
     impulse_indices = torch.clamp(impulse_indices, max=n_samples - 1)
-            
+
     # Generate random signs (+1 or -1)
     signs = 2 * torch.randint(0, 2, (floor_impulses,)) - 1
-            
+
     # Construct sparse signal
     sequence = torch.zeros(n_samples, device=device, dtype=dtype)
     sequence[impulse_indices] = signs.float()
 
     return sequence
-
-def hertz2rad(hertz: torch.Tensor, fs: int):
-    r"""
-    Convert frequency from Hz to rad.
-
-    .. math::
-        \omega = \frac{2\pi f}{f_s}
-
-    where :math:`f` is the frequency in Hz and :math:`f_s` is the sampling frequency in Hz.
-
-    **Arguments**:
-        - **hertz** (torch.Tensor): The frequency in Hz.
-        - **fs** (int): The sampling frequency in Hz.
-    """
-    return torch.divide(hertz, fs) * 2 * torch.pi
-
-
-def rad2hertz(rad: torch.Tensor, fs: int):
-    r"""
-    Convert frequency from rad to Hz
-
-    .. math::
-        f = \frac{\omega f_s}{2\pi}
-
-    where :math:`\omega` is the frequency in rad and :math:`f_s` is the sampling frequency in Hz.
-
-    **Arguments**:
-        - rad (torch.Tensor): The frequency in rad.
-        - fs (int): The sampling frequency in Hz.
-    """
-    return torch.divide(rad * fs, 2 * torch.pi)
-
-
-def db2mag(dB: torch.Tensor | float):
-    r"""
-    Convert a value from decibels (dB) to magnitude.
-
-    .. math::
-        \text{magnitude} = 10^{dB/20}
-
-    where :math:`dB` is the input value in decibels.
-
-    **Arguments**:
-        **dB** (torch.tensor | float): The value in decibels.
-    **Returns**:
-        - float: The corresponding magnitude value.
-    """
-
-    return 10 ** (dB / 20)
-
-
-def mag2db(mag: torch.Tensor):
-    r"""
-    Convert a value from magnitude to decibels (dB).
-
-    .. math::
-        \text{dB} = 20\log_{10}(\text{magnitude})
-
-    where :math:`\text{magnitude}` is the input value in magnitude.
-
-    **Arguments**:
-
-        - **mag** (torch.tensor): The value in magnitude.
-
-    **Returns**:
-        - float: The corresponding value in decibels.
-    """
-
-    return 20 * torch.log10(torch.abs(mag))
 
 
 def lowpass_filter(
@@ -979,6 +1086,9 @@ def probe_sos(
     return G, H, W
 
 
+# ============================= OTHER DSP ================================
+
+
 def find_onset(rir: torch.Tensor):
     #
     r"""
@@ -1024,7 +1134,11 @@ def find_onset(rir: torch.Tensor):
 
 
 def WGN_reverb(
-    matrix_size: tuple = (1, 1), t60: float = 1.0, samplerate: int = 48000, device=None, dtype: torch.dtype = torch.float32
+    matrix_size: tuple = (1, 1),
+    t60: float = 1.0,
+    samplerate: int = 48000,
+    device=None,
+    dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor:
     r"""
     Generates White-Gaussian-Noise-reverb impulse responses.

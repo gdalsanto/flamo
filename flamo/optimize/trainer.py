@@ -1,6 +1,8 @@
 import torch
 import os
 import time
+import math
+import warnings
 import torch.nn as nn
 from typing import Optional
 from tqdm import trange
@@ -58,7 +60,6 @@ class Trainer:
         train_dir: str = None,
         device: str = "cpu",
     ):
-
         self.device = device
         self.log = log
         self.net = net.to(device)
@@ -70,9 +71,9 @@ class Trainer:
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         self.n_loss = 0
         if self.log:
-            assert os.path.isdir(
-                train_dir
-            ), "The directory specified in train_dir does not exist."
+            assert os.path.isdir(train_dir), (
+                "The directory specified in train_dir does not exist."
+            )
         self.train_dir = train_dir
 
         self.criterion, self.alpha, self.requires_model = (
@@ -122,7 +123,8 @@ class Trainer:
             self.valid_loss_log[loss_name] = []
 
         st = time.time()  # start time
-        for epoch in trange(self.max_epochs, desc="Training"):
+        pbar = trange(self.max_epochs, desc="Training")
+        for epoch in pbar:
             st_epoch = time.time()
 
             # training
@@ -138,19 +140,25 @@ class Trainer:
             self.valid_loss.append(epoch_loss / len(valid_dataset))
             et_epoch = time.time()
 
-            # print results
-            et_epoch = time.time()
-            self.print_results(epoch, et_epoch - st_epoch)
+            # update progress bar in place (no newlines)
+            pbar.set_postfix_str(
+                get_str_results(
+                    epoch=epoch,
+                    train_loss=self.train_loss,
+                    valid_loss=self.valid_loss,
+                    time=et_epoch - st_epoch,
+                )
+            )
 
             # save checkpoints
             if self.log:
                 self.save_model(epoch)
             if self.early_stop():
-                print("Early stopping at epoch: {}".format(epoch))
                 break
 
         et = time.time()  # end time
-        print("Training time: {:.3f}s".format(et - st))
+        print(f"Early stopping at epoch: {epoch}")
+        print(f"Training time: {et - st:.3f}s")
 
     def move_to_device(self, data: list | torch.Tensor):
         if isinstance(data, list):
@@ -275,6 +283,212 @@ class Trainer:
             if self.counter >= self.patience:
                 return True
         return False
+
+
+class EagerTrainer:
+    r"""
+    Lightweight optimizer for a single differentiable system.
+
+    Unlike :class:`Trainer`, which iterates a :class:`torch.utils.data.DataLoader`
+    over epochs, :class:`EagerTrainer` fits one fixed ``(input, target)`` pair by
+    running gradient descent directly — no ``Dataset``, ``DataLoader``, ``expand``,
+    ``split``, ``shuffle``, or batch dimension. This matches the true nature of
+    fitting one LTI system (e.g. an FDN): a pure optimization problem with no
+    held-out data or generalization.
+
+    Criteria are registered exactly as in :class:`Trainer` via
+    :meth:`register_criterion`, so existing loss functions (and the
+    ``requires_model`` flag) transfer unchanged.
+
+        **Arguments / Attributes**:
+            - **net** (nn.Module): The differentiable system to optimize.
+            - **max_steps** (int): Maximum number of optimization steps. Default: 1000.
+            - **lr** (float): Learning rate. Default: 1e-3.
+            - **optimizer** (str): ``"adam"`` or ``"lbfgs"``. Default: ``"adam"``.
+            - **step_size** (int): StepLR period (Adam only). Default: 50.
+            - **step_factor** (float): StepLR gamma (Adam only). Default: 0.1.
+            - **tol** (float): Relative-improvement threshold for plateau early stop. Default: 1e-6.
+            - **patience** (int): Consecutive non-improving steps before stopping. Default: 10.
+            - **log** (bool): Print timing / plateau messages. Default: True.
+            - **train_dir** (str): Directory for checkpoints (required if save_checkpoints). Default: None.
+            - **save_checkpoints** (bool): Save ``state_dict`` each step. Default: False.
+            - **device** (str): Device for optimization. Default: 'cpu'.
+
+        Examples::
+
+            >>> opt = EagerTrainer(model, max_steps=1600, lr=1e-2)
+            >>> opt.register_criterion(MultiResoSTFT(), 1)
+            >>> opt.register_criterion(sparsity_loss(), 1, requires_model=True)
+            >>> history = opt.optimize(input, target)
+    """
+
+    def __init__(
+        self,
+        net: nn.Module,
+        max_steps: int = 1000,
+        lr: float = 1e-3,
+        optimizer: str = "adam",
+        step_size: int = 2000,
+        step_factor: float = 0.1,
+        tol: float = 1e-6,
+        patience: int = 10,
+        log: bool = True,
+        train_dir: str = None,
+        save_checkpoints: bool = False,
+        device: str = "cpu",
+    ):
+        self.device = device
+        self.net = net.to(device)
+        self.max_steps = max_steps
+        self.lr = lr
+        self.tol = tol
+        self.patience = patience
+        self.log = log
+        self.train_dir = train_dir
+        self.save_checkpoints = save_checkpoints
+        self.n_loss = 0
+        self.criterion, self.alpha, self.requires_model = [], [], []
+
+        if self.save_checkpoints:
+            assert train_dir is not None and os.path.isdir(train_dir), (
+                "save_checkpoints=True requires an existing train_dir."
+            )
+
+        self.optimizer_name = optimizer.lower()
+        if self.optimizer_name == "adam":
+            self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
+            self.scheduler = torch.optim.lr_scheduler.StepLR(
+                self.optimizer, step_size=step_size, gamma=step_factor
+            )
+        elif self.optimizer_name == "lbfgs":
+            self.optimizer = torch.optim.LBFGS(
+                self.net.parameters(), lr=self.lr, line_search_fn="strong_wolfe"
+            )
+            self.scheduler = None
+        else:
+            raise ValueError(f"Unknown optimizer '{optimizer}'. Use 'adam' or 'lbfgs'.")
+
+    def register_criterion(
+        self, criterion: nn.Module, alpha: int = 1, requires_model: bool = False
+    ):
+        r"""Register a loss function and its weight. Mirrors :meth:`Trainer.register_criterion`."""
+        self.criterion.append(criterion.to(self.device))
+        self.alpha.append(alpha)
+        self.requires_model.append(requires_model)
+        self.n_loss += 1
+
+    def move_to_device(self, data):
+        if isinstance(data, list):
+            return [x.to(self.device) for x in data]
+        return data.to(self.device)
+
+    def _compute_loss(self, estimations, targets, log_dict=None):
+        r"""Weighted sum of registered criteria; optionally logs each into log_dict."""
+        loss = 0
+        for alpha, criterion, requires_model in zip(
+            self.alpha, self.criterion, self.requires_model
+        ):
+            if requires_model:
+                temp = criterion(estimations, targets, self.net)
+            else:
+                temp = criterion(estimations, targets)
+            if log_dict is not None:
+                log_dict[criterion.__class__.__name__].append(temp.item())
+            loss = loss + alpha * temp
+        return loss
+
+    def optimize(self, input: torch.Tensor, target: torch.Tensor) -> dict:
+        r"""
+        Optimize the system parameters on a single fixed ``(input, target)`` pair.
+
+            **Returns**:
+                - dict: Loss history with key ``"total"`` plus one key per criterion
+                  class name. All lists have equal length (one entry per step run).
+        """
+        input = self.move_to_device(input)
+        target = self.move_to_device(target)
+
+        # L-BFGS assumes a deterministic objective; warn if a stochastic loss is used.
+        if self.optimizer_name == "lbfgs":
+            from flamo.optimize.loss import masked_mse_loss
+
+            if any(isinstance(c, masked_mse_loss) for c in self.criterion):
+                warnings.warn(
+                    "L-BFGS assumes a deterministic objective, but a "
+                    "masked_mse_loss (random per-call mask) is registered. The "
+                    "mask changes within a line search, breaking L-BFGS "
+                    "assumptions. Use optimizer='adam' for masked/colorless fits; "
+                    "reserve L-BFGS for deterministic objectives.",
+                    RuntimeWarning,
+                )
+
+        self.loss_history = {"total": []}
+        for c in self.criterion:
+            self.loss_history[c.__class__.__name__] = []
+
+        best_loss = float("inf")
+        counter = 0
+        st = time.time()
+        pbar = trange(self.max_steps, desc="Optimizing", disable=not self.log)
+        for step in pbar:
+            if self.optimizer_name == "adam":
+                self.optimizer.zero_grad()
+                est = self.net(input)
+                loss = self._compute_loss(est, target, self.loss_history)
+                loss.backward()
+                self.optimizer.step()
+                self.scheduler.step()
+                total = loss.item()
+            else:  # lbfgs
+
+                def closure():
+                    self.optimizer.zero_grad()
+                    est = self.net(input)
+                    loss = self._compute_loss(est, target)
+                    loss.backward()
+                    return loss
+
+                self.optimizer.step(closure)
+                with torch.no_grad():
+                    est = self.net(input)
+                    total = self._compute_loss(est, target, self.loss_history).item()
+
+            self.loss_history["total"].append(total)
+            pbar.set_postfix_str(f"loss: {total:.6f}")
+
+            if self.save_checkpoints:
+                self.save_model(step)
+
+            # plateau early stopping on relative improvement of the total loss
+            rel_improvement = (
+                (best_loss - total) / (abs(best_loss) + 1e-12)
+                if math.isfinite(best_loss)
+                else float("inf")
+            )
+            if total < best_loss:
+                best_loss = total
+            if rel_improvement > self.tol:
+                counter = 0
+            else:
+                counter += 1
+                if counter >= self.patience:
+                    if self.log:
+                        print(f"Plateau reached at step {step}.")
+                    break
+
+        if self.log:
+            print(f"Optimization time: {time.time() - st:.3f}s")
+        return self.loss_history
+
+    def save_model(self, step: int):
+        r"""Save the model parameters to ``train_dir/checkpoints/model_e<step>.pt``."""
+        dir_path = os.path.join(self.train_dir, "checkpoints")
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        torch.save(
+            self.net.state_dict(),
+            os.path.join(dir_path, "model_e" + str(step) + ".pt"),
+        )
 
 
 def get_str_results(

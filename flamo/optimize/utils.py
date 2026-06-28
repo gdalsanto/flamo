@@ -3,8 +3,12 @@ from typing import Optional
 
 
 def generate_partitions(
-    tensor: torch.Tensor, n_samples: int, n_sets: int, seed: Optional[int] = None
-):
+    tensor: torch.Tensor,
+    n_samples: int,
+    n_sets: int,
+    seed: Optional[int] = None,
+    is_verbose: bool = False,
+) -> torch.Tensor:
     r"""
     Create :attr:`n_sets` sets of ``length(tensor) // n_samples`` partitions of a tensor,
     and the items are shuffled randomly for each set.
@@ -25,7 +29,7 @@ def generate_partitions(
     n_partitions = length // n_samples
 
     # Ensure the tensor length is divisible by N
-    if length % n_samples != 0:
+    if length % n_samples != 0 and is_verbose:
         print(
             "Warning: Tensor length is divisible by n_samples so there will be some samples left out."
         )

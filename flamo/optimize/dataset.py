@@ -1,7 +1,6 @@
 from typing import Optional
 import torch
 import torch.utils.data as data
-from flamo.utils import get_device
 
 # ============================= DATASETS ================================
 

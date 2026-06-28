@@ -5,6 +5,7 @@ dist/
 *.asv 
 /output
 test.py
+.venv
 .flamo-env
 .flamo-env-win
 docs/

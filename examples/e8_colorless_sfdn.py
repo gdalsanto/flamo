@@ -15,7 +15,7 @@ from flamo.utils import save_audio
 torch.manual_seed(130709)
 
 
-def example_fdn(args):
+def example_sfdn(args):
     """
     Example function that demonstrates the construction and training of a Feedback Delay Network (FDN) model
     with scattering feedback matrix and sparse marsking of the loss.
@@ -253,4 +253,4 @@ if __name__ == "__main__":
             )
         )
 
-    example_fdn(args)
+    example_sfdn(args)
