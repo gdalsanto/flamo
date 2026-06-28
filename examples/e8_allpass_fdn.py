@@ -2,104 +2,18 @@ import argparse
 import math
 import os
 import time
+import torch
+
 from collections import OrderedDict
 
-import torch
-import torch.nn as nn
-
-from flamo.functional import skew_matrix
 from flamo.optimize.dataset import DatasetColorless, load_dataset
 from flamo.optimize.loss import masked_mse_loss
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
-from flamo.utils import save_audio, to_complex
+from flamo.functional import AllpassFDNMatrix
+from flamo.utils import save_audio
 
 torch.manual_seed(130799)
-
-
-def _block_rotation_matrix(angles: torch.Tensor) -> torch.Tensor:
-    blocks = []
-    for theta in angles:
-        c = torch.cos(theta)
-        s = torch.sin(theta)
-        blocks.append(torch.stack([torch.stack([c, -s]), torch.stack([s, c])]))
-    return torch.block_diag(*blocks)
-
-
-class AllpassFDNMatrix(nn.Module):
-    """
-    Feedback matrix for all-pass FDNs using
-        A_AP = [[-QG, Q],
-                [I - G^2, G]]
-    where Q is unitary and G is diagonal with entries in (-1, 1).
-    """
-
-    def __init__(
-        self,
-        N: int,
-        nfft: int,
-        alias_decay_db: float = 0.0,
-        q_type: str = "block_rotation",
-        requires_grad: bool = True,
-        device: str | None = None,
-        dtype: torch.dtype = torch.float32,
-    ):
-        super().__init__()
-        if q_type == "block_rotation" and (N % 2 != 0):
-            raise ValueError("block_rotation requires an even N")
-
-        self.N = N
-        self.nfft = nfft
-        self.dtype = dtype
-        self.device = device
-        self.alias_decay_db = torch.tensor(
-            alias_decay_db, device=self.device, dtype=self.dtype
-        )
-        self.input_channels = 2 * N
-        self.output_channels = 2 * N
-        self.q_type = q_type
-
-        if q_type == "block_rotation":
-            self.q_param = nn.Parameter(
-                torch.randn(N // 2, device=self.device, dtype=self.dtype),
-                requires_grad=requires_grad,
-            )
-        elif q_type == "orthogonal":
-            self.q_param = nn.Parameter(
-                torch.randn(N, N, device=self.device, dtype=self.dtype),
-                requires_grad=requires_grad,
-            )
-        else:
-            raise ValueError(f"Unknown q_type: {q_type}")
-
-        self.g_param = nn.Parameter(
-            torch.randn(N, device=self.device, dtype=self.dtype),
-            requires_grad=requires_grad,
-        )
-
-    def _map_q(self) -> torch.Tensor:
-        if self.q_type == "block_rotation":
-            angles = math.pi * torch.tanh(self.q_param)
-            return _block_rotation_matrix(angles)
-        return torch.matrix_exp(skew_matrix(self.q_param))
-
-    def _map_g(self) -> torch.Tensor:
-        return 0.99 * torch.tanh(self.g_param)
-
-    def get_matrix(self) -> torch.Tensor:
-        Q = self._map_q()
-        g = self._map_g()
-        I = torch.eye(self.N, device=Q.device, dtype=Q.dtype)
-        G = torch.diag(g)
-        A_top = torch.cat([-(Q * g), Q], dim=1)
-        A_bottom = torch.cat([I - torch.diag(g**2), G], dim=1)
-        return torch.cat([A_top, A_bottom], dim=0)
-
-    def forward(self, x: torch.Tensor, ext_param=None) -> torch.Tensor:
-        if ext_param is not None:
-            raise ValueError("External parameters are not supported for AllpassFDNMatrix.")
-        A = self.get_matrix()
-        return torch.einsum("mn,bfn...->bfm...", to_complex(A), x)
 
 
 def example_allpass_fdn(args):
@@ -135,12 +49,12 @@ def example_allpass_fdn(args):
         device=args.device,
         dtype=args.dtype,
     )
-    init_in = torch.ones((n_delays, 1), device=args.device, dtype=args.dtype) / math.sqrt(
-        n_delays
-    )
-    init_out = torch.ones((1, n_delays), device=args.device, dtype=args.dtype) / math.sqrt(
-        n_delays
-    )
+    init_in = torch.ones(
+        (n_delays, 1), device=args.device, dtype=args.dtype
+    ) / math.sqrt(n_delays)
+    init_out = torch.ones(
+        (1, n_delays), device=args.device, dtype=args.dtype
+    ) / math.sqrt(n_delays)
     input_gain.assign_value(init_in)
     output_gain.assign_value(init_out)
 
@@ -240,8 +154,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--N", type=int, default=4, help="all-pass order")
-    parser.add_argument("--q_type", type=str, default="block_rotation", choices=["block_rotation", "orthogonal"])
-    parser.add_argument("--alias_decay_db", type=float, default=30.0, help="alias decay in dB")
+    parser.add_argument(
+        "--q_type",
+        type=str,
+        default="block_rotation",
+        choices=["block_rotation", "orthogonal"],
+    )
+    parser.add_argument(
+        "--alias_decay_db", type=float, default=30.0, help="alias decay in dB"
+    )
     parser.add_argument("--nfft", type=int, default=48000 * 4, help="FFT size")
     parser.add_argument("--samplerate", type=int, default=48000, help="sampling rate")
     parser.add_argument(
