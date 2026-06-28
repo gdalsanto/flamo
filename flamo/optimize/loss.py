@@ -40,11 +40,11 @@ class sparsity_loss(nn.Module):
         try:
             mixing_matrix = core.feedback_loop.feedback
             A = mixing_matrix.map(mixing_matrix.param)
-        except:
+        except AttributeError:
             try:
                 mixing_matrix = core.feedback_loop.feedback.mixing_matrix
                 A = mixing_matrix.map(mixing_matrix.param)
-            except:
+            except AttributeError:
                 mixing_matrix = core.branchA.feedback_loop.feedback.mixing_matrix
                 A = mixing_matrix.map(mixing_matrix.param)
 
@@ -434,7 +434,7 @@ class mss_loss(nn.Module):
                 N = torch.numel(Y_true_lin)
 
             # update match loss
-            if self.form == None:
+            if self.form is None:
                 loss += torch.norm((Y_true_lin - Y_pred_lin) * mask, p=self.p) / N
                 if self.log_term:
                     loss += (
@@ -797,7 +797,7 @@ class edc_loss(nn.Module):
                 )
                 y_pred_edc[clip_indx] = -180
                 y_true_edc[clip_indx] = -180
-            except:
+            except AttributeError:
                 pass
 
         # compute normalized mean squared error on the EDCs
