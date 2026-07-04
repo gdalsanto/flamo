@@ -270,6 +270,27 @@ class DSP(nn.Module):
         self.init_param()
         self.get_gamma()
 
+    def _apply(self, fn, recurse=True):
+        r"""
+        Extend :meth:`torch.nn.Module._apply` (the hook behind :meth:`to`,
+        :meth:`cuda` and friends) so that moving or casting the module also
+        updates the tensors this class keeps as plain attributes (e.g.
+        :attr:`alias_decay_db`, :attr:`gamma`, :attr:`alias_envelope_dcy`)
+        and the :attr:`device` / :attr:`dtype` attributes that :attr:`map`
+        and the frequency-response methods read when they create new
+        tensors at call time. Without this, ``model.to("cuda")`` moves
+        :attr:`param` but leaves the cached tensors and :attr:`device` on
+        the construction device, and the first forward pass fails with a
+        cross-device error.
+        """
+        module = super()._apply(fn, recurse)
+        for name, value in list(self.__dict__.items()):
+            if isinstance(value, torch.Tensor) and not isinstance(value, nn.Parameter):
+                self.__dict__[name] = fn(value)
+        self.device = self.param.device
+        self.dtype = self.param.dtype
+        return module
+
     @abc.abstractmethod
     def forward(self, x, **kwArguments): 
         r"""
