@@ -26,6 +26,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
@@ -65,6 +66,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
@@ -117,6 +119,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
@@ -387,12 +390,16 @@ class Recursion(nn.Module):
         # Check nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
 
-        # Identity matrix for the forward computation
-        self.I = self.__generate_identity().to(device=self.alias_decay_db.device)
+        self.register_buffer(
+            "I",
+            self.__generate_identity().to(device=self.device),
+            persistent=False,
+        )
 
     def forward(self,  X: torch.Tensor, ext_param: dict = None):
         r"""
@@ -564,6 +571,7 @@ class Recursion(nn.Module):
         I = torch.eye(N, dtype=F.dtype, device=F.device)
         return I - F @ B
 
+
 # ============================= RECURSION ================================
 
 
@@ -624,6 +632,7 @@ class Parallel(nn.Module):
         # Check nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
@@ -770,6 +779,8 @@ class Parallel(nn.Module):
             return H_A + H_B
         else:
             return torch.cat([H_A, H_B], dim=0)
+
+    
 # ============================= SHELL ================================
 
 
@@ -831,10 +842,27 @@ class Shell(nn.Module):
 
         # Check model nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
-        self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
+
+        alias_decay_db = torch.as_tensor(
+            self.__check_attribute("alias_decay_db"), device=self.device, dtype=self.dtype
+        )
+
+        self.register_buffer(
+            "alias_decay_db",
+            alias_decay_db,
+            persistent=False,
+        )
+
+        self.register_buffer(
+            "alias_envelope",
+            self.__make_alias_envelope(),
+            persistent=False,
+        )
+
 
     def forward(self, x: torch.Tensor, ext_param: dict = None) -> torch.Tensor:
         r"""
@@ -975,6 +1003,15 @@ class Shell(nn.Module):
 
         return in_ch, out_ch
 
+    def __make_alias_envelope(self) -> torch.Tensor:
+        gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
+        return (
+            (gamma ** torch.arange(0, -self.nfft, -1, device=self.alias_decay_db.device))
+            .view(1, -1, 1)
+            .expand(1, -1, self.output_channels)
+            .to(dtype=self.alias_decay_db.dtype)
+        )
+
     def probe(self, z: torch.Tensor, include_shell_io: bool = False):
         r"""
         Evaluate the transfer matrix at arbitrary complex z.
@@ -1035,21 +1072,15 @@ class Shell(nn.Module):
         """
 
         # construct anti aliasing reconstruction envelope
-        gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        self.alias_envelope = (
-            (gamma ** torch.arange(0, -self.nfft, -1, device=gamma.device))
-            .view(1, -1, 1)
-            .expand(1, -1, self.output_channels)
-        )
-        self.alias_envelope = self.alias_envelope.to(dtype=self.dtype)
+        alias_envelope = self.__make_alias_envelope()
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
 
         # update input/output layers
-        self.set_inputLayer(FFT(self.nfft, dtype=self.dtype))
+        self.set_inputLayer(FFT(self.nfft, dtype=alias_envelope.dtype))
         self.set_outputLayer(
-            nn.Sequential(iFFT(self.nfft, dtype=self.dtype), Transform(lambda x: x * self.alias_envelope))
+            nn.Sequential(iFFT(self.nfft, dtype=alias_envelope.dtype), Transform(lambda x: x * alias_envelope))
         )
 
         # generate input signal
@@ -1059,11 +1090,11 @@ class Shell(nn.Module):
             n=self.input_channels,
             signal_type="impulse",
             fs=fs,
-            device=gamma.device,
-            dtype=self.dtype
+            device=alias_envelope.device,
+            dtype=alias_envelope.dtype
         )
         if identity and self.input_channels > 1:
-            self.alias_envelope = self.alias_envelope.unsqueeze(-1).expand(
+            alias_envelope = alias_envelope.unsqueeze(-1).expand(
                 1, -1, -1, self.input_channels
             )
             x = x.diag_embed()
@@ -1104,28 +1135,22 @@ class Shell(nn.Module):
         """
 
         # contruct anti aliasing reconstruction envelope
-        gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
-        self.alias_envelope_exp = (
-            (gamma ** torch.arange(0, -self.nfft, -1, device=gamma.device))
-            .view(1, -1, 1)
-            .expand(1, -1, self.output_channels)
-        )
-        self.alias_envelope_exp = self.alias_envelope_exp.to(dtype=self.dtype)
+        alias_envelope = self.__make_alias_envelope()
         # save input/output layers
         input_save = self.get_inputLayer()
         output_save = self.get_outputLayer()
 
         # update input/output layers
-        self.set_inputLayer(FFT(self.nfft))
+        self.set_inputLayer(FFT(self.nfft, dtype=alias_envelope.dtype))
         self.set_outputLayer(
             nn.Sequential(
-                iFFT(self.nfft, dtype=self.dtype),
+                iFFT(self.nfft, dtype=alias_envelope.dtype),
                 Transform(
                     lambda x: torch.einsum(
-                        "bfm..., bfm... -> bfm...", x, self.alias_envelope_exp
+                        "bfm..., bfm... -> bfm...", x, alias_envelope
                     )
                 ),
-                FFT(self.nfft, dtype=self.dtype),
+                FFT(self.nfft, dtype=alias_envelope.dtype),
             )
         )  # TODO, this is a very suboptimal way to do this, we need to find a better way
 
@@ -1136,8 +1161,8 @@ class Shell(nn.Module):
             n=self.input_channels,
             signal_type="impulse",
             fs=fs,
-            device=gamma.device,
-            dtype=self.dtype
+            device=alias_envelope.device,
+            dtype=alias_envelope.dtype
         )
         if identity and self.input_channels > 1:
             x = x.diag_embed()
