@@ -26,6 +26,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
@@ -65,6 +66,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
@@ -117,6 +119,7 @@ class Series(nn.Sequential):
         # Check nfft and alpha values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
@@ -328,7 +331,21 @@ class Series(nn.Sequential):
             H = Hi if H is None else Hi @ H
         return H
 
-
+    def _apply(self, fn, recurse=True):
+        r"""
+        Extend Module._apply so .to()/.cuda() also moves cached tensor 
+        attributes and updates device/dtype; otherwise parameters move but 
+        cached tensors stay on the original device and cause cross-device errors.
+        """
+        module = super()._apply(fn, recurse)
+        for name, value in list(self.__dict__.items()):
+            if isinstance(value, torch.Tensor) and not isinstance(value, nn.Parameter):
+                self.__dict__[name] = fn(value)
+                device = self.__dict__[name].device
+                dtype = self.__dict__[name].dtype
+        self.device = device
+        self.dtype = dtype
+        return module
 # ============================= RECURSION ================================
 
 
@@ -387,12 +404,13 @@ class Recursion(nn.Module):
         # Check nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
 
         # Identity matrix for the forward computation
-        self.I = self.__generate_identity().to(device=self.alias_decay_db.device)
+        self.I = self.__generate_identity().to(device=self.device)
 
     def forward(self,  X: torch.Tensor, ext_param: dict = None):
         r"""
@@ -564,6 +582,21 @@ class Recursion(nn.Module):
         I = torch.eye(N, dtype=F.dtype, device=F.device)
         return I - F @ B
 
+    def _apply(self, fn, recurse=True):
+        r"""
+        Extend Module._apply so .to()/.cuda() also moves cached tensor 
+        attributes and updates device/dtype; otherwise parameters move but 
+        cached tensors stay on the original device and cause cross-device errors.
+        """
+        module = super()._apply(fn, recurse)
+        for name, value in list(self.__dict__.items()):
+            if isinstance(value, torch.Tensor) and not isinstance(value, nn.Parameter):
+                self.__dict__[name] = fn(value)
+                device = self.__dict__[name].device
+                dtype = self.__dict__[name].dtype
+        self.device = device
+        self.dtype = dtype
+        return module
 # ============================= RECURSION ================================
 
 
@@ -624,6 +657,7 @@ class Parallel(nn.Module):
         # Check nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
 
         # Check I/O compatibility
@@ -770,6 +804,24 @@ class Parallel(nn.Module):
             return H_A + H_B
         else:
             return torch.cat([H_A, H_B], dim=0)
+
+    def _apply(self, fn, recurse=True):
+        r"""
+        Extend Module._apply so .to()/.cuda() also moves cached tensor 
+        attributes and updates device/dtype; otherwise parameters move but 
+        cached tensors stay on the original device and cause cross-device errors.
+        """
+        module = super()._apply(fn, recurse)
+        for name, value in list(self.__dict__.items()):
+            if isinstance(value, torch.Tensor) and not isinstance(value, nn.Parameter):
+                self.__dict__[name] = fn(value)
+                device = self.__dict__[name].device
+                dtype = self.__dict__[name].dtype
+        self.device = device
+        self.dtype = dtype
+        return module
+
+    
 # ============================= SHELL ================================
 
 
@@ -832,6 +884,7 @@ class Shell(nn.Module):
         # Check model nfft and time anti-aliasing decay-envelope parameter values
         self.nfft = self.__check_attribute("nfft")
         self.alias_decay_db = self.__check_attribute("alias_decay_db")
+        self.device = self.__check_attribute("device")
         self.dtype = self.__check_attribute("dtype")
         # Check I/O compatibility
         self.input_channels, self.output_channels = self.__check_io()
@@ -1151,3 +1204,19 @@ class Shell(nn.Module):
         self.set_outputLayer(output_save)
 
         return y
+
+    def _apply(self, fn, recurse=True):
+        r"""
+        Extend Module._apply so .to()/.cuda() also moves cached tensor 
+        attributes and updates device/dtype; otherwise parameters move but 
+        cached tensors stay on the original device and cause cross-device errors.
+        """
+        module = super()._apply(fn, recurse)
+        for name, value in list(self.__dict__.items()):
+            if isinstance(value, torch.Tensor) and not isinstance(value, nn.Parameter):
+                self.__dict__[name] = fn(value)
+                device = self.__dict__[name].device
+                dtype = self.__dict__[name].dtype
+        self.device = device
+        self.dtype = dtype
+        return module
