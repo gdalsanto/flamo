@@ -162,7 +162,11 @@ class FFTAntiAlias(Transform):
         transform = lambda x: fft(torch.einsum("btm, t->btm", x, self.alias_envelope))
         super().__init__(transform=transform, dtype=self.dtype)
 
-
+    def _apply(self, fn, recurse=True):
+        module = super()._apply(fn, recurse)
+        self.alias_envelope = fn(self.alias_envelope)
+        return module
+    
 class iFFTAntiAlias(Transform):
     r"""
     Inverse Fast Fourier Transform (iFFT) class with time-aliasing mitigation enabled.
@@ -205,6 +209,10 @@ class iFFTAntiAlias(Transform):
         transform = lambda x: torch.einsum("btm, t->btm", ifft(x), self.alias_envelope)
         super().__init__(transform=transform, dtype=self.dtype)
 
+    def _apply(self, fn, recurse=True):
+        module = super()._apply(fn, recurse)
+        self.alias_envelope = fn(self.alias_envelope)
+        return module
 
 # ============================= CORE ================================
 
@@ -266,10 +274,19 @@ class DSP(nn.Module):
         self.fft = lambda x: torch.fft.rfft(x, n=self.nfft, dim=0)
         self.ifft = lambda x: torch.fft.irfft(x, n=self.nfft, dim=0)
         # initialize time anti-aliasing envelope function
-        self.alias_decay_db = torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype)
+        alias_decay_db = torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype)
+        self.register_buffer(
+            "alias_decay_db",
+            alias_decay_db,
+            persistent=False,
+        )
+        self.register_buffer(
+            "gamma", 
+            self.get_gamma(), 
+            persistent=False
+        )
         self.init_param()
-        self.get_gamma()
-
+        
     def _apply(self, fn, recurse=True):
         r"""
         Extend :meth:`torch.nn.Module._apply` (the hook behind :meth:`to`,
@@ -325,7 +342,7 @@ class DSP(nn.Module):
         and :math:`n` is the discrete time index :math:`0\\leq n < N`, where N is the length of the signal.
         """
 
-        self.gamma = 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
+        return 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
 
     def assign_value(self, new_value: torch.Tensor, indx: tuple = tuple([slice(None)])):
         r"""
