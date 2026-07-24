@@ -461,9 +461,9 @@ def gen_velvet_noise(
     Td = fs / density  # average distance between impulses
     num_impulses = n_samples / Td  # expected number of impulses
     floor_impulses = math.floor(num_impulses)
-    grid = torch.arange(floor_impulses, dtype=dtype) * Td
+    grid = torch.arange(floor_impulses, dtype=dtype, device=device) * Td
 
-    jitter_factors = torch.rand(floor_impulses, dtype=dtype)
+    jitter_factors = torch.rand(floor_impulses, dtype=dtype, device=device)
     impulse_indices = torch.ceil(grid + jitter_factors * (Td - 1)).long()
 
     # first impulse is at position 0 and all indices are within bounds
@@ -471,7 +471,7 @@ def gen_velvet_noise(
     impulse_indices = torch.clamp(impulse_indices, max=n_samples - 1)
 
     # Generate random signs (+1 or -1)
-    signs = 2 * torch.randint(0, 2, (floor_impulses,)) - 1
+    signs = 2 * torch.randint(0, 2, (floor_impulses,), device=device, dtype=dtype) - 1
 
     # Construct sparse signal
     sequence = torch.zeros(n_samples, device=device, dtype=dtype)
