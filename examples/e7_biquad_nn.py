@@ -4,7 +4,7 @@ import argparse
 import os
 import time
 from collections import OrderedDict
-from flamo.optimize.dataset import Dataset, load_dataset
+from flamo.optimize.dataset import load_dataset
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
 from flamo.functional import signal_gallery, highpass_filter
@@ -34,9 +34,9 @@ class Dataset(torch.utils.data.Dataset):
     Custom dataset class for generating biquad filter data.
     """
 
-    def __init__(self, args, in_ch, out_ch, num, n_sections):
+    def __init__(self, args, in_ch, out_ch, num, n_sections, dtype=torch.float64):
         # Create the input to the ddsp
-        input_biquad = torch.zeros((1, args.nfft, in_ch), device=args.device)
+        input_biquad = torch.zeros((1, args.nfft, in_ch), device=args.device, dtype=dtype)
         input_biquad[:, 0, :] = 1
         input_biquad = input_biquad.expand(
             tuple([num] + [d for d in input_biquad.shape[1:]])
@@ -44,9 +44,10 @@ class Dataset(torch.utils.data.Dataset):
         self.input_biquad = input_biquad
 
         # Create many instances of biquad filters as target
-        target = torch.ones((num, args.nfft // 2 + 1, out_ch)) + 1j * torch.zeros(
+        target = torch.ones((num, args.nfft // 2 + 1, out_ch), device=args.device, dtype=dtype) + 1j * torch.zeros(
             (num, args.nfft // 2 + 1, out_ch),
             device=args.device,
+            dtype=dtype
         )
         input_layer = dsp.FFT(args.nfft, dtype=args.dtype)
         imp = signal_gallery(
@@ -84,19 +85,19 @@ class nnBiquad(nn.Module):
         self.dtype = args.dtype
         # Stack of MLPs
         self.stack = nn.Sequential(
-            nn.Linear(args.nfft // 2 + 1, 256),
-            nn.LayerNorm(256),
+            nn.Linear(args.nfft // 2 + 1, 256, dtype=args.dtype),
+            nn.LayerNorm(256, dtype=args.dtype),
             nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.LayerNorm(256),
+            nn.Linear(256, 256, dtype=args.dtype),
+            nn.LayerNorm(256, dtype=args.dtype),
             nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.LayerNorm(256),
+            nn.Linear(256, 256, dtype=args.dtype),
+            nn.LayerNorm(256, dtype=args.dtype),
             nn.ReLU(),
         )
 
         # Final dense layer to ensure output shape (3, n_sections, in_channels, out_channels)
-        self.final_dense = nn.Linear(256, n_sect * n_param * in_ch)
+        self.final_dense = nn.Linear(256, n_sect * n_param * in_ch, dtype=args.dtype)
 
         # Create another instance of the model
         filt = dsp.Biquad(
@@ -127,8 +128,16 @@ class nnBiquad(nn.Module):
         self.biquad = system.Shell(
             core=core, input_layer=input_layer, output_layer=output_layer
         )
+        # Simple profiling counters (aggregate over forwards)
+        self.profile_enabled = True
+        self._profile = {"calls": 0, "total_time": 0.0, "loop_time": 0.0}
 
     def forward(self, data):
+
+        # Synchronize GPU then start overall timer
+        if self.profile_enabled and torch.cuda.is_available():
+            torch.cuda.synchronize()
+        start_total = time.perf_counter()
 
         # Data consists in a tuple of input to the MLPs and input to the DDSP
         x = torch.abs(data[0])  # input to the MLP
@@ -146,15 +155,58 @@ class nnBiquad(nn.Module):
         x = x.view(-1, self.n_sect, self.n_param, self.out_ch, self.in_ch)
         x[:, :, 0, :, :] = torch.sigmoid(x[:, :, 0, :, :] * 0.25)
 
-        # As of now, this is the only way to process batches larger than 1:
+        # Profiled batch processing (handle batches > 1)
         y = []
+
+        # Measure loop time separately
+        if self.profile_enabled and torch.cuda.is_available():
+            torch.cuda.synchronize()
+        loop_start = time.perf_counter()
+
         for i in range(x.size(0)):
             # Create a dictionary whose key is the name of the module whose parameters are to be estimated
             param_dict = {"biquad": x[i].to(self.dtype)}
             y.append(self.biquad(z[0].unsqueeze(0), param_dict))
 
+        if self.profile_enabled and torch.cuda.is_available():
+            torch.cuda.synchronize()
+        end_total = time.perf_counter()
+
         y = torch.vstack(y)
+
+        # Update aggregated profiling counters
+        if self.profile_enabled:
+            total_time = end_total - start_total
+            loop_time = end_total - loop_start
+            self._profile["calls"] += 1
+            self._profile["total_time"] += total_time
+            self._profile["loop_time"] += loop_time
+
         return y
+
+    def report_profile(self, reset: bool = False) -> dict:
+        """Return and optionally reset aggregated profiling stats.
+
+        Returns a dict with `calls`, `total_time`, `loop_time`, `rest_time`,
+        and averages per call.
+        """
+        stats = self._profile.copy()
+        calls = stats.get("calls", 0)
+        total_time = stats.get("total_time", 0.0)
+        loop_time = stats.get("loop_time", 0.0)
+        rest_time = total_time - loop_time
+        out = {
+            "calls": calls,
+            "total_time": total_time,
+            "loop_time": loop_time,
+            "rest_time": rest_time,
+            "avg_total": (total_time / calls) if calls else 0.0,
+            "avg_loop": (loop_time / calls) if calls else 0.0,
+            "avg_rest": (rest_time / calls) if calls else 0.0,
+        }
+        if reset:
+            self._profile = {"calls": 0, "total_time": 0.0, "loop_time": 0.0}
+        return out
 
 
 def example_biquad_nn(args):
@@ -192,6 +244,9 @@ def example_biquad_nn(args):
 
     trainer.train(train_loader, valid_loader)
 
+    out = model.report_profile()
+    #print the profiling report 
+    print(f"Profiling report: {out}")
 
 def generate_biquad_filter(args, in_ch, out_ch, n_sections):
     """
