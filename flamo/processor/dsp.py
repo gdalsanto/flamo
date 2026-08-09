@@ -870,6 +870,7 @@ class Filter(DSP):
     def __init__(
         self,
         size: tuple = (1, 1, 1),
+        batch_size: int = 1,
         nfft: int = 2**11,
         map: callable = lambda x: x,
         requires_grad: bool = False,
@@ -878,7 +879,7 @@ class Filter(DSP):
         dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
-            size=size,
+            size=(batch_size, *size),
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -925,7 +926,7 @@ class Filter(DSP):
         Checks if the shape of the filter parameters is valid.
         """
         assert (
-            len(self.size) == 3
+            len(self.size) == 4
         ), "Filter must be 3D, for 2D (parallel) filters use ParallelFilter module."
 
     def get_freq_response(self):
@@ -958,7 +959,7 @@ class Filter(DSP):
                 torch.Tensor: Output tensor after frequency convolution.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fmn,bfn...->bfm...", self.freq_response(param), x
+            "bfmn,bfn...->bfm...", self.freq_response(param), x
         )
 
     def initialize_class(self):
@@ -1444,6 +1445,7 @@ class Biquad(Filter):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         n_sections: int = 1,
         filter_type: str = "lowpass",
         nfft: int = 2**11,
@@ -1466,6 +1468,7 @@ class Biquad(Filter):
         self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=self.device, dtype=self.dtype)
         super().__init__(
             size=(n_sections, *self.get_size(), *size),
+            batch_size=batch_size,
             nfft=nfft,
             map=self.map,
             requires_grad=requires_grad,
@@ -1532,36 +1535,36 @@ class Biquad(Filter):
         match self.filter_type:
             case "lowpass":
                 b, a = lowpass_filter(
-                    fc=rad2hertz(param[:, 0, :, :] * torch.pi, fs=self.fs),
-                    gain=param[:, 1, :, :],
+                    fc=rad2hertz(param[..., 0, :, :] * torch.pi, fs=self.fs),
+                    gain=param[..., 1, :, :],
                     fs=self.fs,
                     device=self.device,
                     dtype=self.dtype,
                 )
             case "highpass":
                 b, a = highpass_filter(
-                    fc=rad2hertz(param[:, 0, :, :] * torch.pi, fs=self.fs),
-                    gain=param[:, 1, :, :],
+                    fc=rad2hertz(param[..., 0, :, :] * torch.pi, fs=self.fs),
+                    gain=param[..., 1, :, :],
                     fs=self.fs,
                     device=self.device,
                     dtype=self.dtype,
                 )
             case "bandpass":
                 b, a = bandpass_filter(
-                    fc1=rad2hertz(param[:, 0, :, :] * torch.pi, fs=self.fs),
-                    fc2=rad2hertz(param[:, 1, :, :] * torch.pi, fs=self.fs),
-                    gain=param[:, 2, :, :],
+                    fc1=rad2hertz(param[..., 0, :, :] * torch.pi, fs=self.fs),
+                    fc2=rad2hertz(param[..., 1, :, :] * torch.pi, fs=self.fs),
+                    gain=param[..., 2, :, :],
                     fs=self.fs,
                     device=self.device,
                     dtype=self.dtype,
                 )
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
+        b_aa = torch.einsum("p, pbomn -> pbomn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pbomn -> pbomn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A
+        H_temp = torch.prod(B, dim=-3) / (torch.prod(A, dim=-3))
+        H = torch.where(torch.abs(torch.prod(A, dim=-3)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        return H.transpose(1, 0), B, A
         
     def get_map(self):
         r"""
@@ -1572,7 +1575,7 @@ class Biquad(Filter):
             case "lowpass" | "highpass":
                 self.map = lambda x: torch.clamp(
                     torch.stack(
-                        (x[:, 0, :, :], 20 * torch.log10(torch.abs(x[:, 1, :, :]))),
+                        (x[..., 0, :, :], 20 * torch.log10(torch.abs(x[..., 1, :, :]))),
                         dim=1,
                     ),
                     min=torch.tensor([0, -60], device=self.device, dtype=self.dtype)
@@ -1586,9 +1589,9 @@ class Biquad(Filter):
                 self.map = lambda x: torch.clamp(
                     torch.stack(
                         (
-                            x[:, 0, :, :],
-                            x[:, 1, :, :],
-                            20 * torch.log10(torch.abs(x[:, -1, :, :])),
+                            x[..., 0, :, :],
+                            x[..., 1, :, :],
+                            20 * torch.log10(torch.abs(x[..., -1, :, :])),
                         ),
                         dim=1,
                     ),
@@ -1616,7 +1619,7 @@ class Biquad(Filter):
         Check the shape of the filter parameters.
         """
         assert (
-            len(self.size) == 4
+            len(self.size) == 5
         ), "Parameter size must be 4D, for 3D (parallel) biquads use parallelBiquad module."
 
     def initialize_class(self):
