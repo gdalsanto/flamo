@@ -102,6 +102,7 @@ class nnBiquad(nn.Module):
         # Create another instance of the model
         filt = dsp.Biquad(
             size=(out_ch, in_ch),
+            batch_size=1,
             n_sections=n_sect,
             filter_type="highpass",
             nfft=args.nfft,
@@ -165,7 +166,7 @@ class nnBiquad(nn.Module):
 
         for i in range(x.size(0)):
             # Create a dictionary whose key is the name of the module whose parameters are to be estimated
-            param_dict = {"biquad": x[i].to(self.dtype)}
+            param_dict = {"biquad": x[i:i+1].to(self.dtype)}
             y.append(self.biquad(z[0].unsqueeze(0), param_dict))
 
         if self.profile_enabled and torch.cuda.is_available():
