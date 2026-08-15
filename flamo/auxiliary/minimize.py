@@ -4,13 +4,13 @@ from torch.optim import LBFGS
 
 
 class MLS(nn.Module):
-    """
+    r"""
     Mean Least Squares module.
     Computes the mean of the squares of the residuals, computed as
 
     .. math::
 
-        \\frac{1}{n} \sum_{i=1}^{n} (Gx_i - y_i)^2
+        \frac{1}{n} \sum_{i=1}^{n} (Gx_i - y_i)^2
 
     where :math:`G` is the matrix to be multiplied with the input, :math:`x_i` is the input, and :math:`y_i` is the target tensor.
 
