@@ -71,11 +71,7 @@ def geq(
         - **center_freq** (torch.Tensor): Tensor containing the center frequencies of the bandpass filters in Hz.
         - **shelving_freq** (torch.Tensor): Tensor containing the corner frequencies of the shelving filters in Hz.
         - **R** (torch.Tensor): Tensor containing the resonance factor for the bandpass filters.
-        - **gain_db** (torch.Tensor): Tensor containing the gain values in decibels for each frequency band,
-          shape ``(num_bands, *extra_dims)``. ``extra_dims`` may be empty (scalar gain per band, the original
-          contract) or carry arbitrary additional dimensions (e.g. batch and/or channel dims) -- the per-band
-          loop below stays fixed at ``num_bands`` iterations either way, with each iteration processing the
-          full ``extra_dims`` tensor at once via the broadcastable :func:`shelving_filter`/:func:`peak_filter`.
+        - **gain_db** (torch.Tensor): Tensor containing the gain values in decibels for each frequency band.
         - **fs** (int, optional): Sampling frequency. Default: 48000 Hz.
         - **device** (str, optional): Device to use for constructing tensors. Default: cpu.
         - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
