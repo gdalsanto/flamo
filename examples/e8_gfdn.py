@@ -233,6 +233,7 @@ def example_gfdn(args):
     trainer = Trainer(
         model,
         max_epochs=args.max_epochs,
+        patience=20,
         lr=args.lr,
         train_dir=args.train_dir,
         device=args.device,
