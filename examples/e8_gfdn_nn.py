@@ -372,10 +372,6 @@ def example_gfdn_nn(args):
 
     trainer.train(train_loader, valid_loader)
 
-    out = model.report_profile()
-    #print the profiling report 
-    print(f"Profiling report: {out}")
-
 
 if __name__ == "__main__":
 
