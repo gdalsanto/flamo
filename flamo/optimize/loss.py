@@ -49,10 +49,23 @@ class sparsity_loss(nn.Module):
                 A = mixing_matrix.map(mixing_matrix.param)
 
         if isinstance(mixing_matrix, HouseholderMatrix):
-            u = A 
+            # u carries a leading batch dimension (u.shape == (batch, N, 1)); this
+            # loss assumes a single shared mixing matrix, so drop it before rebuilding
+            # the Householder matrix (u.shape[0] would otherwise be batch, not N).
+            u = A.squeeze(0)
             A = torch.eye(u.shape[0], device=u.device, dtype=u.dtype) - 2 * u @ u.T
-            
+
         N = A.shape[-1]
+        if mixing_matrix.matrix_type == "random_block_diagonal":
+            n_blocks = mixing_matrix.n_blocks
+            block_size = N // n_blocks
+            loss = 0
+            for i in torch.arange(0, N, block_size):
+                block = A[..., i:i+block_size, i:i+block_size]
+                N = block.shape[-1]
+                loss += (torch.sum(torch.abs(block)) - N * np.sqrt(N)) / (N * (1 - np.sqrt(N)))
+            return loss 
+        
         if len(A.shape) == 3:
             return torch.mean(
                 (torch.sum(torch.abs(A), dim=(-2, -1)) - N * np.sqrt(N))
