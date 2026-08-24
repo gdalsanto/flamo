@@ -261,6 +261,21 @@ def skew_matrix(X):
     A = X.triu(1)
     return A - A.transpose(-1, -2)
 
+def block_diagonal_matrix(X: torch.Tensor, n_blocks: int) -> torch.Tensor:  
+    
+    r"""
+    Generate a block diagonal matrix from a given tensor :math:`\mathbf{X}` with :math:`n_{\textrm{blocks}}` blocks.
+
+    **Arguments**:
+        **X** (torch.Tensor): The input tensor of shape (batch_size, n_blocks, block_size, block_size).
+        **n_blocks** (int): The number of blocks in the output matrix.
+    """
+    Y = torch.zeros_like(X)
+
+    block_size = X.shape[-1] // n_blocks
+    for i in torch.arange(0, X.shape[-1], block_size):
+        Y[..., i:i+block_size, i:i+block_size] = torch.matrix_exp(skew_matrix(X[..., i:i+block_size, i:i+block_size]))
+    return Y
 
 def _block_rotation_matrix(angles: torch.Tensor) -> torch.Tensor:
     blocks = []
@@ -701,9 +716,6 @@ def shelving_filter(
             - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
             - **a** (torch.Tensor): The denominator coefficients of the filter transfer function.
     """
-    b = torch.ones(3, device=device, dtype=dtype)
-    a = torch.ones(3, device=device, dtype=dtype)
-
     omegaC = hertz2rad(fc, fs)
     t = torch.tan(omegaC / 2)
     t2 = t**2
@@ -711,18 +723,19 @@ def shelving_filter(
     g4 = gain**0.25
 
     two = torch.tensor(2, device=device, dtype=dtype)
-    b[0] = g2 * t2 + torch.sqrt(two) * t * g4 + 1
-    b[1] = 2 * g2 * t2 - 2
-    b[2] = g2 * t2 - torch.sqrt(two) * t * g4 + 1
 
-    a[0] = g2 + torch.sqrt(two) * t * g4 + t2
-    a[1] = 2 * t2 - 2 * g2
-    a[2] = g2 - torch.sqrt(two) * t * g4 + t2
+    b0 = g2 * t2 + torch.sqrt(two) * t * g4 + 1
+    b1 = 2 * g2 * t2 - 2
+    b2 = g2 * t2 - torch.sqrt(two) * t * g4 + 1
+    b = g2 * torch.stack((b0, b1, b2), dim=0)
 
-    b = g2 * b
+    a0 = g2 + torch.sqrt(two) * t * g4 + t2
+    a1 = 2 * t2 - 2 * g2
+    a2 = g2 - torch.sqrt(two) * t * g4 + t2
+    a = torch.stack((a0, a1, a2), dim=0)
 
     if type == "high":
-        tmp = torch.clone(b)
+        tmp = b
         b = a * gain
         a = tmp
 
@@ -764,20 +777,19 @@ def peak_filter(
             - **b** (torch.Tensor): The numerator coefficients of the filter transfer function.
             - **a** (torch.Tensor): The denominator coefficients of the filter transfer function
     """
-    b = torch.ones(3, device=device, dtype=dtype)
-    a = torch.ones(3, device=device, dtype=dtype)
-
     omegaC = hertz2rad(fc, fs)
     bandWidth = omegaC / Q
     t = torch.tan(bandWidth / 2)
 
-    b[0] = torch.sqrt(gain) + gain * t
-    b[1] = -2 * torch.sqrt(gain) * torch.cos(omegaC)
-    b[2] = torch.sqrt(gain) - gain * t
+    b0 = torch.sqrt(gain) + gain * t
+    b1 = -2 * torch.sqrt(gain) * torch.cos(omegaC)
+    b2 = torch.sqrt(gain) - gain * t
+    b = torch.stack((b0, b1, b2), dim=0)
 
-    a[0] = torch.sqrt(gain) + t
-    a[1] = -2 * torch.sqrt(gain) * torch.cos(omegaC)
-    a[2] = torch.sqrt(gain) - t
+    a0 = torch.sqrt(gain) + t
+    a1 = -2 * torch.sqrt(gain) * torch.cos(omegaC)
+    a2 = torch.sqrt(gain) - t
+    a = torch.stack((a0, a1, a2), dim=0)
 
     return b, a
 
