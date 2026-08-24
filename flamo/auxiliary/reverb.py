@@ -38,12 +38,19 @@ class map_gamma(torch.nn.Module):
         self.g_max = 1.0
 
     def forward(self, x):
+        # x carries a leading batch dimension (x.shape == (batch, N)); since this
+        # attenuation is homogeneous (assign_value always fills all N entries with
+        # the same scalar), any one of the N entries represents the shared value --
+        # x[:, 0] preserves the batch dimension instead of the pre-batch x[0], which
+        # would grab the whole per-line vector for batch index 0 rather than a
+        # per-batch scalar.
+        g0 = x[:, 0].unsqueeze(-1)
         if self.is_compressed:
             return (
-                torch.sigmoid(x[0]) * (self.g_max - self.g_min) + self.g_min
+                torch.sigmoid(g0) * (self.g_max - self.g_min) + self.g_min
             ) ** self.delays
         else:
-            return x[0] ** self.delays
+            return g0 ** self.delays
 
 class inverse_map_gamma(torch.nn.Module):
 
@@ -357,18 +364,26 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
     def get_poly_coeff(self, param):
         r"""
         Computes the polynomial coefficients for the SOS section.
+
+        Note: this bespoke FDN attenuation filter does not expose ``batch_size`` and
+        is only ever used with the default singleton batch dimension introduced by
+        :class:`~flamo.processor.dsp.Filter`; that dimension is squeezed away here so
+        the rest of this method's indexing matches its original (pre-batching) shape
+        contract.
         """
-        a = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
-        b = torch.zeros((3, self.size[0]+1, len(self.delays)), device=self.device)
+        param = param.squeeze(0)
+        n_gains = self.size[-1]
+        a = torch.zeros((3, n_gains+1, len(self.delays)), device=self.device)
+        b = torch.zeros((3, n_gains+1, len(self.delays)), device=self.device)
         for n_i in range(len(self.delays)):
                 b[:, :, n_i], a[:, :, n_i] = accurate_geq(
                     target_gain=param[:, n_i],
                     center_freq=self.center_freq,
-                    shelving_crossover=self.shelving_crossover,                    
+                    shelving_crossover=self.shelving_crossover,
                     fs=self.fs,
                     device=self.device
                 )
-         
+
         b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), b.to(torch.double))
         a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.double), a.to(torch.double))
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
@@ -376,12 +391,12 @@ class parallelFDNAccurateGEQ(dsp.parallelAccurateGEQ):
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
-    
+        return H.to(H_type).unsqueeze(0), B, A
+
     def check_param_shape(self):
         assert (
-            len(self.size) == 1
-        ), 'The parameter should contain only the command gains'
+            len(self.size) == 2
+        ), 'The parameter should contain only the (batch, command gains)'
 
     def get_io(self):
         r"""
@@ -419,8 +434,11 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
             device=device,
             dtype=dtype
         )
-        self.n_gains = self.size[0]
-        self.size = (self.n_groups * self.size[0],)
+        # self.size at this point is (batch, n_gains) (batch is always the singleton
+        # default here -- this class does not expose batch_size); n_gains is the
+        # last dim, not the first.
+        self.n_gains = self.size[-1]
+        self.size = (self.n_groups * self.n_gains,)
         self.param = torch.nn.Parameter(
             torch.empty(self.size, device=self.device), requires_grad=self.requires_grad
         )
@@ -454,7 +472,9 @@ class parallelGFDNAccurateGEQ(parallelFDNAccurateGEQ):
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
         H_type = torch.complex128 if param.dtype == torch.float64 else torch.complex64
-        return H.to(H_type), B, A
+        # self.param has no batch dimension (rebuilt without one in __init__), so H
+        # needs one added back for the inherited (batch-first) freq_convolve.
+        return H.to(H_type).unsqueeze(0), B, A
 
 class parallelFDNGEQ(dsp.parallelGEQ):
     r"""
@@ -515,16 +535,24 @@ class parallelFDNGEQ(dsp.parallelGEQ):
     def get_poly_coeff(self, param):
         r"""
         Computes the polynomial coefficients for the SOS section.
+
+        Note: this bespoke FDN attenuation filter does not expose ``batch_size`` and
+        is only ever used with the default singleton batch dimension; that dimension
+        is squeezed away here so the rest of this method's indexing (and the
+        band-first contract expected by :func:`~flamo.auxiliary.eq.geq`) matches its
+        original (pre-batching) shape.
         """
-        a = torch.zeros((3, self.size[0], len(self.delays)), device=self.device)
-        b = torch.zeros((3, self.size[0], len(self.delays)), device=self.device)
+        param = param.squeeze(0)
+        n_bands = self.size[-1]
+        a = torch.zeros((3, n_bands, len(self.delays)), device=self.device)
+        b = torch.zeros((3, n_bands, len(self.delays)), device=self.device)
         R = torch.tensor(2.7, device=self.device)
         for n_i in range(len(self.delays)):
                 b[:, :, n_i], a[:, :, n_i] = geq(
                     gain_db=torch.mul(rt2slope(param, self.fs).unsqueeze(-1), self.delays[n_i]),
                     center_freq=self.center_freq,
                     R=R,
-                    shelving_freq=self.shelving_crossover,                    
+                    shelving_freq=self.shelving_crossover,
                     fs=self.fs,
                     device=self.device
                 )
@@ -534,11 +562,11 @@ class parallelFDNGEQ(dsp.parallelGEQ):
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A
+        return H.unsqueeze(0), B, A
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 1
+            len(self.size) == 2
         ), 'The parameter should contain only the command gains'
 
     def get_io(self):
@@ -600,7 +628,15 @@ class parallelFDNPEQ(Filter):
     def get_poly_coeff(self, param):
         r"""
         Computes the polynomial coefficients for the SOS section.
+
+        Note: this bespoke FDN attenuation filter does not expose ``batch_size`` and
+        is only ever used with the default singleton batch dimension introduced by
+        :class:`~flamo.processor.dsp.Filter`; that dimension is squeezed away here so
+        the rest of this method's indexing (and this class's own
+        :meth:`get_freq_convolve`, which does not expect a batch-labeled weight)
+        matches its original (pre-batching) shape contract.
         """
+        param = param.squeeze(0)
         if self.is_twostage:
             param_eq = self.map_eq(param[:-1, ...])
             param_ls = self.map_eq(param[-1, ...], is_twostage=True)
@@ -773,8 +809,8 @@ class parallelFDNPEQ(Filter):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 3
-        ), "Filter must be 2D in the parallel configuration, for 3D filters use PEQ module."
+            len(self.size) == 4
+        ), "Filter must be 3D (plus a leading batch dimension) in the parallel configuration, for 3D filters use PEQ module."
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
@@ -845,38 +881,47 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         self.freq_response = lambda param: self.get_poly_coeff(self.map(param))[0]
 
     def get_poly_coeff(self, param):
-        b, a = param
-        b_aa = torch.einsum('p, pn -> pn', self.alias_envelope_dcy, b)
-        a_aa = torch.einsum('p, pn -> pn', self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H = B / A
-    
-        return H, B, A 
+        b, a = param  # each (batch, 2, n_delays)
+        b_aa = torch.einsum('p, bpn -> bpn', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, bpn -> bpn', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=1)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=1)
+        H = B / A  # (batch, freq, n_delays), ready for parallelFilter.get_freq_convolve
+        return H, B, A
 
     def check_param_shape(self):
         r"""
         Checks if the shape of the filter parameters is valid.
         """
         assert (
-            len(self.size) == 1
-        ), "Filter must be 1D, for 2D filters use Filter module."
+            len(self.size) == 2
+        ), "Filter must be 1D (plus a leading batch dimension), for 2D filters use Filter module."
 
     def map_param(self, param, fs):
-        rt_DC = param[0]
-        gain_DC = torch.mul(rt2slope(rt_DC, fs), self.delays.unsqueeze(0))
-        gain_Nyq = torch.mul(rt2slope(self.rt_nyquist, fs), self.delays.unsqueeze(0))
-        omega_c = torch.clamp(param[1], min=0, max=torch.pi)
-        t = torch.tan(omega_c / 2)
-        k = 10**(gain_DC/20) / 10**(gain_Nyq/20)
+        r"""
+        Maps the raw (batch, 2) parameters -- rt_DC and the shelving
+        crossover -- to the (batch, 2, n_delays) numerator/denominator
+        coefficients of the per-delay-line shelving filter. The batch
+        dimension is carried through rather than squeezed away, so a
+        batched ``ext_param`` (one rt_DC/crossover pair per batch item) is
+        supported directly, with no assumption that batch size is 1.
+        """
+        rt_DC = param[:, 0]  # (batch,)
+        omega_c = torch.clamp(param[:, 1], min=0, max=torch.pi)  # (batch,)
 
-        a = torch.ones(2, len(self.delays), device=self.device)
-        b = torch.ones(2, len(self.delays), device=self.device)
+        gain_DC = rt2absorption(rt_DC, fs, self.delays)  # (batch, n_delays)
+        gain_Nyq = rt2slope(self.rt_nyquist, fs) * self.delays  # (n_delays,), same for every batch item
+        t = torch.tan(omega_c / 2).unsqueeze(-1)  # (batch, 1), broadcasts against n_delays
+        k = 10**(gain_DC/20) / 10**(gain_Nyq/20)  # (batch, n_delays)
 
-        a[0] = t / torch.sqrt(k) + 1
-        a[1] = t / torch.sqrt(k) - 1
-        b[0] = t * torch.sqrt(k) + 1
-        b[1] = t * torch.sqrt(k) - 1
+        batch = param.shape[0]
+        a = torch.ones(batch, 2, len(self.delays), device=self.device, dtype=param.dtype)
+        b = torch.ones(batch, 2, len(self.delays), device=self.device, dtype=param.dtype)
+
+        a[:, 0] = t / torch.sqrt(k) + 1
+        a[:, 1] = t / torch.sqrt(k) - 1
+        b[:, 0] = t * torch.sqrt(k) + 1
+        b[:, 1] = t * torch.sqrt(k) - 1
         return b * 10**(gain_Nyq/20), a
 
     def get_io(self):

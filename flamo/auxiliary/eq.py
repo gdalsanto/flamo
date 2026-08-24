@@ -71,26 +71,33 @@ def geq(
         - **center_freq** (torch.Tensor): Tensor containing the center frequencies of the bandpass filters in Hz.
         - **shelving_freq** (torch.Tensor): Tensor containing the corner frequencies of the shelving filters in Hz.
         - **R** (torch.Tensor): Tensor containing the resonance factor for the bandpass filters.
-        - **gain_db** (torch.Tensor): Tensor containing the gain values in decibels for each frequency band.
+        - **gain_db** (torch.Tensor): Tensor containing the gain values in decibels for each frequency band,
+          shape ``(num_bands, *extra_dims)``. ``extra_dims`` may be empty (scalar gain per band, the original
+          contract) or carry arbitrary additional dimensions (e.g. batch and/or channel dims) -- the per-band
+          loop below stays fixed at ``num_bands`` iterations either way, with each iteration processing the
+          full ``extra_dims`` tensor at once via the broadcastable :func:`shelving_filter`/:func:`peak_filter`.
         - **fs** (int, optional): Sampling frequency. Default: 48000 Hz.
         - **device** (str, optional): Device to use for constructing tensors. Default: cpu.
         - **dtype** (torch.dtype, optional): Data type for tensors. Default: torch.float32.
 
     **Returns**:
-        - tuple: A tuple containing the numerator and denominator coefficients of the GEQ filter.
+        - tuple: A tuple ``(b, a)`` of numerator/denominator coefficients, each shaped
+          ``(3, num_bands, *extra_dims)``.
 
     """
     num_bands = len(center_freq) + len(shelving_freq) + 1
     assert (
-        len(gain_db) == num_bands
+        gain_db.shape[0] == num_bands
     ), "The number of gains must be equal to the number of frequencies."
-    sos = torch.zeros((6, num_bands), device=device, dtype=dtype)
+    sos_bands = []
 
     for band in range(num_bands):
         if band == 0:
-            b = torch.zeros(3, device=device, dtype=dtype)
-            b[0] = db2mag(gain_db[band])
-            a = torch.tensor([1, 0, 0], device=device, dtype=dtype)
+            b0 = db2mag(gain_db[band])
+            b = torch.stack((b0, torch.zeros_like(b0), torch.zeros_like(b0)), dim=0)
+            a = torch.stack(
+                (torch.ones_like(b0), torch.zeros_like(b0), torch.zeros_like(b0)), dim=0
+            )
         elif band == 1:
             b, a = shelving_filter(
                 shelving_freq[0], db2mag(gain_db[band]), "low", fs=fs, device=device, dtype=dtype
@@ -105,9 +112,9 @@ def geq(
                 center_freq[band - 2], db2mag(gain_db[band]), Q, fs=fs, device=device, dtype=dtype
             )
 
-        sos_band = torch.hstack((b, a))
-        sos[:, band] = sos_band
+        sos_bands.append(torch.cat((b, a), dim=0))  # (6, *extra_dims)
 
+    sos = torch.stack(sos_bands, dim=1)  # (6, num_bands, *extra_dims)
     return sos[:3], sos[3:]
 
 
@@ -159,7 +166,7 @@ def accurate_geq(
 
     # Design prototype of the biquad sections
     prototype_gain = 10  # dB
-    prototype_gain_array = torch.full((num_freq + 1, 1), prototype_gain, dtype=dtype)
+    prototype_gain_array = torch.full((num_freq + 1,), prototype_gain, dtype=dtype)
     prototype_b, prototype_a = geq(
         center_freq, shelving_crossover, R, prototype_gain_array, fs, dtype=dtype
     )
