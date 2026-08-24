@@ -854,13 +854,12 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         requires_grad: bool = False,
         dtype: torch.dtype = torch.float32
     ):
-        size = (2,)      # rt at DC and crossover frequency
         assert (delays is not None), "Delays must be provided"
         self.delays = delays
         self.rt_nyquist = torch.tensor(rt_nyquist, device=device)
         map = lambda x: self.map_param(x, fs)
         super().__init__(
-            size=size,
+            size=self._param_size(),
             nfft=nfft,
             map=map,
             alias_decay_db=alias_decay_db,
@@ -873,6 +872,14 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         )
         self.alias_envelope_dcy = gamma ** torch.arange(0, 2, 1, device=device)
         self.fs = fs
+
+    def _param_size(self):
+        r"""
+        Shape of the raw (pre-batch) learnable parameters: rt_DC and the
+        shelving crossover. Overridden by subclasses that learn more than
+        one (rt_DC, crossover) pair, e.g. one per group of delay lines.
+        """
+        return (2,)
 
     def get_freq_response(self):
         r"""
@@ -930,3 +937,91 @@ class parallelFirstOrderShelving(dsp.parallelFilter):
         """
         self.input_channels = len(self.delays)
         self.output_channels = len(self.delays)
+
+
+class parallelGFDNFirstOrderShelving(parallelFirstOrderShelving):
+    r"""
+    Grouped counterpart of :class:`parallelFirstOrderShelving`, for use in
+    grouped FDNs. Instead of a single (rt_DC, crossover) pair shared by every
+    delay line, it learns one such pair per group, so each group of delay
+    lines can decay at its own rate.
+
+    The ``delays`` passed in are expected to be laid out as ``n_groups``
+    contiguous blocks of ``len(delays) // n_groups`` lines each (i.e.
+    ``delays[i * group_size : (i + 1) * group_size]`` belongs to group
+    ``i``), matching how grouped feedback matrices order their delay lines.
+
+        **Arguments / Attributes**:
+            - **n_groups** (int): Number of groups, each with its own decay rate. Default: 1.
+            - other arguments as in :class:`parallelFirstOrderShelving`.
+    """
+
+    def __init__(
+        self,
+        nfft: int = 2**11,
+        fs: int = 48000,
+        rt_nyquist: float = 0.2,
+        delays: torch.Tensor = None,
+        n_groups: int = 1,
+        alias_decay_db: float = 0.0,
+        device: str = None,
+        requires_grad: bool = False,
+        dtype: torch.dtype = torch.float32
+    ):
+        assert (delays is not None), "Delays must be provided"
+        assert (
+            len(delays) % n_groups == 0
+        ), f"len(delays) ({len(delays)}) must be divisible by n_groups ({n_groups})"
+        self.n_groups = n_groups
+        self.group_size = len(delays) // n_groups
+        super().__init__(
+            nfft=nfft,
+            fs=fs,
+            rt_nyquist=rt_nyquist,
+            delays=delays,
+            alias_decay_db=alias_decay_db,
+            device=device,
+            requires_grad=requires_grad,
+            dtype=dtype
+        )
+
+    def _param_size(self):
+        return (self.n_groups, 2)
+
+    def check_param_shape(self):
+        r"""
+        Checks if the shape of the filter parameters is valid.
+        """
+        assert (
+            len(self.size) == 3
+        ), "Parameters must be 2D (plus a leading batch dimension): (batch, n_groups, 2)."
+
+    def map_param(self, param, fs):
+        r"""
+        Maps the raw (batch, n_groups, 2) parameters -- one rt_DC and
+        shelving crossover pair per group -- to the (batch, 2, n_delays)
+        numerator/denominator coefficients of the per-delay-line shelving
+        filter.
+        """
+        rt_DC = param[:, :, 0]  # (batch, n_groups)
+        omega_c = torch.clamp(param[:, :, 1], min=0, max=torch.pi)  # (batch, n_groups)
+
+        delays_grouped = self.delays.view(self.n_groups, self.group_size)
+        gain_DC = torch.einsum(
+            "bg,gd->bgd", rt2slope(rt_DC, fs), delays_grouped
+        ).reshape(rt_DC.shape[0], -1)  # (batch, n_delays), group-major to match self.delays
+        gain_Nyq = rt2slope(self.rt_nyquist, fs) * self.delays  # (n_delays,), same for every batch item and group
+        t = torch.tan(omega_c / 2).unsqueeze(-1).expand(-1, -1, self.group_size).reshape(
+            omega_c.shape[0], -1
+        )  # (batch, n_delays)
+        k = 10**(gain_DC/20) / 10**(gain_Nyq/20)  # (batch, n_delays)
+
+        batch = param.shape[0]
+        a = torch.ones(batch, 2, len(self.delays), device=self.device, dtype=param.dtype)
+        b = torch.ones(batch, 2, len(self.delays), device=self.device, dtype=param.dtype)
+
+        a[:, 0] = t / torch.sqrt(k) + 1
+        a[:, 1] = t / torch.sqrt(k) - 1
+        b[:, 0] = t * torch.sqrt(k) + 1
+        b[:, 1] = t * torch.sqrt(k) - 1
+        return b * 10**(gain_Nyq/20), a

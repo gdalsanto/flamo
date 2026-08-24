@@ -9,7 +9,7 @@ import soundfile as sf
 
 from collections import OrderedDict
 
-from flamo.auxiliary.reverb import parallelFirstOrderShelving
+from flamo.auxiliary.reverb import parallelGFDNFirstOrderShelving
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.loss import sparsity_loss
 from flamo.optimize.trainer import Trainer
@@ -117,10 +117,11 @@ class GroupedFDN(system.Shell):
             dtype=dtype,
         )
 
-        attenuation = parallelFirstOrderShelving(
+        attenuation = parallelGFDNFirstOrderShelving(
             nfft=nfft,
             fs=fs,
             rt_nyquist=rt_nyquist,
+            n_groups=n_groups,
             delays=delay_lengths,
             alias_decay_db=alias_decay_db,
             requires_grad=True,
