@@ -12,6 +12,7 @@ from flamo.functional import (
     highpass_filter,
     bandpass_filter,
     rad2hertz, 
+    block_diagonal_matrix,
     HadamardMatrix, 
     RotationMatrix)
 from flamo.auxiliary.eq import (
@@ -349,21 +350,52 @@ class DSP(nn.Module):
         Assigns new values to the parameters.
 
         **Arguments**:
-            - **new_value** (torch.Tensor): New values to be assigned.
+            - **new_value** (torch.Tensor): New values to be assigned. Accepts any
+              shape broadcastable to the target parameter slice's shape -- e.g. a
+              caller that builds a value without the leading batch dimension
+              (introduced across the library so ``self.param`` can carry
+              per-batch-item values) may still pass that un-batched value as-is,
+              since a shape missing only the leading batch axis broadcasts against
+              it automatically. Default: identity index.
             - **indx** (tuple, optional): Specifies the index of the values to be assigned. Default: tuple([slice(None)]).
 
         .. warning::
             the gradient calculation is disable when assigning new values to :attr:`param`.
 
         """
-        assert (
-            self.param[indx].shape == new_value.shape
-        ), f"New values shape {new_value.shape} is not compatible with the parameter shape {self.param[indx].shape}."
+        target_shape = self.param[indx].shape
+        if new_value.shape != target_shape:
+            try:
+                new_value = new_value.expand(target_shape)
+            except RuntimeError:
+                raise AssertionError(
+                    f"New values shape {new_value.shape} is not compatible with the parameter shape {target_shape}."
+                )
 
         Warning("Assigning new values. Gradient calculation is disabled.")
         with torch.no_grad():
             self.param[indx].copy_(new_value)
             self.new_value = 1  # flag indicating new values have been assigned
+
+    def _log_ext_param(self, ext_param: torch.Tensor) -> None:
+        r"""
+        Best-effort mirror of an externally supplied ``ext_param`` into
+        :attr:`param`, so the module's own state stays inspectable (e.g. via
+        :meth:`probe`) between externally-conditioned forward calls. This is
+        bookkeeping only: the forward computation always uses ``ext_param``
+        directly, never the copy written here.
+
+        :attr:`param` has a fixed shape (it is an ``nn.Parameter``, sized
+        once at construction), so it can only ever mirror one batch item at
+        a time. When ``ext_param`` carries a genuine per-batch-item value
+        (batch size > 1, and different from :attr:`param`'s own batch size),
+        there is no single value to mirror, so the copy is skipped rather
+        than raising -- this must not block forward from using a batched
+        ``ext_param``, which is otherwise fully supported.
+        """
+        if ext_param.shape[0] == self.param.shape[0] or ext_param.shape[0] == 1:
+            with torch.no_grad():
+                self.assign_value(ext_param)
 
     def probe(self, z: torch.Tensor):
         r"""
@@ -388,6 +420,16 @@ class DSP(nn.Module):
                 torch.Tensor: Transfer matrix of shape ``(N_out, N_in)`` (complex).
         """
         return self.probe(1/w)
+
+    def _squeeze_batch(self, t: torch.Tensor):
+        r"""
+        Squeezes away a leading batch dimension of size 1 (the default, non-batched
+        case) so :meth:`probe` keeps returning a plain ``(N_out, N_in)`` matrix.
+        When the module was constructed with ``batch_size > 1``, the leading batch
+        dimension is left in place and callers (e.g. :class:`Series`, :class:`Recursion`)
+        rely on batched-matmul broadcasting to stay correct.
+        """
+        return t.squeeze(0) if self.size[0] == 1 else t
 
 # ============================= GAINS ================================
 
@@ -432,6 +474,7 @@ class Gain(DSP):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         nfft: int = 2**11,
         map: callable = lambda x: x,
         requires_grad: bool = False,
@@ -440,7 +483,7 @@ class Gain(DSP):
         dtype: torch.dtype = torch.float32,
     ):
         super().__init__(
-            size=size,
+            size=(batch_size, *size),
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -464,9 +507,7 @@ class Gain(DSP):
         if ext_param is None:
             return self.freq_convolve(x, self.param)
         else:
-            # log the parameters that are being passed
-            with torch.no_grad():
-                self.assign_value(ext_param)
+            self._log_ext_param(ext_param)
             return self.freq_convolve(x, ext_param)
 
     def check_input_shape(self, x):
@@ -486,14 +527,18 @@ class Gain(DSP):
         Checks if the shape of the gain parameters is valid.
         """
         assert (
-            len(self.size) == 2
-        ), "gains must be 2D. For 1D (parallel) gains use parallelGain module."
+            len(self.size) == 3
+        ), "gains must be 2D (plus a leading batch dimension). For 1D (parallel) gains use parallelGain module."
 
     def get_freq_convolve(self):
         r"""
         Computes the frequency convolution function.
 
         The frequency convolution is computed using the :func:`torch.einsum` function.
+        The weight carries a leading batch dimension (default size 1) which broadcasts
+        against the input's batch dimension, so a shared (non-batched) gain still applies
+        uniformly across a batch of signals, while a ``batch_size > 1`` instance (or an
+        externally supplied batched ``ext_param``) applies a different gain per batch item.
 
             **Arguments**:
                 **x** (torch.Tensor): Input tensor.
@@ -502,7 +547,7 @@ class Gain(DSP):
                 torch.Tensor: Output tensor after frequency convolution.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "mn,bfn...->bfm...", to_complex(self.map(param)), x
+            "bmn,bfn...->bfm...", to_complex(self.map(param)), x
         )
 
     def initialize_class(self):
@@ -529,9 +574,10 @@ class Gain(DSP):
         For a frequency-independent gain, H(z) = to_complex(map(param)).
 
             **Returns**:
-                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
+                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix (or
+                ``(batch_size, N_out, N_in)`` when ``batch_size > 1``).
         """
-        return to_complex(self.map(self.param))
+        return self._squeeze_batch(to_complex(self.map(self.param)))
 
 
 class parallelGain(Gain):
@@ -552,6 +598,7 @@ class parallelGain(Gain):
     def __init__(
         self,
         size: tuple = (1,),
+        batch_size: int = 1,
         nfft: int = 2**11,
         map: callable = lambda x: x,
         requires_grad: bool = False,
@@ -561,6 +608,7 @@ class parallelGain(Gain):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -573,7 +621,7 @@ class parallelGain(Gain):
         r"""
         Checks if the shape of the gain parameters is valid.
         """
-        assert len(self.size) == 1, "gains must be 1D, for 2D gains use Gain module."
+        assert len(self.size) == 2, "gains must be 1D (plus a leading batch dimension), for 2D gains use Gain module."
 
     def get_freq_convolve(self):
         r"""
@@ -588,7 +636,7 @@ class parallelGain(Gain):
                 torch.Tensor: Output tensor after frequency convolution.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "n,bfn...->bfn...", to_complex(self.map(param)), x
+            "bn,bfn...->bfn...", to_complex(self.map(param)), x
         )
 
     def get_io(self):
@@ -605,10 +653,11 @@ class parallelGain(Gain):
         Returns a diagonal matrix built from the parallel gains.
 
             **Returns**:
-                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
+                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix (or
+                ``(batch_size, N, N)`` when ``batch_size > 1``).
         """
-        h = to_complex(self.map(self.param))
-        return torch.diag(h)
+        h = self._squeeze_batch(to_complex(self.map(self.param)))
+        return torch.diag(h) if h.dim() == 1 else torch.diag_embed(h)
 
 
 # ============================= MATRICES ================================
@@ -625,7 +674,7 @@ class Matrix(Gain):
         **Arguments / Attributes**:
             - **size** (tuple, optional): The size of the matrix. Default: (1, 1).
             - **nfft** (int, optional): The number of FFT points required to compute the frequency response. Default: 2 ** 11.
-            - **map** (function, optional): The mapping function to apply to the raw matrix elements. Default: ``lambda x: x``.
+            - **c** (function, optional): The mapping function to apply to the raw matrix elements. Default: ``lambda x: x``.
             - **matrix_type** (str, optional): The type of matrix to generate. Default: "random".
             - **requires_grad** (bool, optional): Whether the matrix requires gradient computation. Default: False.
             - **alias_decay_db** (float, optional): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples. Default: 0.
@@ -647,19 +696,29 @@ class Matrix(Gain):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         nfft: int = 2**11,
         map: callable = lambda x: x,
         matrix_type: str = "random",
         iter: int = 1,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
+        n_blocks: Optional[int] = None,
         device: Optional[str] = None,
         dtype: torch.dtype = torch.float32,
     ):
         self.matrix_type = matrix_type
-        self.iter = iter # iterations number for the rotation matrix 
+        if n_blocks is not None:
+            self.n_blocks = n_blocks
+        self.iter = iter # iterations number for the rotation matrix
+        if matrix_type in ("hadamard", "rotation") and batch_size > 1:
+            raise NotImplementedError(
+                f"Matrix does not support batch_size > 1 for matrix_type={matrix_type!r}: "
+                "HadamardMatrix and RotationMatrix are not vectorized over a batch dimension."
+            )
         super().__init__(
             size=size,
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -672,35 +731,55 @@ class Matrix(Gain):
         r"""
         Generates the matrix based on the specified matrix type.
         The :attr:`map` attribute will be overwritten based on the matrix type.
+
+        For ``matrix_type in {"random", "orthogonal"}`` the mapping operates on the
+        trailing two dimensions and is therefore batch-agnostic: it works unchanged
+        whether :attr:`param` carries a leading batch dimension of 1 or more.
+        ``"hadamard"`` and ``"rotation"`` mappings are built on
+        :class:`~flamo.functional.HadamardMatrix`/:class:`~flamo.functional.RotationMatrix`,
+        which are not vectorized over a batch dimension, so those matrix types are
+        restricted to ``batch_size == 1`` (enforced in :meth:`__init__`).
         """
         Warning(
             f"you asked for {self.matrix_type} matrix type, map will be overwritten"
         )
-        N = self.size[0]
+        N = self.size[-2]
         match self.matrix_type:
             case "random":
                 self.map = lambda x: x
             case "orthogonal":
                 assert (
-                    N == self.size[1]
+                    N == self.size[-1]
                 ), "Matrix must be square to be orthogonal"
                 self.map = lambda x: torch.matrix_exp(skew_matrix(x))
             case "hadamard":
                 assert (
-                    N == self.size[1]
+                    N == self.size[-1]
                 ), "Matrix must be square to be Hadamard"
                 assert (
                     N % 2 == 0
                 ), "Matrix must have even dimensions to be Hadamard"
-                self.map = lambda x: HadamardMatrix(self.size[0], device=self.device, dtype=self.dtype)(x)
+                self.map = lambda x: HadamardMatrix(N, device=self.device, dtype=self.dtype)(x).unsqueeze(0)
             case "rotation":
                 assert (
-                    N == self.size[1]
+                    N == self.size[-1]
                 ), "Matrix must be square to be a rotation matrix"
                 assert (
                     N % 2 == 0
                 ), "Matrix must have even dimensions to be a rotation matrix"
-                self.map = lambda x: RotationMatrix(self.size[0], self.iter, device=self.device, dtype=self.dtype)([x[0][0]])
+                # x carries a leading batch dimension of 1 (batch_size > 1 is rejected
+                # in __init__ for this matrix_type), so the angle now sits at x[0][0][0]
+                # instead of the pre-batch x[0][0].
+                self.map = lambda x: RotationMatrix(N, self.iter, device=self.device, dtype=self.dtype)([x[0][0][0]]).unsqueeze(0)
+            case "random_block_diagonal":
+                # generate a block diagonal matrix with n_blocks blocks
+                assert (
+                    self.n_blocks is not None
+                ), "n_blocks must be specified for block_diagonal matrix"
+                assert (
+                    N == self.size[-1]
+                ), "Matrix must be square to be block_diagonal"
+                self.map = lambda x: block_diagonal_matrix(x, self.n_blocks)
 
     def initialize_class(self):
         r"""
@@ -750,6 +829,7 @@ class HouseholderMatrix(Gain):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         nfft: int = 2**11,
         requires_grad: bool = False,
         alias_decay_db: float = 0.0,
@@ -758,9 +838,10 @@ class HouseholderMatrix(Gain):
     ):
         assert size[0] == size[1], "Matrix must be square"
         size = (size[0], 1)
-        map = lambda x: to_complex(x) / torch.norm(x, dim=0, keepdim=True)
+        map = lambda x: to_complex(x) / torch.norm(x, dim=-2, keepdim=True)
         super().__init__(
             size=size,
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -781,6 +862,10 @@ class HouseholderMatrix(Gain):
 
             \mathbf{U}x = uu^T x = \sum_{n=1}^{N} u_n (u^T x)_n
 
+        :attr:`u` carries a leading batch dimension (default size 1, broadcasting
+        against any input batch size; ``batch_size > 1`` or a batched ``ext_param``
+        applies a different Householder vector per batch item).
+
         **Arguments**:
             - **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N, ...)`.
             - **ext_param** (torch.Tensor, optional): Parameter values received from external modules (hyper conditioning). Default: None.
@@ -791,13 +876,11 @@ class HouseholderMatrix(Gain):
         if ext_param is None:
             u = self.map(self.param)
         else:
-            # log the parameters that are being passed
-            with torch.no_grad():
-                self.assign_value(ext_param)
+            self._log_ext_param(ext_param)
             # generate householder matrix from unitary vector
             u = self.map(ext_param)
-        uTx = torch.einsum("mn,bfn...->bfm...", u.transpose(1, 0), x)
-        uuTx = torch.einsum("nm,bfm...->bfn...", u, uTx)
+        uTx = torch.einsum("bmn,bfn...->bfm...", u.transpose(-1, -2), x)
+        uuTx = torch.einsum("bnm,bfm...->bfn...", u, uTx)
         return x - 2 * uuTx
 
     def check_input_shape(self, x):
@@ -807,7 +890,7 @@ class HouseholderMatrix(Gain):
             **Arguments**:
                 **x** (torch.Tensor): Input tensor of shape :math:`(B, M, N_{in}, ...)`.
         """
-        if (self.size[0]) != (x.shape[2]):
+        if (self.size[-2]) != (x.shape[2]):
             raise ValueError(
                 f"parameter shape = {self.size} not compatible with input signal of shape = ({x.shape})."
             )
@@ -816,8 +899,8 @@ class HouseholderMatrix(Gain):
         r"""
         Computes the number of input and output channels based on the size parameter.
         """
-        self.input_channels = self.size[0]
-        self.output_channels = self.size[0]
+        self.input_channels = self.size[-2]
+        self.output_channels = self.size[-2]
 
 
 # ============================= FILTERS ================================
@@ -904,9 +987,7 @@ class Filter(DSP):
         if ext_param is None:
             return self.freq_convolve(x, self.param)
         else:
-            # log the parameters that are being passed
-            with torch.no_grad():
-                self.assign_value(ext_param)
+            self._log_ext_param(ext_param)
             return self.freq_convolve(x, ext_param)
 
     def check_input_shape(self, x):
@@ -936,15 +1017,25 @@ class Filter(DSP):
         The mapping function is applied to the filter parameters to obtain the filter impulse responses.
         Then, the time anti-aliasing envelope is computed and applied to the impulse responses. Finally,
         the frequency response is obtained by computing the FFT of the filter impulse responses.
+
+        The impulse response carries a leading batch dimension followed immediately by
+        the tap/time axis (``ir.shape == (batch, N_taps, *channel_dims)``, where
+        ``channel_dims`` is ``(N_out, N_in)`` for :class:`Filter` or ``(N,)`` for
+        :class:`parallelFilter`), so the tap/time axis is ``1`` here rather than ``0``
+        (unlike :attr:`fft`/:attr:`ifft`, which are only used elsewhere on tensors that
+        have already had their batch dimension squeezed away).
         """
         self.ir = lambda x: self.map(x)
-        self.freq_response = lambda param: self.fft(
-            self.ir(param)
-            * (
-                self.gamma
-                ** torch.arange(0, self.ir(param).shape[0], device=self.device)
-            ).view(-1, *tuple([1 for i in self.map(param).shape[1:]]))
-        )
+
+        def _freq_response(param):
+            ir = self.ir(param)  # (batch, N_taps, *channel_dims)
+            n_taps = ir.shape[1]
+            envelope = (self.gamma ** torch.arange(0, n_taps, device=self.device)).view(
+                1, -1, *([1] * (ir.dim() - 2))
+            )
+            return torch.fft.rfft(ir * envelope, n=self.nfft, dim=1)
+
+        self.freq_response = _freq_response
 
     def get_freq_convolve(self):
         r"""
@@ -988,17 +1079,18 @@ class Filter(DSP):
         H(z) = sum_k coeff[k] * gamma^k * z^{-k}
 
             **Returns**:
-                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
+                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix (or
+                ``(batch_size, N_out, N_in)`` when ``batch_size > 1``).
         """
-        coeff = self.map(self.param)
-        K = coeff.shape[0]
+        coeff = self.map(self.param)  # (batch, K, N_out, N_in)
+        K = coeff.shape[-3]
         k_indices = torch.arange(K, device=coeff.device, dtype=coeff.dtype)
         gamma_k = self.gamma ** k_indices
         z_neg_k = z ** (-k_indices)
         weights = gamma_k * z_neg_k
-        weights = weights.view(-1, *([1] * (coeff.dim() - 1)))
-        H = (to_complex(coeff) * weights).sum(dim=0)
-        return H
+        weights = weights.view(*([1] * (coeff.dim() - 3)), -1, 1, 1)
+        H = (to_complex(coeff) * weights).sum(dim=-3)
+        return self._squeeze_batch(H)
 
 
 class parallelFilter(Filter):
@@ -1020,6 +1112,7 @@ class parallelFilter(Filter):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         nfft: int = 2**11,
         map: callable = lambda x: x,
         requires_grad: bool = False,
@@ -1029,6 +1122,7 @@ class parallelFilter(Filter):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -1042,8 +1136,8 @@ class parallelFilter(Filter):
         Checks if the shape of the filter parameters is valid.
         """
         assert (
-            len(self.size) == 2
-        ), "Filter must be 1D, for 2D filters use Filter module."
+            len(self.size) == 3
+        ), "Filter must be 1D (plus a leading batch dimension), for 2D filters use Filter module."
 
     def get_freq_convolve(self):
         r"""
@@ -1058,7 +1152,7 @@ class parallelFilter(Filter):
                 torch.Tensor: Output tensor after frequency convolution.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -1075,17 +1169,18 @@ class parallelFilter(Filter):
         Returns a diagonal matrix from the parallel filter evaluation.
 
             **Returns**:
-                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
+                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix (or
+                ``(batch_size, N, N)`` when ``batch_size > 1``).
         """
-        coeff = self.map(self.param)
-        K = coeff.shape[0]
+        coeff = self.map(self.param)  # (batch, K, N)
+        K = coeff.shape[-2]
         k_indices = torch.arange(K, device=coeff.device, dtype=coeff.dtype)
         gamma_k = self.gamma ** k_indices
         z_neg_k = z ** (-k_indices)
         weights = gamma_k * z_neg_k
-        weights = weights.view(-1, *([1] * (coeff.dim() - 1)))
-        h = (to_complex(coeff) * weights).sum(dim=0)
-        return torch.diag(h)
+        weights = weights.view(*([1] * (coeff.dim() - 2)), -1, 1)
+        h = self._squeeze_batch((to_complex(coeff) * weights).sum(dim=-2))
+        return torch.diag(h) if h.dim() == 1 else torch.diag_embed(h)
 
 
 class ScatteringMatrix(Filter):
@@ -1154,6 +1249,7 @@ class ScatteringMatrix(Filter):
     def __init__(
         self,
         size: tuple = (1, 1, 1),
+        batch_size: int = 1,
         nfft: int = 2**11,
         sparsity: int = 3,
         gain_per_sample: float = 0.9999,
@@ -1165,6 +1261,12 @@ class ScatteringMatrix(Filter):
         device: Optional[str] = None,
         dtype: torch.dtype = torch.float32,
     ):
+        if batch_size != 1:
+            raise NotImplementedError(
+                "ScatteringMatrix does not support batch_size > 1: ScatteringMapping "
+                "operates on a single fixed-shift time-domain matrix and is not "
+                "vectorized over a batch dimension."
+            )
         self.sparsity = sparsity
         self.gain_per_sample = gain_per_sample
         self.pulse_size = pulse_size
@@ -1174,6 +1276,7 @@ class ScatteringMatrix(Filter):
         assert size[1] == size[2], "Matrix must be square"
         super().__init__(
             size=size,
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -1211,11 +1314,12 @@ class ScatteringMatrix(Filter):
             + self.m_L.max().item()
             + self.m_R.max().item()
         )
+        # batch_size is forced to 1 (checked in __init__): drop the leading batch
+        # dimension before feeding into ScatteringMapping, which expects a plain
+        # (K, N, N) matrix and is not vectorized over a batch dimension.
         self.freq_response = lambda param: self.fft(
-            self.map_filter(self.map(param))
-            * (self.gamma ** torch.arange(0, L, device=self.device)).view(
-                -1, *tuple([1 for i in self.size[1:]])
-            )
+            self.map_filter(self.map(param).squeeze(0))
+            * (self.gamma ** torch.arange(0, L, device=self.device)).view(-1, 1, 1)
         )
 
     def initialize_class(self):
@@ -1227,7 +1331,7 @@ class ScatteringMatrix(Filter):
         """
         self.map_filter = ScatteringMapping(
             self.size[-1],
-            n_stages=self.size[0] - 1,
+            n_stages=self.size[-3] - 1,
             sparsity=self.sparsity,
             gain_per_sample=self.gain_per_sample,
             pulse_size=self.pulse_size,
@@ -1299,6 +1403,7 @@ class VelvetNoiseMatrix(Filter):
     def __init__(
         self,
         size: tuple = (1, 1, 1),
+        batch_size: int = 1,
         nfft: int = 2**11,
         density: float = 0.03,
         gain_per_sample: float = 0.9999,
@@ -1308,6 +1413,11 @@ class VelvetNoiseMatrix(Filter):
         device: Optional[str] = None,
         dtype: torch.dtype = torch.float32,
     ):
+        if batch_size != 1:
+            raise NotImplementedError(
+                "VelvetNoiseMatrix does not support batch_size > 1: it is built on "
+                "ScatteringMapping, which is not vectorized over a batch dimension."
+            )
         self.sparsity = 1/density
         self.gain_per_sample = gain_per_sample
         self.pulse_size = 1
@@ -1318,6 +1428,7 @@ class VelvetNoiseMatrix(Filter):
         assert (size[1] & (size[1] - 1)) == 0, "At the moment the Matrix must have dimensions which are powers of 2"
         super().__init__(
             size=size,
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=False,
@@ -1325,7 +1436,13 @@ class VelvetNoiseMatrix(Filter):
             device=device,
             dtype=dtype,
         )
-        self.assign_value(torch.tensor(hadamard_matrix(self.size[-1]), device=self.device, dtype=self.dtype).unsqueeze(0).repeat(self.size[0], 1, 1))
+        K = self.size[-3]
+        self.assign_value(
+            torch.tensor(hadamard_matrix(self.size[-1]), device=self.device, dtype=self.dtype)
+            .unsqueeze(0)
+            .repeat(K, 1, 1)
+            .unsqueeze(0)
+        )
 
     def get_freq_convolve(self):
         r"""
@@ -1356,23 +1473,24 @@ class VelvetNoiseMatrix(Filter):
             + self.m_L.max().item()
             + self.m_R.max().item()
         )
+        # batch_size is forced to 1 (checked in __init__): drop the leading batch
+        # dimension before feeding into ScatteringMapping, which expects a plain
+        # (K, N, N) matrix and is not vectorized over a batch dimension.
         self.freq_response = lambda param: self.fft(
-            self.map_filter(self.map(param))
-            * (self.gamma ** torch.arange(0, L, device=self.device)).view(
-                -1, *tuple([1 for i in self.size[1:]])
-            )
+            self.map_filter(self.map(param).squeeze(0))
+            * (self.gamma ** torch.arange(0, L, device=self.device)).view(-1, 1, 1)
         )
 
     def initialize_class(self):
         r"""
-        Initializes the ScatteringMatrix module.
+        Initializes the VelvetNoiseMatrix module.
 
         This method creates the mapping to generate the filter matrix, checks the shape of the gain parameters, computes the frequency response of the filter,
         and computes the frequency convolution function.
         """
         self.map_filter = ScatteringMapping(
             self.size[-1],
-            n_stages=self.size[0] - 1,
+            n_stages=self.size[-3] - 1,
             sparsity=math.floor(self.sparsity),
             gain_per_sample=self.gain_per_sample,
             pulse_size=self.pulse_size,
@@ -1573,10 +1691,14 @@ class Biquad(Filter):
         """
         match self.filter_type:
             case "lowpass" | "highpass":
+                # x: (batch, n_sections, P, N_out, N_in) -- the stacked component axis
+                # must be reinserted at its original position (-3, i.e. right before
+                # N_out, N_in), not at dim 1 (which would land it right after batch,
+                # ahead of n_sections).
                 self.map = lambda x: torch.clamp(
                     torch.stack(
                         (x[..., 0, :, :], 20 * torch.log10(torch.abs(x[..., 1, :, :]))),
-                        dim=1,
+                        dim=-3,
                     ),
                     min=torch.tensor([0, -60], device=self.device, dtype=self.dtype)
                     .view(-1, 1, 1)
@@ -1593,7 +1715,7 @@ class Biquad(Filter):
                             x[..., 1, :, :],
                             20 * torch.log10(torch.abs(x[..., -1, :, :])),
                         ),
-                        dim=1,
+                        dim=-3,
                     ),
                     min=torch.tensor([0 + torch.finfo(self.dtype).eps, 0 + torch.finfo(self.dtype).eps, -60], device=self.device, dtype=self.dtype)
                     .view(-1, 1, 1)
@@ -1665,6 +1787,7 @@ class parallelBiquad(Biquad):
     def __init__(
         self,
         size: tuple = (1,),
+        batch_size: int = 1,
         n_sections: int = 1,
         filter_type: str = "lowpass",
         nfft: int = 2**11,
@@ -1676,6 +1799,7 @@ class parallelBiquad(Biquad):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             n_sections=n_sections,
             filter_type=filter_type,
             nfft=nfft,
@@ -1688,8 +1812,8 @@ class parallelBiquad(Biquad):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 3
-        ), "Parameter size must be 3D, for 3D sapce use Biquad module."
+            len(self.size) == 4
+        ), "Parameter size must be 4D (batch, n_sections, P, N), for MIMO use Biquad module."
 
     def get_map(self):
         r"""
@@ -1700,7 +1824,7 @@ class parallelBiquad(Biquad):
             case "lowpass" | "highpass":
                 self.map = lambda x: torch.clamp(
                     torch.stack(
-                        (x[:, 0, :], 20 * torch.log10(torch.abs(x[:, -1, :]))), dim=1
+                        (x[..., 0, :], 20 * torch.log10(torch.abs(x[..., -1, :]))), dim=-2
                     ),
                     min=torch.tensor([0, -60], device=self.device, dtype=self.dtype)
                     .view(-1, 1)
@@ -1713,11 +1837,11 @@ class parallelBiquad(Biquad):
                 self.map = lambda x: torch.clamp(
                     torch.stack(
                         (
-                            x[:, 0, :],
-                            x[:, 1, :],
-                            20 * torch.log10(torch.abs(x[:, -1, :])),
+                            x[..., 0, :],
+                            x[..., 1, :],
+                            20 * torch.log10(torch.abs(x[..., -1, :])),
                         ),
-                        dim=1,
+                        dim=-2,
                     ),
                     min=torch.tensor([0 + torch.finfo(self.dtype).eps, 0 + torch.finfo(self.dtype).eps, -60], device=self.device, dtype=self.dtype)
                     .view(-1, 1)
@@ -1739,16 +1863,16 @@ class parallelBiquad(Biquad):
         It calls the :func:`flamo.functional.lowpass_filter`, :func:`flamo.functional.highpass_filter`, or :func:`flamo.functional.bandpass_filter` functions based on the filter type.
 
         **Arguments**:
-            **param** (torch.Tensor): A tensor containing the filter parameters.
+            **param** (torch.Tensor): A tensor containing the filter parameters, shape
+            ``(batch, n_sections, P, N)``.
 
-        The shape of the tensor should be (batch_size, num_params, height).
         The parameters are interpreted differently based on the filter type:
-    
-        * For "lowpass" and "highpass" filters, param[:, 0, :] represents the cutoff frequency and param[:, 1, :] represents the gain.
-        * For "bandpass" filters, param[:, 0, :] represents the lower cutoff frequency, param[:, 1, :] represents the upper cutoff frequency, and param[:, 2, :] represents the gain.
+
+        * For "lowpass" and "highpass" filters, param[..., 0, :] represents the cutoff frequency and param[..., 1, :] represents the gain.
+        * For "bandpass" filters, param[..., 0, :] represents the lower cutoff frequency, param[..., 1, :] represents the upper cutoff frequency, and param[..., 2, :] represents the gain.
 
         **Returns**:
-            - **H** (torch.Tensor): The frequency response of the filter.
+            - **H** (torch.Tensor): The frequency response of the filter, shape ``(batch, M, N)``.
             - **B** (torch.Tensor): The Fourier transformed numerator polynomial coefficients.
             - **A** (torch.Tensor): The Fourier transformed denominator polynomial coefficients.
 
@@ -1761,40 +1885,41 @@ class parallelBiquad(Biquad):
         match self.filter_type:
             case "lowpass":
                 b, a = lowpass_filter(
-                    fc=rad2hertz(param[:, 0, :] * torch.pi, fs=self.fs),
-                    gain=param[:, 1, :],
+                    fc=rad2hertz(param[..., 0, :] * torch.pi, fs=self.fs),
+                    gain=param[..., 1, :],
                     fs=self.fs,
                     device=self.device,
                     dtype=self.dtype,
                 )
             case "highpass":
                 b, a = highpass_filter(
-                    fc=rad2hertz(param[:, 0, :] * torch.pi, fs=self.fs),
-                    gain=param[:, 1, :],
+                    fc=rad2hertz(param[..., 0, :] * torch.pi, fs=self.fs),
+                    gain=param[..., 1, :],
                     fs=self.fs,
                     device=self.device,
                     dtype=self.dtype,
                 )
             case "bandpass":
                 b, a = bandpass_filter(
-                    fc1=rad2hertz(param[:, 0, :] * torch.pi, fs=self.fs),
-                    fc2=rad2hertz(param[:, 1, :] * torch.pi, fs=self.fs),
-                    gain=param[:, 2, :],
+                    fc1=rad2hertz(param[..., 0, :] * torch.pi, fs=self.fs),
+                    fc2=rad2hertz(param[..., 1, :] * torch.pi, fs=self.fs),
+                    gain=param[..., 2, :],
                     fs=self.fs,
                     device=self.device,
                     dtype=self.dtype,
                 )
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
+        # b, a: (3, batch, n_sections, N)
+        b_aa = torch.einsum("p, pbon -> pbon", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pbon -> pbon", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A
+        H_temp = torch.prod(B, dim=-2) / (torch.prod(A, dim=-2))
+        H = torch.where(torch.abs(torch.prod(A, dim=-2)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        return H.transpose(1, 0), B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -1845,6 +1970,7 @@ class SOSFilter(Filter):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         n_sections: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
@@ -1866,6 +1992,7 @@ class SOSFilter(Filter):
         self.get_map()
         super().__init__(
             size=(n_sections, *self.get_size(), *size),
+            batch_size=batch_size,
             nfft=nfft,
             map=self.map,
             requires_grad=False,
@@ -1890,15 +2017,18 @@ class SOSFilter(Filter):
         def _map(x: torch.Tensor) -> torch.Tensor:
             if not self.normalize_a0:
                 return x
-            # x: (K, 6, N_out, N_in)
-            a0 = x[:, 3, ...]
+            # x: (batch, K, 6, *channel_dims) -- inherited unoverridden by
+            # parallelSOSFilter, so channel_dims must stay generic (1 dim there,
+            # 2 dims -- N_out, N_in -- for the MIMO SOSFilter case) via the
+            # trailing ellipsis, with batch/K indexed explicitly up front.
+            a0 = x[:, :, 3, ...]
             eps = torch.finfo(x.dtype).eps
             a0_safe = torch.where(torch.abs(a0) > eps, a0, eps * torch.ones_like(a0))
             y = x.clone()
             # divide all coeffs by a0; set a0 to 1
             for idx in [0, 1, 2, 4, 5]:
-                y[:, idx, ...] = y[:, idx, ...] / a0_safe
-            y[:, 3, ...] = torch.ones_like(a0)
+                y[:, :, idx, ...] = y[:, :, idx, ...] / a0_safe
+            y[:, :, 3, ...] = torch.ones_like(a0)
             return y
 
         self.map = _map
@@ -1910,19 +2040,19 @@ class SOSFilter(Filter):
         with torch.no_grad():
             self.param.zero_()
             # b0 = 1, a0 = 1
-            self.param[:, 0, ...] = 1.0
-            self.param[:, 3, ...] = 1.0
+            self.param[:, :, 0, ...] = 1.0
+            self.param[:, :, 3, ...] = 1.0
 
     def check_param_shape(self):
         r"""
         Checks if the shape of the SOS parameters is valid.
         """
         assert (
-            len(self.size) == 4
-        ), "Parameter size must be 4D, expected (K, 6, N_out, N_in)."
+            len(self.size) == 5
+        ), "Parameter size must be 5D, expected (batch, K, 6, N_out, N_in)."
         assert (
-            self.size[1] == 6
-        ), "Second dimension must be 6: [b0,b1,b2,a0,a1,a2]."
+            self.size[-3] == 6
+        ), "Third-from-last dimension must be 6: [b0,b1,b2,a0,a1,a2]."
 
     def initialize_class(self):
         r"""
@@ -1945,36 +2075,36 @@ class SOSFilter(Filter):
         and compute frequency response in double precision.
 
             **Arguments**:
-                - param (torch.Tensor): (K, 6, N_out, N_in)
+                - param (torch.Tensor): (batch, K, 6, N_out, N_in)
 
             **Returns**:
-                - H (torch.Tensor): (M, N_out, N_in)
-                - B (torch.Tensor): (M, K, N_out, N_in)
-                - A (torch.Tensor): (M, K, N_out, N_in)
+                - H (torch.Tensor): (batch, M, N_out, N_in)
+                - B (torch.Tensor): (M, batch, K, N_out, N_in)
+                - A (torch.Tensor): (M, batch, K, N_out, N_in)
         """
-        # Arrange to (3, K, N_out, N_in)
-        b = torch.stack((param[:, 0, ...], param[:, 1, ...], param[:, 2, ...]), dim=0)
-        a = torch.stack((param[:, 3, ...], param[:, 4, ...], param[:, 5, ...]), dim=0)
+        # Arrange to (3, batch, K, N_out, N_in)
+        b = torch.stack((param[..., 0, :, :], param[..., 1, :, :], param[..., 2, :, :]), dim=0)
+        a = torch.stack((param[..., 3, :, :], param[..., 4, :, :], param[..., 5, :, :]), dim=0)
 
         b_aa = torch.einsum(
-            "p, pomn -> pomn", self.alias_envelope_dcy, b)
+            "p, pbkmn -> pbkmn", self.alias_envelope_dcy, b)
         a_aa = torch.einsum(
-            "p, pomn -> pomn", self.alias_envelope_dcy, a)
+            "p, pbkmn -> pbkmn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        denom = torch.abs(torch.prod(A, dim=1))
+        H_temp = torch.prod(B, dim=-3) / (torch.prod(A, dim=-3))
+        denom = torch.abs(torch.prod(A, dim=-3))
         H = torch.where(
             denom != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp)
         )
-        return H, B, A
+        return H.transpose(1, 0), B, A
 
     def get_freq_convolve(self):
         r"""
         Frequency-domain matrix product with the input.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fmn,bfn...->bfm...", self.freq_response(param), x
+            "bfmn,bfn...->bfm...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -1993,19 +2123,24 @@ class SOSFilter(Filter):
         H(z) = prod_k B_k(z) / A_k(z).
 
             **Returns**:
-                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
+                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix (or
+                ``(batch_size, N_out, N_in)`` when ``batch_size > 1``).
         """
-        mapped = self.map(self.param)
+        mapped = self.map(self.param)  # (batch, K, 6, N_out, N_in)
         gamma = self.alias_envelope_dcy
         z_inv = z ** (-1)
-        H = torch.ones(mapped.shape[2:], dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64, device=mapped.device)
-        for k in range(mapped.shape[0]):
-            b0, b1, b2 = mapped[k, 0, ...], mapped[k, 1, ...], mapped[k, 2, ...]
-            a0, a1, a2 = mapped[k, 3, ...], mapped[k, 4, ...], mapped[k, 5, ...]
+        H = torch.ones(
+            (mapped.shape[0], *mapped.shape[-2:]),
+            dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64,
+            device=mapped.device,
+        )
+        for k in range(mapped.shape[1]):
+            b0, b1, b2 = mapped[:, k, 0, ...], mapped[:, k, 1, ...], mapped[:, k, 2, ...]
+            a0, a1, a2 = mapped[:, k, 3, ...], mapped[:, k, 4, ...], mapped[:, k, 5, ...]
             B_k = to_complex(b0) * gamma[0] + to_complex(b1) * gamma[1] * z_inv + to_complex(b2) * gamma[2] * z_inv**2
             A_k = to_complex(a0) * gamma[0] + to_complex(a1) * gamma[1] * z_inv + to_complex(a2) * gamma[2] * z_inv**2
             H = H * B_k / A_k
-        return H
+        return self._squeeze_batch(H)
 
 
 class parallelSOSFilter(SOSFilter):
@@ -2025,6 +2160,7 @@ class parallelSOSFilter(SOSFilter):
     def __init__(
         self,
         size: tuple = (1,),
+        batch_size: int = 1,
         n_sections: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
@@ -2035,6 +2171,7 @@ class parallelSOSFilter(SOSFilter):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             n_sections=n_sections,
             nfft=nfft,
             fs=fs,
@@ -2049,9 +2186,9 @@ class parallelSOSFilter(SOSFilter):
         Checks if the shape of the SOS parameters is valid.
         """
         assert (
-            len(self.size) == 3
-        ), "Parameter size must be 3D, expected (K, 6, N)."
-        assert self.size[1] == 6, "Second dimension must be 6: [b0,b1,b2,a0,a1,a2]."
+            len(self.size) == 4
+        ), "Parameter size must be 4D, expected (batch, K, 6, N)."
+        assert self.size[-2] == 6, "Second-to-last dimension must be 6: [b0,b1,b2,a0,a1,a2]."
 
     def get_freq_response(self):
         r"""Compute the frequency response of the cascaded SOS."""
@@ -2063,27 +2200,27 @@ class parallelSOSFilter(SOSFilter):
         anti-aliasing envelope, and compute frequency response in double precision.
 
             **Arguments**:
-                - param (torch.Tensor): (K, 6, N)
+                - param (torch.Tensor): (batch, K, 6, N)
 
             **Returns**:
-                - H (torch.Tensor): (M, N)
-                - B (torch.Tensor): (M, K, N)
-                - A (torch.Tensor): (M, K, N)
+                - H (torch.Tensor): (batch, M, N)
+                - B (torch.Tensor): (M, batch, K, N)
+                - A (torch.Tensor): (M, batch, K, N)
         """
-        b = torch.stack((param[:, 0, :], param[:, 1, :], param[:, 2, :]), dim=0)
-        a = torch.stack((param[:, 3, :], param[:, 4, :], param[:, 5, :]), dim=0)
+        b = torch.stack((param[..., 0, :], param[..., 1, :], param[..., 2, :]), dim=0)
+        a = torch.stack((param[..., 3, :], param[..., 4, :], param[..., 5, :]), dim=0)
 
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
+        b_aa = torch.einsum("p, pbkn -> pbkn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pbkn -> pbkn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp))
-        return H, B, A
+        H_temp = torch.prod(B, dim=-2) / (torch.prod(A, dim=-2))
+        H = torch.where(torch.abs(torch.prod(A, dim=-2)) != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp))
+        return H.transpose(1, 0), B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -2098,20 +2235,26 @@ class parallelSOSFilter(SOSFilter):
         Returns a diagonal matrix from the parallel SOS evaluation.
 
             **Returns**:
-                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
+                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix (or
+                ``(batch_size, N, N)`` when ``batch_size > 1``).
         """
-        mapped = self.map(self.param)
+        mapped = self.map(self.param)  # (batch, K, 6, N)
         gamma = self.alias_envelope_dcy
         z_inv = z ** (-1)
-        N = mapped.shape[2]
-        H_diag = torch.ones(N, dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64, device=mapped.device)
-        for k in range(mapped.shape[0]):
-            b0, b1, b2 = mapped[k, 0, :], mapped[k, 1, :], mapped[k, 2, :]
-            a0, a1, a2 = mapped[k, 3, :], mapped[k, 4, :], mapped[k, 5, :]
+        N = mapped.shape[-1]
+        H_diag = torch.ones(
+            (mapped.shape[0], N),
+            dtype=torch.complex128 if mapped.dtype == torch.float64 else torch.complex64,
+            device=mapped.device,
+        )
+        for k in range(mapped.shape[1]):
+            b0, b1, b2 = mapped[:, k, 0, :], mapped[:, k, 1, :], mapped[:, k, 2, :]
+            a0, a1, a2 = mapped[:, k, 3, :], mapped[:, k, 4, :], mapped[:, k, 5, :]
             B_k = to_complex(b0) * gamma[0] + to_complex(b1) * gamma[1] * z_inv + to_complex(b2) * gamma[2] * z_inv**2
             A_k = to_complex(a0) * gamma[0] + to_complex(a1) * gamma[1] * z_inv + to_complex(a2) * gamma[2] * z_inv**2
             H_diag = H_diag * B_k / A_k
-        return torch.diag(H_diag)
+        h = self._squeeze_batch(H_diag)
+        return torch.diag(h) if h.dim() == 1 else torch.diag_embed(h)
 
 
 class SVF(Filter):
@@ -2188,6 +2331,7 @@ class SVF(Filter):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         n_sections: int = 1,
         filter_type: str = None,
         nfft: int = 2**11,
@@ -2216,6 +2360,7 @@ class SVF(Filter):
         self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device, dtype=dtype)
         super().__init__(
             size=(5, self.n_sections, *size),
+            batch_size=batch_size,
             nfft=nfft,
             map=self.map_param2svf,
             requires_grad=requires_grad,
@@ -2226,8 +2371,8 @@ class SVF(Filter):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 4
-        ), "Filter parameter space must be 4D, for 3D (parallel) filters use parallelSVF module."
+            len(self.size) == 5
+        ), "Filter parameter space must be 5D (batch, P, K, N_out, N_in), for 4D (parallel) filters use parallelSVF module."
 
     def check_input_shape(self, x):
         r"""
@@ -2250,6 +2395,10 @@ class SVF(Filter):
     def get_poly_coeff(self, param):
         r"""
         Computes the polynomial coefficients for the SVF filter
+
+        ``f`` (and the other unpacked components) carry a leading batch dimension
+        (``f.shape == (batch, K, N_out, N_in)``), so ``b``/``a`` end up shaped
+        ``(3, batch, K, N_out, N_in)``.
         """
         f, R, mLP, mBP, mHP = param
         b = torch.zeros((3, *f.shape), device=self.device)
@@ -2264,13 +2413,13 @@ class SVF(Filter):
         a[2] = (f**2) - 2 * R * f + 1
 
         # apply anti-aliasing
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
+        b_aa = torch.einsum("p, pbomn -> pbomn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pbomn -> pbomn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A
+        H_temp = torch.prod(B, dim=-3) / (torch.prod(A, dim=-3))
+        H = torch.where(torch.abs(torch.prod(A, dim=-3)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        return H.transpose(1, 0), B, A
 
     def param2freq(self, param):
         r"""
@@ -2325,7 +2474,10 @@ class SVF(Filter):
 
         """
         # activation = lambda x: 10**(-torch.log(1+torch.exp(x)) / torch.log(torch.tensor(2,  device=get_device())))
-        G = 10 ** (-F.softplus(param[0]))
+        # param carries a leading batch dimension (batch, 3, K, *channel_dims); the
+        # 3-component axis (indices into the sliced param[..., 2:, ...] SVF params) is
+        # now at dim 1, not dim 0.
+        G = 10 ** (-F.softplus(param[:, 0]))
         match self.filter_type:
             case "lowpass":
                 return torch.cat(
@@ -2382,26 +2534,38 @@ class SVF(Filter):
                     dim=0,
                 )
             case None:
-                # general SVF filter
-                bias = torch.ones((param.shape), device=self.device, dtype=self.dtype)
-                bias[1] = 2 * torch.ones((param.shape[1:]), device=self.device, dtype=self.dtype)
-                return param + bias
+                # general SVF filter. param: (batch, 3, K, *channel_dims); the
+                # 3-component axis sits at dim 1 (batch is dim 0), so the bias for
+                # component index 1 is set across all batch/K/channel entries via
+                # bias[:, 1] rather than the pre-batch bias[1].
+                bias = torch.ones(param.shape, device=self.device, dtype=self.dtype)
+                bias[:, 1] = 2 * torch.ones(
+                    (param.shape[0], *param.shape[2:]), device=self.device, dtype=self.dtype
+                )
+                # every other branch returns a freshly stacked (3, batch, K, ...)
+                # tensor (component axis first); move dim 1 back to dim 0 here so
+                # map_param2svf's m[0]/m[1]/m[2] indexing stays consistent.
+                return (param + bias).transpose(1, 0)
 
     def map_param2svf(self, param):
         r"""
         Mapping function for the raw parameters to the SVF filter coefficients.
+
+        ``param`` carries a leading batch dimension (``param.shape == (batch, 5, K,
+        *channel_dims)``), so the 5-component SVF-parameter axis is indexed at dim 1
+        (``param[:, i]``) rather than the pre-batch dim 0 (``param[i]``).
         """
-        f = self.param2freq(param[0])
-        r = self.param2R(param[1])
+        f = self.param2freq(param[:, 0])
+        r = self.param2R(param[:, 1])
         if self.filter_type == "lowshelf" or self.filter_type == "highshelf":
             # R = r + torch.sqrt(torch.tensor(2))
             R = torch.tensor(1, device=self.device, dtype=self.dtype)
         if self.filter_type == "peaking":
             R = 1 / r  # temporary fix for peaking filter
-            m = self.param2mix(param[2:], r)
+            m = self.param2mix(param[:, 2:], r)
         else:
             R = r
-            m = self.param2mix(param[2:], R)
+            m = self.param2mix(param[:, 2:], R)
         return f, R, m[0], m[1], m[2]
 
     def get_io(
@@ -2435,6 +2599,7 @@ class parallelSVF(SVF):
     def __init__(
         self,
         size: tuple = (1,),
+        batch_size: int = 1,
         n_sections: int = 1,
         filter_type: str = None,
         nfft: int = 2**11,
@@ -2446,6 +2611,7 @@ class parallelSVF(SVF):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             n_sections=n_sections,
             filter_type=filter_type,
             nfft=nfft,
@@ -2458,8 +2624,8 @@ class parallelSVF(SVF):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 3
-        ), "Filter parameter space must be 3D, for 4D filters use SVF module."
+            len(self.size) == 4
+        ), "Filter parameter space must be 4D (batch, P, K, N), for 5D filters use SVF module."
 
     def get_freq_response(self):
         r"""
@@ -2469,7 +2635,9 @@ class parallelSVF(SVF):
 
     def get_poly_coeff(self, param):
         r"""
-        Computes the polynomial coefficients for the SVF filter
+        Computes the polynomial coefficients for the SVF filter. ``f`` (and the other
+        unpacked components) carry a leading batch dimension (``f.shape == (batch, K,
+        N)``), so ``b``/``a`` end up shaped ``(3, batch, K, N)``.
         """
         f, R, mLP, mBP, mHP = param
         b = torch.zeros((3, *f.shape), device=self.device)
@@ -2484,17 +2652,17 @@ class parallelSVF(SVF):
         a[2] = (f**2) - 2 * R * f + 1
 
         # apply anti-aliasing
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
+        b_aa = torch.einsum("p, pbon -> pbon", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pbon -> pbon", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A
+        H_temp = torch.prod(B, dim=-2) / (torch.prod(A, dim=-2))
+        H = torch.where(torch.abs(torch.prod(A, dim=-2)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        return H.transpose(1, 0), B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -2564,6 +2732,7 @@ class GEQ(Filter):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         octave_interval: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
@@ -2585,6 +2754,7 @@ class GEQ(Filter):
         self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device, dtype=dtype)
         super().__init__(
             size=(self.n_gains, *size),
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -2598,8 +2768,8 @@ class GEQ(Filter):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 3
-        ), "Filter must be 3D, for 2D (parallel) filters use ParallelGEQ module."
+            len(self.size) == 4
+        ), "Filter must be 4D (batch, K, N_out, N_in), for 3D (parallel) filters use ParallelGEQ module."
 
     def get_freq_response(self):
         r"""
@@ -2609,29 +2779,39 @@ class GEQ(Filter):
 
     def get_poly_coeff(self, param):
         r"""
-        Computes the polynomial coefficients for the SOS section.
-        """
-        a = torch.zeros((3, *self.size), device=self.device)
-        b = torch.zeros((3, *self.size), device=self.device)
-        R = torch.tensor(2.7, device=self.device)
-        for m_i in range(self.size[-2]):
-            for n_i in range(self.size[-1]):
-                a[:, :, m_i, n_i], b[:, :, m_i, n_i] = geq(
-                    center_freq=self.center_freq,
-                    shelving_freq=self.shelving_crossover,
-                    R=R,
-                    gain_db=param[:, m_i, n_i],
-                    fs=self.fs,
-                    device=self.device,
-                )
+        Computes the polynomial coefficients for the SOS sections.
 
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
+        Calls :func:`flamo.auxiliary.eq.geq` once per forward pass -- its internal
+        loop only ever runs over the (small, fixed) number of bands, and each
+        iteration is vectorized across batch and channels at once, rather than
+        looping once per ``(batch, N_out, N_in)`` triple as before.
+
+            **Arguments**:
+                - param (torch.Tensor): (batch, K, N_out, N_in)
+
+            **Returns**:
+                - H (torch.Tensor): (batch, M, N_out, N_in)
+                - B (torch.Tensor): (M, K, batch, N_out, N_in)
+                - A (torch.Tensor): (M, K, batch, N_out, N_in)
+        """
+        R = torch.tensor(2.7, device=self.device)
+        gain_db = param.movedim(1, 0)  # (K, batch, N_out, N_in)
+        b, a = geq(
+            center_freq=self.center_freq,
+            shelving_freq=self.shelving_crossover,
+            R=R,
+            gain_db=gain_db,
+            fs=self.fs,
+            device=self.device,
+        )
+        # b, a: (3, K, batch, N_out, N_in)
+        b_aa = torch.einsum("p, pkbmn -> pkbmn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pkbmn -> pkbmn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A
+        return H.movedim(1, 0), B, A
 
     def initialize_class(self):
         self.check_param_shape()
@@ -2671,6 +2851,7 @@ class parallelGEQ(GEQ):
     def __init__(
         self,
         size: tuple = (1,),
+        batch_size: int = 1,
         octave_interval: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
@@ -2682,6 +2863,7 @@ class parallelGEQ(GEQ):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             octave_interval=octave_interval,
             nfft=nfft,
             fs=fs,
@@ -2693,36 +2875,42 @@ class parallelGEQ(GEQ):
         )
 
     def check_param_shape(self):
-        assert len(self.size) == 2, "Filter must be 2D, for 3D filters use GEQ module."
+        assert len(self.size) == 3, "Filter must be 3D (batch, K, N), for 4D filters use GEQ module."
 
     def get_poly_coeff(self, param):
         r"""
-        Computes the polynomial coefficients for the SOS section.
-        """
-        a = torch.zeros((3, *self.size), device=self.device)
-        b = torch.zeros((3, *self.size), device=self.device)
-        R = torch.tensor(2.7, device=self.device)
-        for n_i in range(self.size[-1]):
-            a[:, :, n_i], b[:, :, n_i] = geq(
-                center_freq=self.center_freq,
-                shelving_freq=self.shelving_crossover,
-                R=R,
-                gain_db=param[:, n_i],
-                fs=self.fs,
-                device=self.device,
-            )
+        Computes the polynomial coefficients for the SOS sections (see :meth:`GEQ.get_poly_coeff`).
 
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
+            **Arguments**:
+                - param (torch.Tensor): (batch, K, N)
+
+            **Returns**:
+                - H (torch.Tensor): (batch, M, N)
+                - B (torch.Tensor): (M, K, batch, N)
+                - A (torch.Tensor): (M, K, batch, N)
+        """
+        R = torch.tensor(2.7, device=self.device)
+        gain_db = param.movedim(1, 0)  # (K, batch, N)
+        b, a = geq(
+            center_freq=self.center_freq,
+            shelving_freq=self.shelving_crossover,
+            R=R,
+            gain_db=gain_db,
+            fs=self.fs,
+            device=self.device,
+        )
+        # b, a: (3, K, batch, N)
+        b_aa = torch.einsum("p, pkbn -> pkbn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, pkbn -> pkbn", self.alias_envelope_dcy, a)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
         H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
         H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A  
+        return H.movedim(1, 0), B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -2740,6 +2928,7 @@ class PEQ(Filter):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         n_bands: int = 10,
         f_min: float = 20,
         f_max: float = 20000,
@@ -2765,6 +2954,7 @@ class PEQ(Filter):
         self.alias_envelope_dcy = gamma ** torch.arange(0, 3, 1, device=device, dtype=dtype)
         super().__init__(
             size=(self.n_bands, 3, *size),
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=requires_grad,
@@ -2778,8 +2968,8 @@ class PEQ(Filter):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 4
-        ), "Filter must be 3D, for 2D (parallel) filters use ParallelPEQ module."
+            len(self.size) == 5
+        ), "Filter must be 4D (batch, K, 3, N_out, N_in), for 3D (parallel) filters use ParallelPEQ module."
 
     def get_freq_response(self):
         r"""
@@ -2789,43 +2979,43 @@ class PEQ(Filter):
 
     def get_poly_coeff(self, param):
         r"""
-        Computes the polynomial coefficients for the SOS section.
+        Computes the polynomial coefficients for the SOS sections.
+
+        Vectorized across batch and channels: :meth:`compute_biquad_coeff` is already
+        broadcastable over arbitrary leading dims (it allocates from ``f.shape``), so
+        rather than looping once per ``(N_out, N_in)`` channel pair and calling it on
+        scalars, it is called 3 times total (low shelf, high shelf, peaking bands) on
+        the full ``(batch, K, N_out, N_in)``-shaped tensors.
+
+            **Returns**:
+                - H (torch.Tensor): (batch, M, N_out, N_in)
+                - B (torch.Tensor): (batch, K, M, N_out, N_in)
+                - A (torch.Tensor): (batch, K, M, N_out, N_in)
         """
-        param = self.map_eq(param)
-        a = torch.zeros((self.n_bands, 3, *self.size[2:]), device=self.device)
-        b = torch.zeros((self.n_bands, 3, *self.size[2:]), device=self.device)
-        for m_i in range(self.size[-2]):
-            for n_i in range(self.size[-1]):
-                f = param[0, :, m_i, n_i] 
-                R = param[1, :, m_i, n_i]
-                G = param[2, :, m_i, n_i]
-                # low shelf filter 
-                a[0, :, m_i, n_i], b[0, :, m_i, n_i] = self.compute_biquad_coeff(
-                    f=f[0],
-                    R=R[0],
-                    G=G[0],
-                    type='lowshelf',
-                )
-                # high shelf filter 
-                a[-1, :, m_i, n_i], b[-1, :, m_i, n_i] = self.compute_biquad_coeff(
-                    f=f[-1],
-                    R=R[-1],
-                    G=G[-1],
-                    type='highshelf',
-                )
-                # peak filter 
-                a[1:-1, :, m_i, n_i], b[1:-1, :, m_i, n_i] = self.compute_biquad_coeff(
-                    f=f[1:-1],
-                    R=R[1:-1],
-                    G=G[1:-1],
-                    type='peaking',
-                )
-        b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=1)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=1)
-        H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
-        H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        param = self.map_eq(param)  # (3, batch, K, N_out, N_in) -- f/R/G selector first
+        f, R, G = param[0], param[1], param[2]  # each (batch, K, N_out, N_in)
+
+        a_ls, b_ls = self.compute_biquad_coeff(f[:, 0], R[:, 0], G[:, 0], type='lowshelf')
+        a_hs, b_hs = self.compute_biquad_coeff(f[:, -1], R[:, -1], G[:, -1], type='highshelf')
+        a_pk, b_pk = self.compute_biquad_coeff(f[:, 1:-1], R[:, 1:-1], G[:, 1:-1], type='peaking')
+        # *_ls/*_hs: (batch, N_out, N_in, 3); *_pk: (batch, K-2, N_out, N_in, 3)
+
+        def _assemble(low, mid, high):
+            # -> (batch, K, 3, N_out, N_in)
+            low = low.movedim(-1, 1).unsqueeze(1)
+            high = high.movedim(-1, 1).unsqueeze(1)
+            mid = mid.movedim(-1, 2)
+            return torch.cat((low, mid, high), dim=1)
+
+        a = _assemble(a_ls, a_pk, a_hs)
+        b = _assemble(b_ls, b_pk, b_hs)
+
+        b_aa = torch.einsum("p, bopmn -> bopmn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, bopmn -> bopmn", self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=2)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=2)
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
         return H, B, A
 
     def compute_biquad_coeff(self, f, R, G, type='peaking'):
@@ -2892,19 +3082,23 @@ class PEQ(Filter):
 
     def map_eq(self, param):
         r"""
-        Mapping function for the raw parameters to the SVF filter coefficients.
+        Mapping function for the raw parameters to the biquad design parameters.
+
+        ``param`` carries a leading batch dimension (``param.shape == (batch, K, 3,
+        N_out, N_in)``), so the f/R/G selector is indexed at dim 2 (``param[:, :,
+        i, ...]``) rather than the pre-batch dim 1 (``param[:, i, ...]``).
         """
-        R = param[:, 1, ...]
-        G = param[:, 2, ...]
-        
+        R = param[:, :, 1, ...]
+        G = param[:, :, 2, ...]
+
         if self.design == 'biquad':
             bias = self.center_freq_bias / self.fs * 2 * torch.pi
             min_f = 2 * torch.pi * self.f_min / self.fs
             max_f = 2 * torch.pi * self.f_max / self.fs
-            f = torch.clamp(torch.sigmoid(param[:, 0, ...]) + bias.unsqueeze(-1).unsqueeze(-1), min=min_f, max=max_f) 
+            f = torch.clamp(torch.sigmoid(param[:, :, 0, ...]) + bias.unsqueeze(-1).unsqueeze(-1), min=min_f, max=max_f)
         elif self.design == 'svf':
             bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs))
-            f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1).unsqueeze(-1) ) * 0.5) 
+            f = torch.tan(torch.pi * torch.sigmoid(param[:, :, 0, ...] + bias.unsqueeze(-1).unsqueeze(-1) ) * 0.5)
 
 
         param = torch.cat(
@@ -2926,6 +3120,7 @@ class parallelPEQ(PEQ):
     def __init__(
         self,
         size: tuple = (1, ),
+        batch_size: int = 1,
         n_bands: int = 10,
         f_min: float = 20,
         f_max: float = 20000,
@@ -2940,6 +3135,7 @@ class parallelPEQ(PEQ):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             n_bands=n_bands,
             f_min=f_min,
             f_max=f_max,
@@ -2958,65 +3154,64 @@ class parallelPEQ(PEQ):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 3
-        ), "Filter must be 2D in the parallel configuration, for 3D filters use PEQ module."
+            len(self.size) == 4
+        ), "Filter must be 3D (batch, K, 3, N) in the parallel configuration, for 4D filters use PEQ module."
 
     def get_poly_coeff(self, param):
         r"""
-        Computes the polynomial coefficients for the SOS section.
+        Computes the polynomial coefficients for the SOS sections (see :meth:`PEQ.get_poly_coeff`).
+
+            **Returns**:
+                - H (torch.Tensor): (batch, M, N)
+                - B (torch.Tensor): (batch, K, M, N)
+                - A (torch.Tensor): (batch, K, M, N)
         """
-        param = self.map_eq(param)
-        a = torch.zeros((self.n_bands, 3, *self.size[2:]), device=self.device)
-        b = torch.zeros((self.n_bands, 3, *self.size[2:]), device=self.device)
-        for n_i in range(self.size[-1]):
-            f = param[0, :, n_i] 
-            R = param[1, :, n_i]
-            G = param[2, :, n_i]
-            # low shelf filter 
-            a[0, :, n_i], b[0, :, n_i] = self.compute_biquad_coeff(
-                f=f[0],
-                R=R[0],
-                G=G[0],
-                type='lowshelf'
-            )
-            # high shelf filter 
-            a[-1, :, n_i], b[-1, :, n_i] = self.compute_biquad_coeff(
-                f=f[-1],
-                R=R[-1],
-                G=G[-1],
-                type='highshelf'
-            )
-            # peak filter 
-            a[1:-1, :, n_i], b[1:-1, :, n_i] = self.compute_biquad_coeff(
-                f=f[1:-1],
-                R=R[1:-1],
-                G=G[1:-1],
-                type='peaking'
-            )
-        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=1)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=1)
-        H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
-        H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        param = self.map_eq(param)  # (3, batch, K, N)
+        f, R, G = param[0], param[1], param[2]  # each (batch, K, N)
+
+        a_ls, b_ls = self.compute_biquad_coeff(f[:, 0], R[:, 0], G[:, 0], type='lowshelf')
+        a_hs, b_hs = self.compute_biquad_coeff(f[:, -1], R[:, -1], G[:, -1], type='highshelf')
+        a_pk, b_pk = self.compute_biquad_coeff(f[:, 1:-1], R[:, 1:-1], G[:, 1:-1], type='peaking')
+        # *_ls/*_hs: (batch, N, 3); *_pk: (batch, K-2, N, 3)
+
+        def _assemble(low, mid, high):
+            # -> (batch, K, 3, N)
+            low = low.movedim(-1, 1).unsqueeze(1)
+            high = high.movedim(-1, 1).unsqueeze(1)
+            mid = mid.movedim(-1, 2)
+            return torch.cat((low, mid, high), dim=1)
+
+        a = _assemble(a_ls, a_pk, a_hs)
+        b = _assemble(b_ls, b_pk, b_hs)
+
+        b_aa = torch.einsum("p, bopn -> bopn", self.alias_envelope_dcy, b)
+        a_aa = torch.einsum("p, bopn -> bopn", self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=2)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=2)
+        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
+        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
         return H, B, A
-    
+
 
     def map_eq(self, param):
         r"""
-        Mapping function for the raw parameters to the SVF filter coefficients.
+        Mapping function for the raw parameters to the biquad design parameters.
+
+        ``param`` carries a leading batch dimension (``param.shape == (batch, K, 3,
+        N)``), so the f/R/G selector is indexed at dim 2 rather than the pre-batch
+        dim 1.
         """
-        R = param[:, 1, ...]
-        G = param[:, 2, ...]
+        R = param[:, :, 1, ...]
+        G = param[:, :, 2, ...]
 
         if self.design == 'biquad':
             bias = self.center_freq_bias / self.fs * 2 * torch.pi
             min_f = 2 * torch.pi * self.f_min / self.fs
             max_f = 2 * torch.pi * self.f_max / self.fs
-            f = torch.clamp(torch.sigmoid(param[:, 0, ...]) + bias.unsqueeze(-1), min=min_f, max=max_f) 
+            f = torch.clamp(torch.sigmoid(param[:, :, 0, ...]) + bias.unsqueeze(-1), min=min_f, max=max_f)
         elif self.design == 'svf':
             bias = torch.log(2 * self.center_freq_bias / self.fs / (1 - 2 * self.center_freq_bias / self.fs))
-            f = torch.tan(torch.pi * torch.sigmoid(param[:, 0, ...] + bias.unsqueeze(-1) ) * 0.5) 
+            f = torch.tan(torch.pi * torch.sigmoid(param[:, :, 0, ...] + bias.unsqueeze(-1) ) * 0.5)
 
         param = torch.cat(
             (
@@ -3027,10 +3222,10 @@ class parallelPEQ(PEQ):
             dim=0,
         )
         return param
-    
+
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -3098,6 +3293,7 @@ class AccurateGEQ(Filter):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         octave_interval: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
@@ -3117,6 +3313,7 @@ class AccurateGEQ(Filter):
         self.alias_envelope_dcy = (gamma ** torch.arange(0, 3, 1, device=device, dtype=dtype))
         super().__init__(
             size=(self.n_gains, *size),
+            batch_size=batch_size,
             nfft=nfft,
             map=map,
             requires_grad=False,
@@ -3126,12 +3323,12 @@ class AccurateGEQ(Filter):
         )
 
     def init_param(self):
-        torch.nn.init.uniform_(self.param, a=10**(-6/20), b=10**(6/20))  
+        torch.nn.init.uniform_(self.param, a=10**(-6/20), b=10**(6/20))
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 3
-        ), "Filter must be 3D, for 2D (parallel) filters use ParallelGEQ module."
+            len(self.size) == 4
+        ), "Filter must be 4D (batch, K, N_out, N_in), for 3D (parallel) filters use ParallelGEQ module."
 
     def get_freq_response(self):
         r"""
@@ -3141,27 +3338,36 @@ class AccurateGEQ(Filter):
 
     def get_poly_coeff(self, param):
         r"""
-        Computes the polynomial coefficients for the SOS section.
+        Computes the polynomial coefficients for the SOS sections.
+
+        :func:`~flamo.auxiliary.eq.accurate_geq` runs an LBFGS solve per call and is
+        not vectorized, so (per design decision) batching is done with a plain
+        Python loop over batch in addition to the existing per-channel-pair loop --
+        acceptable since :class:`AccurateGEQ` is not learnable and not intended to be
+        hyperconditioned on every forward pass.
         """
-        a = torch.zeros((3, self.size[0]+1, *self.size[1:]), device=self.device)
-        b = torch.zeros((3, self.size[0]+1, *self.size[1:]), device=self.device)
-        for m_i in range(self.size[-2]):
-            for n_i in range(self.size[-1]):
-                a[:, :, m_i, n_i], b[:, :, m_i, n_i] = accurate_geq(
-                    target_gain=param[:, m_i, n_i],
-                    center_freq=self.center_freq,
-                    shelving_crossover=self.shelving_crossover,                    
-                    fs=self.fs,
-                    device=self.device
-                )
-         
-        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
-        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
+        batch = self.size[0]
+        n_sections = self.size[1] + 1
+        a = torch.zeros((3, batch, n_sections, *self.size[2:]), device=self.device)
+        b = torch.zeros((3, batch, n_sections, *self.size[2:]), device=self.device)
+        for b_i in range(batch):
+            for m_i in range(self.size[-2]):
+                for n_i in range(self.size[-1]):
+                    a[:, b_i, :, m_i, n_i], b[:, b_i, :, m_i, n_i] = accurate_geq(
+                        target_gain=param[b_i, :, m_i, n_i],
+                        center_freq=self.center_freq,
+                        shelving_crossover=self.shelving_crossover,
+                        fs=self.fs,
+                        device=self.device
+                    )
+
+        b_aa = torch.einsum('p, pbomn -> pbomn', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pbomn -> pbomn', self.alias_envelope_dcy, b)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A
+        H_temp = torch.prod(B, dim=-3) / (torch.prod(A, dim=-3))
+        H = torch.where(torch.abs(torch.prod(A, dim=-3)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        return H.transpose(1, 0), B, A
 
     def initialize_class(self):
         self.check_param_shape()
@@ -3197,6 +3403,7 @@ class parallelAccurateGEQ(AccurateGEQ):
     def __init__(
         self,
         size: tuple = (1, ),
+        batch_size: int = 1,
         octave_interval: int = 1,
         nfft: int = 2**11,
         fs: int = 48000,
@@ -3209,6 +3416,7 @@ class parallelAccurateGEQ(AccurateGEQ):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             octave_interval=octave_interval,
             nfft=nfft,
             fs=fs,
@@ -3222,35 +3430,39 @@ class parallelAccurateGEQ(AccurateGEQ):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 2
-        ), "Filter must be 2D, for 3D filters use GEQ module."
+            len(self.size) == 3
+        ), "Filter must be 3D (batch, K, N), for 4D filters use GEQ module."
 
     def get_poly_coeff(self, param):
         r"""
-        Computes the polynomial coefficients for the SOS section.
+        Computes the polynomial coefficients for the SOS sections (see
+        :meth:`AccurateGEQ.get_poly_coeff` for the batching approach).
         """
-        a = torch.zeros((3, self.size[0]+1, self.size[1]), device=self.device)
-        b = torch.zeros((3, self.size[0]+1, self.size[1]), device=self.device)
-        for n_i in range(self.size[-1]):
-                a[:, :, n_i], b[:, :, n_i] = accurate_geq(
-                    target_gain=param[:, n_i],
+        batch = self.size[0]
+        n_sections = self.size[1] + 1
+        a = torch.zeros((3, batch, n_sections, self.size[-1]), device=self.device)
+        b = torch.zeros((3, batch, n_sections, self.size[-1]), device=self.device)
+        for b_i in range(batch):
+            for n_i in range(self.size[-1]):
+                a[:, b_i, :, n_i], b[:, b_i, :, n_i] = accurate_geq(
+                    target_gain=param[b_i, :, n_i],
                     center_freq=self.center_freq,
-                    shelving_crossover=self.shelving_crossover,                    
+                    shelving_crossover=self.shelving_crossover,
                     fs=self.fs,
                     device=self.device
                 )
-         
-        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
-        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+
+        b_aa = torch.einsum('p, pbon -> pbon', self.alias_envelope_dcy, a)
+        a_aa = torch.einsum('p, pbon -> pbon', self.alias_envelope_dcy, b)
         B = torch.fft.rfft(b_aa, self.nfft, dim=0)
         A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
-        return H, B, A
+        H_temp = torch.prod(B, dim=-2) / (torch.prod(A, dim=-2))
+        H = torch.where(torch.abs(torch.prod(A, dim=-2)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        return H.transpose(1, 0), B, A
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -3317,6 +3529,7 @@ class Delay(DSP):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         max_len: int = 2000,
         isint: bool = False,
         unit: int = 100,
@@ -3332,7 +3545,7 @@ class Delay(DSP):
         self.unit = unit
         self.isint = isint
         super().__init__(
-            size=size,
+            size=(batch_size, *size),
             nfft=nfft,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
@@ -3356,9 +3569,7 @@ class Delay(DSP):
         if ext_param is None:
             return self.freq_convolve(x, self.param)
         else:
-            # log the parameters that are being passed
-            with torch.no_grad():
-                self.assign_value(ext_param)
+            self._log_ext_param(ext_param)
             return self.freq_convolve(x, ext_param)
 
     def init_param(self):
@@ -3393,25 +3604,22 @@ class Delay(DSP):
     def get_freq_response(self):
         r"""
         Computes the frequency response of the delay module.
+
+        ``m(param)`` carries a leading batch dimension (``(batch, N_out, N_in)``), so
+        the per-frequency phase is built via ``torch.einsum("f, bmn -> bfmn", ...)``
+        (rather than the pre-batch dummy-axis trick ``"fo, omn -> fmn"``), and the
+        ``gamma ** delay`` decay term gets an explicit frequency axis inserted via
+        ``unsqueeze(1)`` so it broadcasts against the ``(batch, M, N_out, N_in)`` phase.
         """
         m = self.get_delays()
+        omega = self.omega.squeeze(-1)  # (M,)
         if self.isint:
-            self.freq_response = lambda param: (self.gamma ** m(param).round()) * torch.exp(
-                -1j
-                * torch.einsum(
-                    "fo, omn -> fmn",
-                    self.omega,
-                    m(param).round().unsqueeze(0),
-                )
+            self.freq_response = lambda param: (self.gamma ** m(param).round()).unsqueeze(1) * torch.exp(
+                -1j * torch.einsum("f, bmn -> bfmn", omega, m(param).round())
             )
         else:
-            self.freq_response = lambda param: (self.gamma ** m(param)) * torch.exp(
-                -1j
-                * torch.einsum(
-                    "fo, omn -> fmn",
-                    self.omega,
-                    m(param).unsqueeze(0),
-                )
+            self.freq_response = lambda param: (self.gamma ** m(param)).unsqueeze(1) * torch.exp(
+                -1j * torch.einsum("f, bmn -> bfmn", omega, m(param))
             )
 
     def get_delays(self):
@@ -3437,15 +3645,15 @@ class Delay(DSP):
         Checks if the shape of the delay parameters is valid.
         """
         assert (
-            len(self.size) == 2
-        ), "delay must be 2D, for 1D (parallel) delay use parallelDelay module."
+            len(self.size) == 3
+        ), "delay must be 2D (plus a leading batch dimension), for 1D (parallel) delay use parallelDelay module."
 
     def get_freq_convolve(self):
         r"""
         Computes the frequency convolution function.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fmn,bfn...->bfm...", self.freq_response(param), x
+            "bfmn,bfn...->bfm...", self.freq_response(param), x
         )
 
     def initialize_class(self):
@@ -3481,14 +3689,15 @@ class Delay(DSP):
         Returns :math:`H(z) = \\gamma^m z^{-m}` (delay of :math:`m` samples).
 
             **Returns**:
-                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix.
+                torch.Tensor: ``(N_out, N_in)`` complex transfer matrix (or
+                ``(batch_size, N_out, N_in)`` when ``batch_size > 1``).
         """
         m = self.s2sample(self.map(self.param))
         if self.isint:
             m = m.round()
         z_inv_m = (1.0 / z) ** m
         H = (self.gamma ** m) * z_inv_m
-        return H
+        return self._squeeze_batch(H)
 
 
 class parallelDelay(Delay):
@@ -3509,6 +3718,7 @@ class parallelDelay(Delay):
     def __init__(
         self,
         size: tuple = (1,),
+        batch_size: int = 1,
         max_len: int = 2000,
         unit: int = 100,
         isint: bool = False,
@@ -3521,6 +3731,7 @@ class parallelDelay(Delay):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             max_len=max_len,
             isint=isint,
             unit=unit,
@@ -3536,38 +3747,31 @@ class parallelDelay(Delay):
         """
         Checks if the shape of the delay parameters is valid.
         """
-        assert len(self.size) == 1, "delays must be 1D, for 2D delays use Delay module."
+        assert len(self.size) == 2, "delays must be 1D (plus a leading batch dimension), for 2D delays use Delay module."
 
     def get_freq_convolve(self):
         """
         Computes the frequency convolution function.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_freq_response(self):
         """
         Computes the frequency response of the delay module.
+
+        See :meth:`Delay.get_freq_response` for the batching convention.
         """
         m = self.get_delays()
+        omega = self.omega.squeeze(-1)  # (M,)
         if self.isint:
-            self.freq_response = lambda param: (self.gamma ** m(param).round()) * torch.exp(
-                -1j
-                * torch.einsum(
-                     "fo, on -> fn",
-                    self.omega,
-                    m(param).round().unsqueeze(0),
-                )
+            self.freq_response = lambda param: (self.gamma ** m(param).round()).unsqueeze(1) * torch.exp(
+                -1j * torch.einsum("f, bn -> bfn", omega, m(param).round())
             )
         else:
-            self.freq_response = lambda param: (self.gamma ** m(param)) * torch.exp(
-                -1j
-                * torch.einsum(
-                    "fo, on -> fn",
-                    self.omega,
-                    m(param).unsqueeze(0),
-                )
+            self.freq_response = lambda param: (self.gamma ** m(param)).unsqueeze(1) * torch.exp(
+                -1j * torch.einsum("f, bn -> bfn", omega, m(param))
             )
 
     def get_io(self):
@@ -3582,13 +3786,14 @@ class parallelDelay(Delay):
         Evaluate at :math:`z`; returns diagonal :math:`H(z) = \\gamma^m z^{-m}` (delay of :math:`m` samples).
 
             **Returns**:
-                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix.
+                torch.Tensor: ``(N, N)`` complex diagonal transfer matrix (or
+                ``(batch_size, N, N)`` when ``batch_size > 1``).
         """
         m = self.s2sample(self.map(self.param))
         if self.isint:
             m = m.round()
         z_inv_m = (1.0 / z) ** m
-        H = (self.gamma ** m) * z_inv_m
+        H = self._squeeze_batch((self.gamma ** m) * z_inv_m)
         return torch.diag_embed(H)
 
 
@@ -3626,6 +3831,7 @@ class GainDelay(DSP):
     def __init__(
         self,
         size: tuple = (1, 1),
+        batch_size: int = 1,
         max_len: int = 2000,
         isint: bool = False,
         unit: int = 100,
@@ -3647,7 +3853,7 @@ class GainDelay(DSP):
         self.map_gain = map_gain if map_gain is not None else (lambda x: x)
         self.map_delay = map_delay if map_delay is not None else (lambda x: x)
         super().__init__(
-            size=(2, *size),
+            size=(batch_size, 2, *size),
             nfft=nfft,
             requires_grad=requires_grad,
             alias_decay_db=alias_decay_db,
@@ -3660,14 +3866,16 @@ class GainDelay(DSP):
         self.check_input_shape(x)
         if ext_param is None:
             return self.freq_convolve(x, self.param)
-        with torch.no_grad():
-            self.assign_value(ext_param)
+        self._log_ext_param(ext_param)
         return self.freq_convolve(x, ext_param)
 
     def init_param(self):
-        gain_shape = self.size[1:]
+        # (batch, N_out, N_in) -- self.size[2:] drops the leading batch and the
+        # "2" (gain/delay) selector dims regardless of how many channel dims follow
+        # (2 for GainDelay, 1 for parallelGainDelay).
+        gain_shape = (self.size[0], *self.size[2:])
         with torch.no_grad():
-            nn.init.ones_(self.param[0])
+            nn.init.ones_(self.param[:, 0])
             if self.isint:
                 delay_samples = torch.randint(
                     1, self.max_len, gain_shape, device=self.device, dtype=torch.int64
@@ -3675,7 +3883,7 @@ class GainDelay(DSP):
             else:
                 delay_samples = torch.rand(gain_shape, device=self.device, dtype=self.dtype) * self.max_len
             delay_seconds = self.sample2s(delay_samples)
-            self.param[1].copy_(delay_seconds)
+            self.param[:, 1].copy_(delay_seconds)
         max_delay = torch.ceil(delay_samples).max().item()
         self.order = int(max_delay) + 1
 
@@ -3693,14 +3901,14 @@ class GainDelay(DSP):
 
     def check_param_shape(self):
         assert (
-            len(self.size) == 3 and self.size[0] == 2
-        ), "GainDelay parameters must have shape (2, N_out, N_in)."
+            len(self.size) == 4 and self.size[1] == 2
+        ), "GainDelay parameters must have shape (batch, 2, N_out, N_in)."
 
     def get_gains(self):
-        return lambda param: to_complex(self.map_gain(param[0]))
+        return lambda param: to_complex(self.map_gain(param[:, 0]))
 
     def get_delays(self):
-        return lambda param: self.s2sample(self.map_delay(param[1]))
+        return lambda param: self.s2sample(self.map_delay(param[:, 1]))
 
     def get_freq_response(self):
         gains = self.get_gains()
@@ -3716,7 +3924,7 @@ class GainDelay(DSP):
 
     def get_freq_convolve(self):
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fmn,bfn...->bfm...", self.freq_response(param), x
+            "bfmn,bfn...->bfm...", self.freq_response(param), x
         )
 
     def initialize_class(self):
@@ -3738,9 +3946,12 @@ class GainDelay(DSP):
         self.output_channels = self.size[-2]
 
     def _combine_gain_delay(self, gain: torch.Tensor, delay_samples: torch.Tensor):
+        # gain, delay_samples: (batch, N_out, N_in) -- insert the frequency axis via
+        # unsqueeze(1) rather than the pre-batch dummy-axis einsum trick.
         delay_samples = delay_samples.to(gain.real.dtype)
-        phase = torch.einsum("fo, omn -> fmn", self.omega, delay_samples.unsqueeze(0))
-        return gain.unsqueeze(0) * (self.gamma ** delay_samples) * torch.exp(-1j * phase)
+        omega = self.omega.squeeze(-1)  # (M,)
+        phase = torch.einsum("f, bmn -> bfmn", omega, delay_samples)
+        return gain.unsqueeze(1) * (self.gamma ** delay_samples).unsqueeze(1) * torch.exp(-1j * phase)
 
 
 class parallelGainDelay(GainDelay):
@@ -3761,6 +3972,7 @@ class parallelGainDelay(GainDelay):
     def __init__(
         self,
         size: tuple = (1,),
+        batch_size: int = 1,
         max_len: int = 2000,
         isint: bool = False,
         unit: int = 100,
@@ -3775,6 +3987,7 @@ class parallelGainDelay(GainDelay):
     ):
         super().__init__(
             size=size,
+            batch_size=batch_size,
             max_len=max_len,
             isint=isint,
             unit=unit,
@@ -3793,15 +4006,15 @@ class parallelGainDelay(GainDelay):
         Checks if the shape of the gain-delay parameters is valid.
         """
         assert (
-            len(self.size) == 2 and self.size[0] == 2
-        ), "parallelGainDelay parameters must have shape (2, N), for MIMO use GainDelay module."
+            len(self.size) == 3 and self.size[1] == 2
+        ), "parallelGainDelay parameters must have shape (batch, 2, N), for MIMO use GainDelay module."
 
     def get_freq_convolve(self):
         """
         Computes the frequency convolution function for parallel gain-delay processing.
         """
         self.freq_convolve = lambda x, param: torch.einsum(
-            "fn,bfn...->bfn...", self.freq_response(param), x
+            "bfn,bfn...->bfn...", self.freq_response(param), x
         )
 
     def get_io(self):
@@ -3814,7 +4027,10 @@ class parallelGainDelay(GainDelay):
     def _combine_gain_delay(self, gain: torch.Tensor, delay_samples: torch.Tensor):
         """
         Combines gain and delay for parallel processing (element-wise).
+
+        gain, delay_samples: (batch, N).
         """
         delay_samples = delay_samples.to(gain.real.dtype)
-        phase = torch.einsum("fo, on -> fn", self.omega, delay_samples.unsqueeze(0))
-        return gain.unsqueeze(0) * (self.gamma ** delay_samples) * torch.exp(-1j * phase)
+        omega = self.omega.squeeze(-1)  # (M,)
+        phase = torch.einsum("f, bn -> bfn", omega, delay_samples)
+        return gain.unsqueeze(1) * (self.gamma ** delay_samples).unsqueeze(1) * torch.exp(-1j * phase)
