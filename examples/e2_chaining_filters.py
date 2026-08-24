@@ -236,7 +236,9 @@ def example_requires_grad(args):
 
     # Target
     target_gains = [0.5, -1.0]
-    target_delays = filter2.s2sample(filter2.param)
+    # filter2.param carries a leading batch dimension (default size 1); squeeze it
+    # away since this example indexes the delay values by (out_ch, in_ch) directly.
+    target_delays = filter2.s2sample(filter2.param).squeeze(0)
     target = torch.zeros((args.nfft, out_ch), device=args.device)
     for i in range(out_ch):
         for j in range(in_ch):
