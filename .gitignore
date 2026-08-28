@@ -13,3 +13,4 @@ docs/
 examples/e8_fdn_nonlinear.py
 /notebooks/output
 /data
+/tests
