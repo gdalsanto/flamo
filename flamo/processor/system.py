@@ -5,10 +5,167 @@ from collections import OrderedDict
 from flamo.processor.dsp import FFT, iFFT, Transform
 from flamo.functional import signal_gallery
 
+
+# ======================= RECONFIGURATION MIXIN =======================
+
+
+def _propagate_setter(module: nn.Module, method: str, attr: str, value) -> None:
+    r"""
+    Forward a new ``value`` for ``attr`` to ``module``.
+
+    Calls ``module.<method>(value)`` when available (all
+    :class:`flamo.processor.dsp.DSP` and :class:`flamo.processor.dsp.Transform`
+    modules and the container modules below expose ``set_nfft`` /
+    ``set_alias_decay_db``), otherwise falls back to setting the plain ``attr``
+    attribute, and silently ignores modules that lack both (e.g.
+    :class:`torch.nn.Identity`).
+    """
+    fn = getattr(module, method, None)
+    if callable(fn):
+        fn(value)
+    elif hasattr(module, attr):
+        setattr(module, attr, value)
+
+
+class _Reconfigurable:
+    r"""
+    Mixin giving the container modules (:class:`Series`, :class:`Recursion`,
+    :class:`Parallel`, :class:`Shell`) safe post-construction updates of the
+    :attr:`nfft`, :attr:`alias_decay_db`, :attr:`device`, and :attr:`dtype`
+    attributes.
+
+    These attributes must agree across every wrapped module for the modules to be
+    connectable, which is why each container checks them at construction time.
+    This mixin makes it possible to change them afterwards - for instance to train
+    a system with one :attr:`nfft` and run inference with another, or to move a
+    trained system to a different device - by propagating the new value to every
+    wrapped module, rebuilding any dependent buffers, and refreshing the cached
+    bookkeeping attributes on the container itself.
+
+    Concrete classes must implement :meth:`_reconfig_children` (the wrapped
+    modules to propagate to) and :meth:`_reconfig_check_attribute` (their existing
+    coherence check, needed here because of name mangling). They may also override
+    :meth:`_rebuild_buffers` to regenerate buffers that depend on :attr:`nfft`,
+    :attr:`alias_decay_db`, or :attr:`dtype` (e.g. the complex identity of
+    :class:`Recursion`, which :meth:`torch.nn.Module.to` would otherwise silently
+    cast to a real dtype).
+    """
+
+    def set_nfft(self, nfft: int) -> "nn.Module":
+        r"""
+        Safely change the number of FFT points for every wrapped module.
+
+            **Arguments**:
+                **nfft** (int): The new number of FFT points.
+
+            **Returns**:
+                The container itself.
+        """
+        for module in self._reconfig_children():
+            _propagate_setter(module, "set_nfft", "nfft", nfft)
+        self._reconfig_sync(("nfft", "device", "dtype"))
+        self._rebuild_buffers()
+        return self
+
+    def set_alias_decay_db(self, alias_decay_db: float) -> "nn.Module":
+        r"""
+        Safely change the time anti-aliasing decay for every wrapped module.
+
+            **Arguments**:
+                **alias_decay_db** (float): The new decay in dB (attenuation
+                reached after :attr:`nfft` samples).
+
+            **Returns**:
+                The container itself.
+        """
+        for module in self._reconfig_children():
+            _propagate_setter(module, "set_alias_decay_db", "alias_decay_db", alias_decay_db)
+        self._reconfig_sync(("alias_decay_db", "device", "dtype"))
+        self._rebuild_buffers()
+        return self
+
+    def set_device(self, device) -> "nn.Module":
+        r"""
+        Safely move every wrapped module (parameters, buffers, and the tensors
+        held as plain attributes) to ``device``.
+        """
+        self.to(device=device)
+        return self
+
+    def set_dtype(self, dtype: torch.dtype) -> "nn.Module":
+        r"""
+        Safely cast every wrapped module to the floating-point ``dtype``.
+
+        Uses the dtype-specific :meth:`torch.nn.Module` casting method
+        (:meth:`double`, :meth:`float`, :meth:`half`, :meth:`bfloat16`) when one
+        matches, because :meth:`torch.nn.Module.to` casts complex buffers to a
+        real dtype and discards their imaginary part. The :meth:`_apply` hook then
+        refreshes the cached :attr:`dtype` attribute and rebuilds any
+        dtype-dependent buffers.
+        """
+        cast = {
+            torch.float64: "double",
+            torch.float32: "float",
+            torch.float16: "half",
+            torch.bfloat16: "bfloat16",
+        }.get(dtype)
+        if cast is not None:
+            getattr(self, cast)()
+        else:
+            self.to(dtype=dtype)
+        return self
+
+    # ---------------------- Hooks and helpers ----------------------
+    def _reconfig_children(self):
+        r"""Return the iterable of wrapped modules to propagate changes to."""
+        raise NotImplementedError
+
+    def _reconfig_check_attribute(self, attr: str):
+        r"""Return the (coherent) value of ``attr`` across the wrapped modules."""
+        raise NotImplementedError
+
+    def _rebuild_buffers(self) -> None:
+        r"""
+        Regenerate buffers whose shape depends on :attr:`nfft` or whose dtype
+        depends on :attr:`dtype`. No-op by default.
+        """
+        pass
+
+    def _reconfig_sync(self, attrs) -> None:
+        r"""Refresh the cached coherence attributes from the wrapped modules."""
+        for attr in attrs:
+            # only refresh attributes that were meaningfully set at construction,
+            # so a degenerate container does not emit fresh warnings on every .to()
+            if getattr(self, attr, None) is None:
+                continue
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                try:
+                    value = self._reconfig_check_attribute(attr)
+                except Exception:
+                    value = None
+            if value is None:
+                continue
+            if isinstance(value, torch.Tensor):
+                # do not alias a wrapped module's buffer (e.g. alias_decay_db)
+                value = value.detach().clone()
+            setattr(self, attr, value)
+
+    def _apply(self, fn, recurse=True):
+        prev_dtype = getattr(self, "dtype", None)
+        module = super()._apply(fn, recurse)
+        # keep the coherence attributes in sync after .to()/.cuda()/.double()/...
+        self._reconfig_sync(("alias_decay_db", "device", "dtype"))
+        # a dtype change can invalidate complex/nfft-shaped buffers
+        if getattr(self, "dtype", None) != prev_dtype:
+            self._rebuild_buffers()
+        return module
+
+
 # ============================= SERIES ================================
 
 
-class Series(nn.Sequential):
+class Series(_Reconfigurable, nn.Sequential):
     r"""
     Module for cascading multiple DSP modules in series. Inherits from :class:`nn.Sequential`.
     This class serves as a container for a series of DSP modules (preferably constructed from :class:`flamo.processor.dsp.DSP`), allowing them
@@ -211,6 +368,12 @@ class Series(nn.Sequential):
 
         return unpacked_modules
 
+    def _reconfig_children(self):
+        return list(self)
+
+    def _reconfig_check_attribute(self, attr: str):
+        return self.__check_attribute(attr)
+
     def __check_attribute(self, attr: str) -> int | float | None:
         r"""
         Checks if all modules have the same value of the requested attribute.
@@ -335,7 +498,7 @@ class Series(nn.Sequential):
 # ============================= RECURSION ================================
 
 
-class Recursion(nn.Module):
+class Recursion(_Reconfigurable, nn.Module):
     r"""
     Recursion module for computing closed-loop transfer function. Inherits from :class:`nn.Module`.
     The feedforward and feedback paths if are given as a :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`,
@@ -443,6 +606,24 @@ class Recursion(nn.Module):
         for i in range(self.output_channels):
             I[:, i, i] = 1
         return I
+
+    def _reconfig_children(self):
+        return [self.feedforward, self.feedback]
+
+    def _reconfig_check_attribute(self, attr: str):
+        return self.__check_attribute(attr)
+
+    def _rebuild_buffers(self) -> None:
+        # the identity buffer used by forward() depends on nfft and dtype (not on
+        # alias_decay_db), so skip the (potentially large) allocation if unchanged
+        expected = (self.nfft // 2 + 1, self.output_channels, self.output_channels)
+        if (
+            self.I.shape == torch.Size(expected)
+            and self.I.is_complex()
+            and self.I.real.dtype == self.dtype
+        ):
+            return
+        self.I = self.__generate_identity().to(device=self.device)
 
     # ---------------------- Check methods ----------------------
     def __check_attribute(self, attr: str) -> int | float:
@@ -575,7 +756,7 @@ class Recursion(nn.Module):
 # ============================= RECURSION ================================
 
 
-class Parallel(nn.Module):
+class Parallel(_Reconfigurable, nn.Module):
     r"""
     Parallel processing of two input branches. Inherits from :class:`nn.Module`.
     The branches, if are given as a :class:`nn.Module`, :class:`nn.Sequential`, or :class:`OrderedDict`,
@@ -666,6 +847,12 @@ class Parallel(nn.Module):
             return YA + YB
         else:
             return torch.cat((YA, YB), dim=2)
+
+    def _reconfig_children(self):
+        return [self.branchA, self.branchB]
+
+    def _reconfig_check_attribute(self, attr: str):
+        return self.__check_attribute(attr)
 
     # ---------------------- Check methods ----------------------
     def __check_attribute(self, attr: str) -> int | float:
@@ -784,7 +971,7 @@ class Parallel(nn.Module):
 # ============================= SHELL ================================
 
 
-class Shell(nn.Module):
+class Shell(_Reconfigurable, nn.Module):
     r"""
     DSP wrapper class. Interfaces the DSP with dataset and loss function. Inherits from :class:`nn.Module`.
 
@@ -805,6 +992,14 @@ class Shell(nn.Module):
         **Attributes**:
             - **nfft** (int): Number of frequency points.
             - **alias_decay_db** (float): The decaying factor in dB for the time anti-aliasing envelope. The decay refers to the attenuation after nfft samples.
+
+    The :attr:`nfft`, :attr:`alias_decay_db`, :attr:`device`, and :attr:`dtype`
+    attributes must agree across ``core``, ``input_layer``, and ``output_layer``.
+    They can be changed after construction with :meth:`set_nfft`,
+    :meth:`set_alias_decay_db`, :meth:`set_device`, and :meth:`set_dtype`
+    (inherited from :class:`_Reconfigurable`), which propagate the new value to
+    every wrapped module and rebuild the dependent buffers - for instance to
+    train at one :attr:`nfft` and run inference at another.
 
     """
 
@@ -924,6 +1119,16 @@ class Shell(nn.Module):
                 **output_layer** (nn.Module, optional): The core DSP system. Defaults to None.
         """
         self.__core = core
+
+    def _reconfig_children(self):
+        return [self.__core, self.__input_layer, self.__output_layer]
+
+    def _reconfig_check_attribute(self, attr: str):
+        return self.__check_attribute(attr)
+
+    def _rebuild_buffers(self) -> None:
+        # the reconstruction anti-aliasing envelope spans nfft samples
+        self.alias_envelope = self.__make_alias_envelope()
 
     # ---------------------- Check methods ----------------------
     def __check_attribute(self, attr: str) -> int | float:

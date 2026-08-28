@@ -65,6 +65,58 @@ class Transform(nn.Module):
         r"""Identity transfer for Shell compatibility. Returns None."""
         return None
 
+    def set_nfft(self, nfft: int) -> "Transform":
+        r"""
+        Safely change the number of FFT points after construction.
+
+            **Arguments**:
+                **nfft** (int): The new number of FFT points.
+
+            **Returns**:
+                Transform: self.
+        """
+        if hasattr(self, "nfft"):
+            self.nfft = int(nfft)
+        return self
+
+    def set_alias_decay_db(self, alias_decay_db: float) -> "Transform":
+        r"""
+        Safely change the time anti-aliasing decay after construction.
+
+        The base :class:`Transform` (and :class:`FFT` / :class:`iFFT`) has no
+        anti-aliasing envelope; :class:`FFTAntiAlias` and :class:`iFFTAntiAlias`
+        override this to rebuild theirs.
+        """
+        if hasattr(self, "alias_decay_db"):
+            self.alias_decay_db = alias_decay_db
+        return self
+
+    def set_device(self, device) -> "Transform":
+        r"""Move the transform to a new ``device`` (wrapper around :meth:`to`)."""
+        self.to(device=device)
+        return self
+
+    def set_dtype(self, dtype: torch.dtype) -> "Transform":
+        r"""Cast the transform to a new floating ``dtype`` (wrapper around :meth:`to`)."""
+        self.to(dtype=dtype)
+        return self
+
+    def _apply(self, fn, recurse=True):
+        r"""
+        Keep the :attr:`device` and :attr:`dtype` bookkeeping attributes in sync
+        after :meth:`to`, :meth:`cuda`, :meth:`double`, etc. A :class:`Transform`
+        holds no parameters, so ``fn`` is probed with a scalar tensor to discover
+        the destination device and floating-point dtype. Containers rely on these
+        attributes agreeing across the modules they wrap.
+        """
+        module = super()._apply(fn, recurse)
+        ref_dtype = self.dtype if isinstance(self.dtype, torch.dtype) else torch.get_default_dtype()
+        probe = fn(torch.zeros((), dtype=ref_dtype))
+        if isinstance(self.dtype, torch.dtype):
+            self.dtype = probe.dtype
+        self.device = probe.device
+        return module
+
 
 class FFT(Transform):
     r"""
@@ -150,23 +202,46 @@ class FFTAntiAlias(Transform):
         self.norm = norm
         self.device = device
         self.dtype = dtype
-        gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype))
-            / (self.nfft)
-            / 20
-        )
-        self.alias_envelope = gamma ** torch.arange(
-            0, -self.nfft, -1, device=self.device, dtype=self.dtype
-        )
+        self.alias_decay_db = alias_decay_db
+        self.alias_envelope = self._build_alias_envelope()
         fft = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
         transform = lambda x: fft(torch.einsum("btm, t->btm", x, self.alias_envelope))
         super().__init__(transform=transform, dtype=self.dtype)
+
+    def _build_alias_envelope(self) -> torch.Tensor:
+        r"""Build the (decaying) anti time-aliasing envelope for the current :attr:`nfft`."""
+        gamma = 10 ** (
+            -torch.abs(torch.tensor(self.alias_decay_db, device=self.device, dtype=self.dtype))
+            / (self.nfft)
+            / 20
+        )
+        return gamma ** torch.arange(
+            0, -self.nfft, -1, device=self.device, dtype=self.dtype
+        )
+
+    def set_nfft(self, nfft: int) -> "FFTAntiAlias":
+        r"""
+        Safely change :attr:`nfft` after construction, rebuilding the anti
+        time-aliasing envelope (which spans :attr:`nfft` samples).
+        """
+        self.nfft = int(nfft)
+        self.alias_envelope = self._build_alias_envelope()
+        return self
+
+    def set_alias_decay_db(self, alias_decay_db: float) -> "FFTAntiAlias":
+        r"""
+        Safely change :attr:`alias_decay_db` after construction, rebuilding the
+        anti time-aliasing envelope.
+        """
+        self.alias_decay_db = float(alias_decay_db)
+        self.alias_envelope = self._build_alias_envelope()
+        return self
 
     def _apply(self, fn, recurse=True):
         module = super()._apply(fn, recurse)
         self.alias_envelope = fn(self.alias_envelope)
         return module
-    
+
 class iFFTAntiAlias(Transform):
     r"""
     Inverse Fast Fourier Transform (iFFT) class with time-aliasing mitigation enabled.
@@ -197,17 +272,40 @@ class iFFTAntiAlias(Transform):
         self.norm = norm
         self.device = device
         self.dtype = dtype
-        gamma = 10 ** (
-            -torch.abs(torch.tensor(alias_decay_db, device=self.device, dtype=self.dtype))
-            / (self.nfft)
-            / 20
-        )
-        self.alias_envelope = gamma ** torch.arange(
-            0, -self.nfft, -1, device=self.device, dtype=self.dtype
-        )
+        self.alias_decay_db = alias_decay_db
+        self.alias_envelope = self._build_alias_envelope()
         ifft = lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
         transform = lambda x: torch.einsum("btm, t->btm", ifft(x), self.alias_envelope)
         super().__init__(transform=transform, dtype=self.dtype)
+
+    def _build_alias_envelope(self) -> torch.Tensor:
+        r"""Build the (rising) anti time-aliasing envelope for the current :attr:`nfft`."""
+        gamma = 10 ** (
+            -torch.abs(torch.tensor(self.alias_decay_db, device=self.device, dtype=self.dtype))
+            / (self.nfft)
+            / 20
+        )
+        return gamma ** torch.arange(
+            0, -self.nfft, -1, device=self.device, dtype=self.dtype
+        )
+
+    def set_nfft(self, nfft: int) -> "iFFTAntiAlias":
+        r"""
+        Safely change :attr:`nfft` after construction, rebuilding the anti
+        time-aliasing envelope (which spans :attr:`nfft` samples).
+        """
+        self.nfft = int(nfft)
+        self.alias_envelope = self._build_alias_envelope()
+        return self
+
+    def set_alias_decay_db(self, alias_decay_db: float) -> "iFFTAntiAlias":
+        r"""
+        Safely change :attr:`alias_decay_db` after construction, rebuilding the
+        anti time-aliasing envelope.
+        """
+        self.alias_decay_db = float(alias_decay_db)
+        self.alias_envelope = self._build_alias_envelope()
+        return self
 
     def _apply(self, fn, recurse=True):
         module = super()._apply(fn, recurse)
@@ -343,6 +441,94 @@ class DSP(nn.Module):
         """
 
         return 10 ** (-torch.abs(self.alias_decay_db) / (self.nfft) / 20)
+
+    # ---------------------- Reconfiguration methods ----------------------
+    def set_nfft(self, nfft: int) -> "DSP":
+        r"""
+        Safely change the number of FFT points :attr:`nfft` after construction.
+
+        The learnable :attr:`param` tensor does not depend on :attr:`nfft`, but a
+        few cached quantities do and are rebuilt here.
+        All frequency-response and convolution closures read :attr:`nfft`,
+        :attr:`gamma` and :attr:`fft` at call time, so no further rebuilding is
+        required. This makes it possible, for example, to train a module with one
+        :attr:`nfft` and run inference with another.
+
+            **Arguments**:
+                **nfft** (int): The new number of FFT points.
+
+            **Returns**:
+                DSP: self.
+        """
+        nfft = int(nfft)
+        if nfft == self.nfft:
+            return self
+        self.nfft = nfft
+        self._refresh_alias_cache()
+        # delay-type modules cache omega (~ nfft) and build closures from it;
+        # initialize_class rebuilds omega and the response/convolution closures
+        # without touching param.
+        if hasattr(self, "omega"):
+            self.initialize_class()
+        return self
+
+    def set_alias_decay_db(self, alias_decay_db: float) -> "DSP":
+        r"""
+        Safely change the time anti-aliasing decay :attr:`alias_decay_db` after
+        construction.
+
+            **Arguments**:
+                **alias_decay_db** (float): The new decay in dB.
+
+            **Returns**:
+                DSP: self.
+        """
+        self.alias_decay_db = torch.as_tensor(
+            float(alias_decay_db),
+            device=self.alias_decay_db.device,
+            dtype=self.alias_decay_db.dtype,
+        )
+        self._refresh_alias_cache()
+        return self
+
+    def _refresh_alias_cache(self) -> None:
+        r"""
+        Recompute the tensors derived from :attr:`nfft` and :attr:`alias_decay_db`:
+        the :attr:`gamma` ramp base and, for the biquad-like filters, the short
+        :attr:`alias_envelope_dcy` envelope.
+        """
+        self.gamma = self.get_gamma()
+        if hasattr(self, "alias_envelope_dcy"):
+            n_taps = self.alias_envelope_dcy.shape[0]
+            self.alias_envelope_dcy = self.gamma ** torch.arange(
+                0, n_taps, 1, device=self.gamma.device, dtype=self.gamma.dtype
+            )
+
+    def set_device(self, device) -> "DSP":
+        r"""
+        Safely move the module (and its cached tensors) to a new ``device``.
+
+            **Arguments**:
+                **device**: The destination device.
+
+            **Returns**:
+                DSP: self.
+        """
+        self.to(device=device)
+        return self
+
+    def set_dtype(self, dtype: torch.dtype) -> "DSP":
+        r"""
+        Safely cast the module (and its cached tensors) to a new floating ``dtype``.
+        
+            **Arguments**:
+                **dtype** (torch.dtype): The destination floating-point dtype.
+
+            **Returns**:
+                DSP: self.
+        """
+        self.to(dtype=dtype)
+        return self
 
     def assign_value(self, new_value: torch.Tensor, indx: tuple = tuple([slice(None)])):
         r"""
