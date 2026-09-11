@@ -346,6 +346,12 @@ class DSP(nn.Module):
 
     """
 
+    #: True if the transfer function does not vary across frequency bins.
+    is_freq_independent: bool = False
+
+    #: True if the transfer function is channel-diagonal.
+    is_diagonal: bool = False
+
     def __init__(
         self,
         size: tuple,
@@ -615,6 +621,8 @@ class Gain(DSP):
 
     """
 
+    is_freq_independent = True
+
     def __init__(
         self,
         size: tuple = (1, 1),
@@ -734,6 +742,8 @@ class parallelGain(Gain):
     and :math:`N` is the number of input channels.
     Ellipsis :math:`(...)` represents additional dimensions.
     """
+
+    is_diagonal = True
 
     def __init__(
         self,
@@ -1201,6 +1211,8 @@ class parallelFilter(Filter):
     filter parameters per input-output channel pair.
     Ellipsis :math:`(...)` represents additional dimensions.
     """
+
+    is_diagonal = True
 
     def __init__(
         self,
@@ -1845,6 +1857,8 @@ class parallelBiquad(Biquad):
     Ellipsis :math:`(...)` represents additional dimensions (not tested).
     """
 
+    is_diagonal = True
+
     def __init__(
         self,
         size: tuple = (1,),
@@ -2204,6 +2218,8 @@ class parallelSOSFilter(SOSFilter):
         - freq_response: (M, N)
         - output: (B, M, N, ...)
     """
+
+    is_diagonal = True
 
     def __init__(
         self,
@@ -2615,6 +2631,8 @@ class parallelSVF(SVF):
     Ellipsis :math:`(...)` represents additional dimensions (not tested).
     """
 
+    is_diagonal = True
+
     def __init__(
         self,
         size: tuple = (1,),
@@ -2850,6 +2868,8 @@ class parallelGEQ(GEQ):
     The :attr:`param` attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:`param` tensor corresponds to the number of command gains/filters :math:`K`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).
     """
+
+    is_diagonal = True
 
     def __init__(
         self,
@@ -3106,6 +3126,9 @@ class parallelPEQ(PEQ):
     Parallel counterpart of the :class:`PEQ` class
     For information about **attributes** and **methods** see :class:`flamo.processor.dsp.PEQ`.
     """
+
+    is_diagonal = True
+
     def __init__(
         self,
         size: tuple = (1, ),
@@ -3376,6 +3399,8 @@ class parallelAccurateGEQ(AccurateGEQ):
     The :attr:'param' attribute represent the command gains of each band + shelving filters. The first dimension of the :attr:'param' tensor corresponds to the number of command gains/filters :math:`K`.
     Ellipsis :math:`(...)` represents additional dimensions (not tested).   
     """
+
+    is_diagonal = True
 
     def __init__(
         self,
@@ -3689,6 +3714,8 @@ class parallelDelay(Delay):
     Ellipsis :math:`(...)` represents additional dimensions.
     """
 
+    is_diagonal = True
+
     def __init__(
         self,
         size: tuple = (1,),
@@ -3940,6 +3967,8 @@ class parallelGainDelay(GainDelay):
     and :math:`N` is the number of input channels.
     Ellipsis :math:`(...)` represents additional dimensions.
     """
+
+    is_diagonal = True
 
     def __init__(
         self,

@@ -494,6 +494,14 @@ class Series(_Reconfigurable, nn.Sequential):
             H = Hi if H is None else Hi @ H
         return H
 
+    @property
+    def is_freq_independent(self) -> bool:
+        return all(getattr(module, "is_freq_independent", False) for module in self)
+
+    @property
+    def is_diagonal(self) -> bool:
+        return all(getattr(module, "is_diagonal", False) for module in self)
+
 
 # ============================= RECURSION ================================
 
@@ -586,6 +594,14 @@ class Recursion(_Reconfigurable, nn.Module):
 
         B = self.feedforward(X, ext_param_ff)
 
+        if (
+            ext_param_fb is None
+            and ext_param_ff is None
+            and getattr(self.feedback, "is_freq_independent", False)
+            and getattr(self.feedforward, "is_diagonal", False)
+        ):
+            return self.__forward_diagonal(X, B)
+
         # Expand identity matrix to batch size
         expand_dim = [X.shape[0]] + [d for d in self.I.shape]
         I = self.I.expand(tuple(expand_dim))
@@ -593,6 +609,28 @@ class Recursion(_Reconfigurable, nn.Module):
         HH = self.feedback(I, ext_param_fb)
         A = I - self.feedforward(HH, ext_param_ff)
         return torch.linalg.solve(A, B)
+
+    def __forward_diagonal(self, X: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+        r"""
+        Closed-loop solve for frequency-independent :attr:`feedback` and
+        diagonal :attr:`feedforward`: :math:`A_f = I - \mathrm{diag}(d_f)\,A`,
+        with :math:`A` a single constant matrix and :math:`d_f` a per-frequency
+        diagonal, built in :math:`O(F N^2)` instead of :math:`O(F N^3)`.
+        """
+        batch_size = X.shape[0]
+        n_freq = self.nfft // 2 + 1
+        cdtype = torch.complex64 if self.dtype == torch.float32 else torch.complex128
+
+        ones = torch.ones(
+            1, n_freq, self.output_channels, dtype=cdtype, device=X.device
+        )
+        d = self.feedforward(ones)  # (1, F, N)
+
+        A = self.feedback(self.I[:1].unsqueeze(0)).squeeze(0).squeeze(0)  # (N, N)
+
+        loop_matrix = self.I.unsqueeze(0) - d.unsqueeze(-1) * A  # (1, F, N, N)
+        loop_matrix = loop_matrix.expand(batch_size, *loop_matrix.shape[1:]).contiguous()
+        return torch.linalg.solve(loop_matrix, B)
 
     def __generate_identity(self) -> torch.Tensor:
         r"""
