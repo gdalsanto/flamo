@@ -383,7 +383,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_epochs", type=int, default=25, help="maximum number of epochs"
     )
-    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument(
         "--train_dir", type=str, help="directory to save training results"
     )

@@ -175,7 +175,7 @@ def example_biquad_nn(args):
     )
 
     # Create a dataset
-    dataset = Dataset(args, in_ch, out_ch, args.num, n_sections, dtype=args.dtype)
+    dataset = Dataset(args, in_ch, out_ch, args.num, n_sections)
     train_loader, valid_loader = load_dataset(dataset, batch_size=args.batch_size)
 
     trainer = Trainer(
@@ -236,9 +236,9 @@ if __name__ == "__main__":
         "--batch_size", type=int, default=32, help="batch size for training"
     )
     parser.add_argument(
-        "--max_epochs", type=int, default=100, help="maximum number of epochs"
+        "--max_epochs", type=int, default=20, help="maximum number of epochs"
     )
-    parser.add_argument("--lr", type=float, default=1e-5, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument(
         "--train_dir", type=str, help="directory to save training results"
     )
