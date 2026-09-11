@@ -417,6 +417,75 @@ class AllpassFDNMatrix(nn.Module):
 # ============================= FILTERS ================================
 
 
+def poly_freq_response(coeffs: torch.Tensor, nfft: int, dim: int = 0) -> torch.Tensor:
+    r"""
+    Evaluates a short polynomial's frequency response on the same ``nfft``-point
+    real-FFT grid as ``torch.fft.rfft(coeffs, n=nfft, dim=dim)``. This matters for
+    filters such as biquads and second-order sections, whose polynomials have
+    only 3 taps but are otherwise zero-padded to a large ``nfft``.
+
+        **Arguments**:
+            - **coeffs** (torch.Tensor): Polynomial coefficients, with the tap
+              axis (tap :math:`p` weighted by :math:`z^{-p}`) at :attr:`dim`.
+            - **nfft** (int): Number of points of the target rfft grid.
+            - **dim** (int, optional): Axis of :attr:`coeffs` holding the taps. Default: 0.
+
+        **Returns**:
+            torch.Tensor: Complex frequency response, same shape as :attr:`coeffs`
+            except :attr:`dim`, which has size :math:`M`.
+    """
+    taps = coeffs.shape[dim]
+    bins = nfft // 2 + 1
+    n = torch.arange(taps, device=coeffs.device, dtype=torch.float64)
+    k = torch.arange(bins, device=coeffs.device, dtype=torch.float64)
+    angle = -2 * torch.pi * torch.outer(n, k) / nfft
+    dft_matrix = torch.complex(torch.cos(angle), torch.sin(angle))  # (taps, bins)
+
+    compute_dtype = (
+        torch.complex128
+        if coeffs.dtype in (torch.float64, torch.complex128)
+        else torch.complex64
+    )
+    H = torch.tensordot(
+        coeffs.to(compute_dtype), dft_matrix.to(compute_dtype), dims=([dim], [0])
+    )
+    return torch.movedim(H, -1, dim)
+
+
+def stable_cascade_response(
+    B: torch.Tensor, A: torch.Tensor, dim: int, out_dtype: Optional[torch.dtype] = None
+) -> torch.Tensor:
+    r"""
+    Numerically stable equivalent of ``torch.prod(B, dim) / torch.prod(A, dim)``
+    for a cascade of sections' polynomial frequency responses.
+    The log-magnitude/phase decomposition is always computed in double 
+    precision, regardless of the input dtype, and the result is cast back to 
+    :attr:`out_dtype` (or :attr:`B`'s dtype, if not given) at the end.
+
+        **Arguments**:
+            - **B** (torch.Tensor): Per-section numerator frequency responses.
+            - **A** (torch.Tensor): Per-section denominator frequency responses,
+              same shape as :attr:`B`.
+            - **dim** (int): Axis of :attr:`B` and :attr:`A` indexing the
+              cascaded sections.
+            - **out_dtype** (torch.dtype, optional): Complex dtype of the
+              returned tensor. Default: :attr:`B`'s dtype.
+
+        **Returns**:
+            torch.Tensor: ``prod(B, dim) / prod(A, dim)``, computed stably.
+    """
+    if out_dtype is None:
+        out_dtype = torch.complex128 if B.dtype == torch.complex128 else torch.complex64
+    B = B.to(torch.complex128)
+    A = A.to(torch.complex128)
+    eps = 1e-12
+    A_safe = torch.where(torch.abs(A) > eps, A, torch.ones_like(A) * eps)
+    H_i = B / A_safe
+    log_mag = torch.sum(torch.log(torch.abs(H_i) + eps), dim=dim)
+    phase = torch.sum(torch.angle(H_i), dim=dim)
+    H = torch.exp(torch.complex(log_mag, phase))
+    return H.to(out_dtype)
+
 def biquad2tf(b: torch.Tensor, a: torch.Tensor, nfft: int):
     r"""
     Converts a biquad filter representation to a transfer function.

@@ -11,9 +11,11 @@ from flamo.functional import (
     lowpass_filter,
     highpass_filter,
     bandpass_filter,
-    rad2hertz, 
-    HadamardMatrix, 
-    RotationMatrix)
+    rad2hertz,
+    HadamardMatrix,
+    RotationMatrix,
+    poly_freq_response,
+    stable_cascade_response)
 from flamo.auxiliary.eq import (
     eq_freqs,
     geq, 
@@ -1753,12 +1755,14 @@ class Biquad(Filter):
                     device=self.device,
                     dtype=self.dtype,
                 )
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
         
     def get_map(self):
@@ -1981,12 +1985,14 @@ class parallelBiquad(Biquad):
                     device=self.device,
                     dtype=self.dtype,
                 )
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
 
     def get_freq_convolve(self):
@@ -2154,15 +2160,14 @@ class SOSFilter(Filter):
         a = torch.stack((param[:, 3, ...], param[:, 4, ...], param[:, 5, ...]), dim=0)
 
         b_aa = torch.einsum(
-            "p, pomn -> pomn", self.alias_envelope_dcy, b)
+            "p, pomn -> pomn", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
         a_aa = torch.einsum(
-            "p, pomn -> pomn", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        denom = torch.abs(torch.prod(A, dim=1))
-        H = torch.where(
-            denom != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp)
+            "p, pomn -> pomn", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
         )
         return H, B, A
 
@@ -2272,12 +2277,14 @@ class parallelSOSFilter(SOSFilter):
         b = torch.stack((param[:, 0, :], param[:, 1, :], param[:, 2, :]), dim=0)
         a = torch.stack((param[:, 3, :], param[:, 4, :], param[:, 5, :]), dim=0)
 
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
 
     def get_freq_convolve(self):
@@ -2463,12 +2470,14 @@ class SVF(Filter):
         a[2] = (f**2) - 2 * R * f + 1
 
         # apply anti-aliasing
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
 
     def param2freq(self, param):
@@ -2685,12 +2694,14 @@ class parallelSVF(SVF):
         a[2] = (f**2) - 2 * R * f + 1
 
         # apply anti-aliasing
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
 
     def get_freq_convolve(self):
@@ -2826,12 +2837,14 @@ class GEQ(Filter):
                     device=self.device,
                 )
 
-        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, a)
-        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy, b)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        a_aa = torch.einsum("p, pomn -> pomn", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
 
     def initialize_class(self):
@@ -2915,12 +2928,14 @@ class parallelGEQ(GEQ):
                 device=self.device,
             )
 
-        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, a)
-        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy, b)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        a_aa = torch.einsum("p, pon -> pon", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A  
 
     def get_freq_convolve(self):
@@ -3023,12 +3038,14 @@ class PEQ(Filter):
                     G=G[1:-1],
                     type='peaking',
                 )
-        b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=1)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=1)
-        H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
-        H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        a_aa = torch.einsum("p, opmn -> opmn", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=1)
+        A = poly_freq_response(a_aa, self.nfft, dim=1)
+        H = stable_cascade_response(
+            B, A, dim=0,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
 
     def compute_biquad_coeff(self, f, R, G, type='peaking'):
@@ -3199,12 +3216,14 @@ class parallelPEQ(PEQ):
                 G=G[1:-1],
                 type='peaking'
             )
-        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy, b)
-        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy, a)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=1)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=1)
-        H_temp = torch.prod(B, dim=0) / (torch.prod(A, dim=0))
-        H = torch.where(torch.abs(torch.prod(A, dim=0)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        a_aa = torch.einsum("p, opn -> opn", self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=1)
+        A = poly_freq_response(a_aa, self.nfft, dim=1)
+        H = stable_cascade_response(
+            B, A, dim=0,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
     
 
@@ -3361,12 +3380,14 @@ class AccurateGEQ(Filter):
                     device=self.device
                 )
          
-        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, a)
-        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy, b)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        a_aa = torch.einsum('p, pomn -> pomn', self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
 
     def initialize_class(self):
@@ -3448,12 +3469,14 @@ class parallelAccurateGEQ(AccurateGEQ):
                     device=self.device
                 )
          
-        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
-        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
-        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
-        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
-        H_temp = torch.prod(B, dim=1) / (torch.prod(A, dim=1))
-        H = torch.where(torch.abs(torch.prod(A, dim=1)) != 0, H_temp, torch.finfo(H_temp.dtype).eps*torch.ones_like(H_temp))
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.float64), a.to(torch.float64))
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy.to(torch.float64), b.to(torch.float64))
+        B = poly_freq_response(b_aa, self.nfft, dim=0)
+        A = poly_freq_response(a_aa, self.nfft, dim=0)
+        H = stable_cascade_response(
+            B, A, dim=1,
+            out_dtype=torch.complex128 if self.dtype == torch.float64 else torch.complex64,
+        )
         return H, B, A
 
     def get_freq_convolve(self):
