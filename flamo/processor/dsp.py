@@ -414,8 +414,35 @@ class DSP(nn.Module):
         self.dtype = self.param.dtype
         return module
 
+    def __setattr__(self, name, value):
+        r"""
+        Intercept assignment of :attr:`freq_response` (set by every
+        subclass's ``get_freq_response``) and wrap it in a memoized
+        closure. Used by :class:`Recursion` forward pass.
+        """
+        if name == "freq_response" and callable(value):
+            value = self._memoize_freq_response(value)
+        super().__setattr__(name, value)
+
+    @staticmethod
+    def _memoize_freq_response(fn):
+        cache = {}
+
+        def memoized(param):
+            # Include grad-mode in the key: a no-grad forward (e.g. Trainer's
+            # validation pass) must not cache a detached value that a later
+            # grad-enabled forward on the same param version would then reuse,
+            # silently dropping gradients for that step.
+            key = (id(param), param._version, torch.is_grad_enabled())
+            if cache.get("key") != key:
+                cache["value"] = fn(param)
+                cache["key"] = key
+            return cache["value"]
+
+        return memoized
+
     @abc.abstractmethod
-    def forward(self, x, **kwArguments): 
+    def forward(self, x, **kwArguments):
         r"""
         Forward method.
 
