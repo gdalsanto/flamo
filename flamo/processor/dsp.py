@@ -430,9 +430,7 @@ class DSP(nn.Module):
 
         def memoized(param):
             # Include grad-mode in the key: a no-grad forward (e.g. Trainer's
-            # validation pass) must not cache a detached value that a later
-            # grad-enabled forward on the same param version would then reuse,
-            # silently dropping gradients for that step.
+            # validation pass) must not cache a detached value
             key = (id(param), param._version, torch.is_grad_enabled())
             if cache.get("key") != key:
                 cache["value"] = fn(param)
