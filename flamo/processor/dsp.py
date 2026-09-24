@@ -23,6 +23,13 @@ from flamo.auxiliary.eq import (
 from flamo.auxiliary.scattering import (
     ScatteringMapping, 
     hadamard_matrix)
+def _canonical_device(device):
+    r"""Return ``device`` as the :class:`torch.device` a tensor on it reports
+    (``"cpu"`` -> ``device(type='cpu')``, ``"cuda"`` -> ``device(type='cuda', index=0)``),
+    so containers can compare devices with ``==``. ``None`` stays ``None``."""
+    return None if device is None else torch.empty(0, device=device).device
+
+
 # ============================= TRANSFORMS ================================
 
 
@@ -48,7 +55,7 @@ class Transform(nn.Module):
     def __init__(self, transform: callable = lambda x: x, device: Optional[str] = None, dtype: torch.dtype = torch.float32):
         super().__init__()
         self.transform = transform
-        self.device = device
+        self.device = _canonical_device(device)
         self.dtype = dtype
 
     def forward(self, x: torch.Tensor):
@@ -202,13 +209,13 @@ class FFTAntiAlias(Transform):
     ):
         self.nfft = nfft
         self.norm = norm
-        self.device = device
+        self.device = _canonical_device(device)
         self.dtype = dtype
         self.alias_decay_db = alias_decay_db
         self.alias_envelope = self._build_alias_envelope()
         fft = lambda x: torch.fft.rfft(x, n=self.nfft, dim=1, norm=self.norm)
         transform = lambda x: fft(torch.einsum("btm, t->btm", x, self.alias_envelope))
-        super().__init__(transform=transform, dtype=self.dtype)
+        super().__init__(transform=transform, device=self.device, dtype=self.dtype)
 
     def _build_alias_envelope(self) -> torch.Tensor:
         r"""Build the (decaying) anti time-aliasing envelope for the current :attr:`nfft`."""
@@ -272,13 +279,13 @@ class iFFTAntiAlias(Transform):
     ):
         self.nfft = nfft
         self.norm = norm
-        self.device = device
+        self.device = _canonical_device(device)
         self.dtype = dtype
         self.alias_decay_db = alias_decay_db
         self.alias_envelope = self._build_alias_envelope()
         ifft = lambda x: torch.fft.irfft(x, n=self.nfft, dim=1, norm=self.norm)
         transform = lambda x: torch.einsum("btm, t->btm", ifft(x), self.alias_envelope)
-        super().__init__(transform=transform, dtype=self.dtype)
+        super().__init__(transform=transform, device=self.device, dtype=self.dtype)
 
     def _build_alias_envelope(self) -> torch.Tensor:
         r"""Build the (rising) anti time-aliasing envelope for the current :attr:`nfft`."""
@@ -372,7 +379,7 @@ class DSP(nn.Module):
         self.map = map
         self.new_value = 0  # flag indicating if new values have been assigned
         self.requires_grad = requires_grad
-        self.device = device
+        self.device = _canonical_device(device)
         self.dtype = dtype
         self.param = nn.Parameter(
             torch.empty(self.size, device=self.device, dtype=self.dtype), requires_grad=self.requires_grad
