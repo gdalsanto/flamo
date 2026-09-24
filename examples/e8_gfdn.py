@@ -5,19 +5,69 @@ import argparse
 import os
 import time
 import auraloss
+import numpy as np
 import soundfile as sf
+import multislope
 
 from collections import OrderedDict
 
 from flamo.auxiliary.reverb import parallelGFDNFirstOrderShelving
 from flamo.optimize.dataset import Dataset, load_dataset
-from flamo.optimize.loss import sparsity_loss
+from flamo.optimize.loss import sparsity_loss, edr_loss
 from flamo.optimize.trainer import Trainer
 from flamo.processor import dsp, system
 from flamo.utils import save_audio
 from flamo.functional import signal_gallery, find_onset
 
 torch.manual_seed(130798)
+
+
+def estimate_band_decay_times(rir: torch.Tensor, fs: int, n_slopes: int) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Estimate per-octave-band multi-exponential decay times of a RIR with the
+    multislope library's DecayFitNet.
+
+    Args:
+        rir: 1D RIR tensor, onset-aligned (no leading silence).
+        fs: sample rate in Hz.
+        n_slopes: number of decay slopes to fit per band.
+    Returns:
+        ``(band_freqs, t)`` where ``band_freqs`` are the octave-band centre
+        frequencies (Hz), and ``t`` has shape ``(n_bands, n_slopes)`` -- the
+        fitted decay times (T60, in seconds) per band, sorted ascending
+        along the slopes axis.
+    """
+    x = rir.detach().cpu().numpy().astype(np.float64).flatten()
+    net = multislope.DecayFitNet(n_slopes=n_slopes, sample_rate=fs)
+    fit = net.estimate(x, analyse_full_rir=True)
+    return np.array(fit.frequencies), np.sort(fit.t, axis=-1)
+
+
+def shelving_group_rt60(attenuation: parallelGFDNFirstOrderShelving, freqs_hz: np.ndarray) -> np.ndarray:
+    """
+    Evaluate the frequency-dependent RT60 implied by each group of a trained
+    :class:`parallelGFDNFirstOrderShelving` filter.
+
+    Args:
+        attenuation: a ``parallelGFDNFirstOrderShelving`` instance.
+        freqs_hz: frequencies (Hz) at which to evaluate the RT60.
+    Returns:
+        Array of shape ``(n_groups, len(freqs_hz))``.
+    """
+    with torch.no_grad():
+        H = attenuation.freq_response(attenuation.param)[0]  # (n_bins, n_delays)
+    mag_db = (20 * torch.log10(torch.abs(H))).cpu().numpy()
+    bin_freqs = np.linspace(0, attenuation.fs / 2, mag_db.shape[0])
+
+    delays = attenuation.delays.cpu().numpy().reshape(attenuation.n_groups, attenuation.group_size)
+
+    rt60 = np.zeros((attenuation.n_groups, len(freqs_hz)))
+    for g in range(attenuation.n_groups):
+        delay_len = delays[g, 0]
+        gain_db = np.interp(freqs_hz, bin_freqs, mag_db[:, g * attenuation.group_size])
+        slope_db_per_sample = gain_db / delay_len
+        rt60[g] = -60 / (slope_db_per_sample * attenuation.fs)
+    return rt60
 
 
 class MultiResoSTFT(nn.Module):
@@ -169,10 +219,12 @@ def example_gfdn(args):
 
     # read target 
     target_rir = torch.tensor(sf.read(args.target_rir)[0], dtype=torch.float32)
-    target_rir = target_rir / torch.max(torch.abs(target_rir))
     rir_onset = find_onset(target_rir)
     target_rir = target_rir[rir_onset : (rir_onset + args.nfft)].view(1, -1, 1)
-    # zero pad to nfft 
+    target_rir = target_rir / torch.max(torch.abs(target_rir))
+    target_rir_1d = target_rir.flatten()
+
+    # zero pad to nfft
     target_rir = torch.nn.functional.pad(target_rir, (0, 0, 0, args.nfft - target_rir.shape[1]))
 
     # GFDN parameters
@@ -180,6 +232,13 @@ def example_gfdn(args):
     group_size = len(delays)
     n_groups = 2
     alias_decay_db = 30
+
+    # analyze the target RIR's per-band multi-slope decay directly from the
+    # RIR (DecayFitNet applies its own octave-band filterbank), for later
+    # comparison against the GFDN's shelving-filter frequency response
+    band_freqs, target_t = estimate_band_decay_times(target_rir_1d, args.samplerate, n_groups)
+    print(f"Target RIR octave bands (Hz): {band_freqs}")
+    print(f"Target RIR RT60 per band, per slope (s):\n{target_t}")
 
     ## ---------------- CONSTRUCT GFDN ---------------- ##
 
@@ -239,7 +298,7 @@ def example_gfdn(args):
         train_dir=args.train_dir,
         device=args.device,
     )
-    trainer.register_criterion(MultiResoSTFT(), 1)
+    trainer.register_criterion(edr_loss(), 1)
     trainer.register_criterion(sparsity_loss(), 1, requires_model=True)
 
     ## ---------------- TRAIN ---------------- ##
@@ -255,6 +314,19 @@ def example_gfdn(args):
             ir_optim / torch.max(torch.abs(ir_optim)),
             fs=args.samplerate,
         )
+
+    # Compare the shelving filter's frequency-dependent RT60 (one curve per
+    # group) against the target's per-band, per-slope DecayFitNet estimates
+    attenuation = model.get_core().feedback_loop.feedback.attenuation
+    model_rt60 = shelving_group_rt60(attenuation, band_freqs)  # (n_groups, n_bands)
+
+    header = f"{'Band (Hz)':>10} | {'Target slopes (s)':>22} | {'Model groups (s)':>22}"
+    print(header)
+    print("-" * len(header))
+    for b, f in enumerate(band_freqs):
+        target_str = ", ".join(f"{t:.3f}" for t in target_t[b])
+        model_str = ", ".join(f"{t:.3f}" for t in model_rt60[:, b])
+        print(f"{f:>10.0f} | {target_str:>22} | {model_str:>22}")
 
 
 if __name__ == "__main__":
@@ -284,7 +356,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--target_rir",
         type=str,
-        default="rirs/multi-slope/ertd1_rir_r1.wav",
+        default="rirs/multi-slope/ir_r2.wav",
         help="filepath to target RIR",
     )
 

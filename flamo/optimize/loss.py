@@ -645,7 +645,7 @@ class edr_loss(nn.Module):
             fmax=self.sample_rate // 2,
             n_mels=64,
             verbose=False,
-        ).to(self.device)
+        ).to(self.device).to(x.dtype)
 
         return mel_stft(x)
 
