@@ -8,7 +8,11 @@ import auraloss
 import numpy as np
 import soundfile as sf
 import multislope
+import pyfar as pf
+import pyrato
+import matplotlib.pyplot as plt
 
+from multislope.plotting import edc_mse, plot_fit
 from collections import OrderedDict
 
 from flamo.auxiliary.reverb import parallelGFDNFirstOrderShelving
@@ -22,7 +26,9 @@ from flamo.functional import signal_gallery, find_onset
 torch.manual_seed(130798)
 
 
-def estimate_band_decay_times(rir: torch.Tensor, fs: int, n_slopes: int) -> tuple[np.ndarray, np.ndarray]:
+def estimate_band_decay_times(
+    rir: torch.Tensor, fs: int, n_slopes: int
+) -> tuple[np.ndarray, np.ndarray, multislope.DecayFit]:
     """
     Estimate per-octave-band multi-exponential decay times of a RIR with the
     multislope library's DecayFitNet.
@@ -32,15 +38,51 @@ def estimate_band_decay_times(rir: torch.Tensor, fs: int, n_slopes: int) -> tupl
         fs: sample rate in Hz.
         n_slopes: number of decay slopes to fit per band.
     Returns:
-        ``(band_freqs, t)`` where ``band_freqs`` are the octave-band centre
-        frequencies (Hz), and ``t`` has shape ``(n_bands, n_slopes)`` -- the
+        ``(band_freqs, t, fit)`` where ``band_freqs`` are the octave-band centre
+        frequencies (Hz), ``t`` has shape ``(n_bands, n_slopes)`` -- the
         fitted decay times (T60, in seconds) per band, sorted ascending
-        along the slopes axis.
+        along the slopes axis -- and ``fit`` is the full DecayFitNet result.
     """
     x = rir.detach().cpu().numpy().astype(np.float64).flatten()
     net = multislope.DecayFitNet(n_slopes=n_slopes, sample_rate=fs)
     fit = net.estimate(x, analyse_full_rir=True)
-    return np.array(fit.frequencies), np.sort(fit.t, axis=-1)
+    return np.array(fit.frequencies), np.sort(fit.t, axis=-1), fit
+
+
+def compare_fitted_edcs(
+    rir: torch.Tensor, fit: multislope.DecayFit, fs: int, plot_path: Optional[str] = None
+) -> np.ndarray:
+    """
+    Compare the EDCs reconstructed from DecayFitNet's estimated parameters
+    against the per-band Schroeder EDCs computed directly from the RIR.
+    The last 5% of each EDC is discarded, where octave-filtering edge
+    effects dominate.
+
+    Args:
+        rir: 1D RIR tensor, the same one ``fit`` was estimated from.
+        fit: DecayFitNet result from :func:`estimate_band_decay_times`.
+        fs: sample rate in Hz.
+        plot_path: if given, save a plot of the measured vs. fitted EDCs there.
+    Returns:
+        Array of shape ``(n_bands,)`` -- the MSE (dB) between the measured
+        and fitted EDC in each band.
+    """
+    x = rir.detach().cpu().numpy().astype(np.float64).flatten()
+    preprocess = multislope.PreprocessRIR(sample_rate=fs, filter_frequencies=fit.frequencies)
+    true_edc = preprocess.schroeder(x, analyse_full_rir=True)[0][0]  # (n_bands, n_samples)
+    time_axis = np.arange(true_edc.shape[-1]) / fs
+    fitted_edc = fit.edc(time_axis)
+
+    mse = edc_mse(
+        multislope.discard_last_n_percent(true_edc, 5),
+        multislope.discard_last_n_percent(fitted_edc, 5),
+    )
+
+    if plot_path is not None:
+        ax = plot_fit(fit, measured_edc=true_edc, sample_rate=fs, title="Target RIR: measured vs. fitted EDC")
+        ax.figure.savefig(plot_path, bbox_inches="tight")
+        plt.close(ax.figure)
+    return mse
 
 
 def shelving_group_rt60(attenuation: parallelGFDNFirstOrderShelving, freqs_hz: np.ndarray) -> np.ndarray:
@@ -68,6 +110,77 @@ def shelving_group_rt60(attenuation: parallelGFDNFirstOrderShelving, freqs_hz: n
         slope_db_per_sample = gain_db / delay_len
         rt60[g] = -60 / (slope_db_per_sample * attenuation.fs)
     return rt60
+
+
+def extend_noise(noise: np.ndarray, n_samples: int) -> np.ndarray:
+    """
+    Extend a noise segment to ``n_samples`` via phase randomization: the
+    segment's magnitude spectrum is interpolated onto the frequency grid of
+    the target length and combined with uniformly random phases. The result
+    is rescaled to the segment's mean power.
+
+    Args:
+        noise: 1D noise segment.
+        n_samples: length of the extended noise.
+    Returns:
+        1D array of length ``n_samples``.
+    """
+    mag = np.abs(np.fft.rfft(noise))
+    freqs = np.fft.rfftfreq(len(noise))
+    new_freqs = np.fft.rfftfreq(n_samples)
+    new_mag = np.interp(new_freqs, freqs, mag)
+    phase = np.random.uniform(-np.pi, np.pi, len(new_freqs))
+    phase[0] = 0
+    if n_samples % 2 == 0:
+        phase[-1] = 0  # Nyquist bin must be real
+    out = np.fft.irfft(new_mag * np.exp(1j * phase), n=n_samples)
+    return out * np.sqrt(np.mean(noise**2) / np.mean(out**2))
+
+
+def extract_background_noise(rir: torch.Tensor, fs: int) -> tuple[torch.Tensor, int]:
+    """
+    Estimate the background noise of a RIR: the intersection time between
+    the decay and the noise floor is detected with pyrato's Lundeby method,
+    the RIR tail from that point on is taken as the noise segment, and the
+    segment is extended to the full RIR length via :func:`extend_noise`.
+
+    Args:
+        rir: 1D RIR tensor, onset-aligned (no leading silence).
+        fs: sample rate in Hz.
+    Returns:
+        ``(noise, start)`` where ``noise`` is a 1D tensor with the same length,
+        dtype and device as ``rir``, and ``start`` is the sample index where
+        the noise segment begins.
+    """
+    x = rir.detach().cpu().numpy().astype(np.float64).flatten()
+    intersection_time = pyrato.intersection_time_lundeby(pf.Signal(x, fs), freq="broadband")[0]
+    start = int(np.round(np.squeeze(intersection_time) * fs))
+    if start >= int(len(x) * 0.99):
+        start = int(len(x) * 0.99)  # noise floor beyond the RIR: take the last 1%
+    noise = extend_noise(x[start:], len(x))
+    return torch.as_tensor(noise, dtype=rir.dtype, device=rir.device), start
+
+
+class NoisyLoss(nn.Module):
+    """
+    Wrap a criterion so that a fixed noise term is summed to the model output
+    before the loss is computed. This lets a noise-free model (e.g. a GFDN)
+    be fit to a target RIR with a background noise floor, without the loss
+    penalizing the missing noise in the tail of the EDC/EDR.
+
+    Args:
+        criterion: the loss to wrap, called as ``criterion(y_pred, y_true)``.
+        noise: noise term of shape ``(1, n_samples, n_channels)``, broadcast
+            over the batch.
+    """
+
+    def __init__(self, criterion: nn.Module, noise: torch.Tensor):
+        super().__init__()
+        self.criterion = criterion
+        self.register_buffer("noise", noise)
+
+    def forward(self, y_pred, y_true):
+        return self.criterion(y_pred + self.noise.to(y_pred.dtype), y_true)
 
 
 class MultiResoSTFT(nn.Module):
@@ -178,9 +291,12 @@ class GroupedFDN(system.Shell):
             device=device,
             dtype=dtype,
         )
-        omega_c = 2 * torch.pi * crossover_freq / fs
+        rt_dc = torch.as_tensor(rt_dc, device=device, dtype=dtype)
+        omega_c = 2 * torch.pi * torch.as_tensor(
+            crossover_freq, device=device, dtype=dtype
+        ) / fs
         attenuation.assign_value(
-            torch.tensor([rt_dc, omega_c], device=device, dtype=dtype)
+            torch.stack((rt_dc, omega_c), dim=-1)
         )
 
         feedback = system.Series(
@@ -227,6 +343,13 @@ def example_gfdn(args):
     # zero pad to nfft
     target_rir = torch.nn.functional.pad(target_rir, (0, 0, 0, args.nfft - target_rir.shape[1]))
 
+    # background noise of the target, summed to the GFDN output in the loss
+    # (zero-padded like the target)
+    noise, noise_start = extract_background_noise(target_rir_1d, args.samplerate)
+    print(f"Target RIR noise floor starts at {noise_start / args.samplerate:.3f} s")
+    noise = torch.nn.functional.pad(noise, (0, args.nfft - noise.shape[0]))
+    noise = noise.view(1, -1, 1).to(device=args.device, dtype=args.dtype)
+
     # GFDN parameters
     delays = [997, 1153, 1327, 1559]
     group_size = len(delays)
@@ -236,9 +359,15 @@ def example_gfdn(args):
     # analyze the target RIR's per-band multi-slope decay directly from the
     # RIR (DecayFitNet applies its own octave-band filterbank), for later
     # comparison against the GFDN's shelving-filter frequency response
-    band_freqs, target_t = estimate_band_decay_times(target_rir_1d, args.samplerate, n_groups)
+    band_freqs, target_t, target_fit = estimate_band_decay_times(target_rir_1d, args.samplerate, n_groups)
     print(f"Target RIR octave bands (Hz): {band_freqs}")
     print(f"Target RIR RT60 per band, per slope (s):\n{target_t}")
+
+    # check how well the fitted multi-slope EDCs match the RIR's own EDCs
+    compare_fitted_edcs(
+        target_rir_1d, target_fit, args.samplerate,
+        plot_path=os.path.join(args.train_dir, "target_edc_fit.png"),
+    )
 
     ## ---------------- CONSTRUCT GFDN ---------------- ##
 
@@ -250,9 +379,9 @@ def example_gfdn(args):
         fs=args.samplerate,
         in_ch=1,
         out_ch=1,
-        rt_dc=1.0,
+        rt_dc=[0.5, 1.5],
         rt_nyquist=0.2,
-        crossover_freq=4000.0,
+        crossover_freq=[4000.0, 4000.0],
         alias_decay_db=alias_decay_db,
         device=args.device,
         dtype=args.dtype,
@@ -298,7 +427,7 @@ def example_gfdn(args):
         train_dir=args.train_dir,
         device=args.device,
     )
-    trainer.register_criterion(edr_loss(), 1)
+    trainer.register_criterion(NoisyLoss(edr_loss(), noise), 1)
     trainer.register_criterion(sparsity_loss(), 1, requires_model=True)
 
     ## ---------------- TRAIN ---------------- ##
@@ -312,6 +441,12 @@ def example_gfdn(args):
         save_audio(
             os.path.join(args.train_dir, "ir_optim.wav"),
             ir_optim / torch.max(torch.abs(ir_optim)),
+            fs=args.samplerate,
+        )
+        ir_optim_noisy = ir_optim + noise.squeeze()
+        save_audio(
+            os.path.join(args.train_dir, "ir_optim_noisy.wav"),
+            ir_optim_noisy / torch.max(torch.abs(ir_optim_noisy)),
             fs=args.samplerate,
         )
 
@@ -356,7 +491,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--target_rir",
         type=str,
-        default="rirs/multi-slope/ir_r2.wav",
+        default="rirs/multi-slope/ir_r1.wav",
         help="filepath to target RIR",
     )
 
