@@ -15,7 +15,9 @@ import matplotlib.pyplot as plt
 from multislope.plotting import edc_mse, plot_fit
 from collections import OrderedDict
 
-from flamo.auxiliary.reverb import parallelGFDNFirstOrderShelving
+from flamo.auxiliary.reverb import (
+    parallelGFDNFirstOrderShelving, 
+    parallelGFDNGEQ)
 from flamo.optimize.dataset import Dataset, load_dataset
 from flamo.optimize.loss import sparsity_loss, edr_loss
 from flamo.optimize.trainer import Trainer
@@ -233,7 +235,7 @@ class GroupedFDN(system.Shell):
         assert group_size >= 2 and group_size & (group_size - 1) == 0, (
             f"group_size must be a power of two >= 2, got {group_size}"
         )
-
+        filter_type = "geq"
         n_delays = group_size * n_groups
         delay_lengths = torch.as_tensor(delay_lengths, device=device, dtype=torch.int64)
         assert delay_lengths.numel() == n_delays, (
@@ -280,25 +282,38 @@ class GroupedFDN(system.Shell):
             dtype=dtype,
         )
 
-        attenuation = parallelGFDNFirstOrderShelving(
-            nfft=nfft,
-            fs=fs,
-            rt_nyquist=rt_nyquist,
-            n_groups=n_groups,
-            delays=delay_lengths,
-            alias_decay_db=alias_decay_db,
-            requires_grad=True,
-            device=device,
-            dtype=dtype,
-        )
-        rt_dc = torch.as_tensor(rt_dc, device=device, dtype=dtype)
-        omega_c = 2 * torch.pi * torch.as_tensor(
-            crossover_freq, device=device, dtype=dtype
-        ) / fs
-        attenuation.assign_value(
-            torch.stack((rt_dc, omega_c), dim=-1)
-        )
-
+        if filter_type == 'shelf':
+            attenuation = parallelGFDNFirstOrderShelving(
+                nfft=nfft,
+                fs=fs,
+                rt_nyquist=rt_nyquist,
+                n_groups=n_groups,
+                delays=delay_lengths,
+                alias_decay_db=alias_decay_db,
+                requires_grad=True,
+                device=device,
+                dtype=dtype,
+            )
+            rt_dc = torch.as_tensor(rt_dc, device=device, dtype=dtype)
+            omega_c = 2 * torch.pi * torch.as_tensor(
+                crossover_freq, device=device, dtype=dtype
+            ) / fs
+            attenuation.assign_value(
+                torch.stack((rt_dc, omega_c), dim=-1)
+            )
+        elif filter_type == 'geq':
+            attenuation = parallelGFDNGEQ(octave_interval=1,
+                                          n_groups=n_groups,
+                                          nfft=nfft,
+                                          fs=fs,
+                                          delays=delay_lengths,
+                                          alias_decay_db=alias_decay_db,
+                                          requires_grad=True,
+                                          device=device,
+                                          dtype=dtype)
+        else:
+            raise ValueError('Filter type must be shelf or geq')
+            
         feedback = system.Series(
             OrderedDict({"mixing_matrix": mixing_matrix, "attenuation": attenuation})
         )

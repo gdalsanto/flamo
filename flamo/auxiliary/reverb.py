@@ -1025,3 +1025,80 @@ class parallelGFDNFirstOrderShelving(parallelFirstOrderShelving):
         b[:, 0] = t * torch.sqrt(k) + 1
         b[:, 1] = t * torch.sqrt(k) - 1
         return b * 10**(gain_Nyq/20), a
+
+class parallelGFDNGEQ(parallelFDNGEQ):
+    r"""Differentiable grouped GEQ attenuation for a grouped FDN.
+
+    ``param`` has shape ``(n_gains, n_groups)`` and stores positive RT60
+    values in seconds.  A group's command gains are converted to dB per delay
+    line as ``-60 * delay / (RT60 * fs)``.  Unlike
+    :class:`parallelGFDNAccurateGEQ`, this class uses :func:`geq` directly,
+    so gradients propagate to every group RT60 parameter.
+    """
+
+    def __init__(self,
+                 octave_interval: int = 1,
+                 n_groups: int = 2,
+                 nfft: int = 2**11,
+                 fs: int = 48000,
+                 delays: torch.Tensor = None,
+                 requires_grad: bool = False,
+                 alias_decay_db: float = 0.0,
+                 device: Optional[str] = None,
+                 dtype=torch.float32):
+        assert delays is not None, "Delays must be provided"
+        assert len(delays) % n_groups == 0, (
+            "len(delays) must be divisible by n_groups")
+        self.n_groups = n_groups
+        self.group_size = len(delays) // n_groups
+        super().__init__(octave_interval=octave_interval,
+                         nfft=nfft,
+                         fs=fs,
+                         delays=delays,
+                         requires_grad=requires_grad,
+                         alias_decay_db=alias_decay_db,
+                         device=device,
+                         dtype=dtype)
+        self.size = (self.n_gains, self.n_groups)
+        self.param = torch.nn.Parameter(
+            torch.empty(self.size, device=self.device, dtype=dtype),
+            requires_grad=requires_grad,
+        )
+        self.init_param()
+
+    def get_poly_coeff(self, param):
+        param = param.squeeze(0)
+        if param.shape != (self.n_gains, self.n_groups):
+            raise ValueError(
+                f"Expected (n_gains, n_groups) = "
+                f"({self.n_gains}, {self.n_groups}), got {tuple(param.shape)}")
+        a = torch.zeros((3, self.n_gains, len(self.delays)),
+                        device=self.device,
+                        dtype=param.dtype)
+        b = torch.zeros_like(a)
+        resonance = torch.tensor(2.7, device=self.device, dtype=param.dtype)
+        delays = self.delays.reshape(self.n_groups, self.group_size)
+        for group in range(self.n_groups):
+            gain_db = (rt2slope(param[:, group], self.fs).unsqueeze(-1) *
+                       delays[group])
+            b_group, a_group = geq(gain_db=gain_db,
+                                   center_freq=self.center_freq,
+                                   R=resonance,
+                                   shelving_freq=self.shelving_crossover,
+                                   fs=self.fs,
+                                   device=self.device,
+                                   dtype=param.dtype)
+            start = group * self.group_size
+            end = start + self.group_size
+            b[:, :, start:end] = b_group
+            a[:, :, start:end] = a_group
+        b_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, b)
+        a_aa = torch.einsum('p, pon -> pon', self.alias_envelope_dcy, a)
+        B = torch.fft.rfft(b_aa, self.nfft, dim=0)
+        A = torch.fft.rfft(a_aa, self.nfft, dim=0)
+        denominator = torch.prod(A, dim=1)
+        H_temp = torch.prod(B, dim=1) / denominator
+        H = torch.where(
+            torch.abs(denominator) != 0, H_temp,
+            torch.finfo(H_temp.dtype).eps * torch.ones_like(H_temp))
+        return H.unsqueeze(0), B, A
