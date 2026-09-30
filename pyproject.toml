@@ -28,7 +28,7 @@ dependencies = [
     "torchaudio",
     "numpy",
     "scipy",
-    "PySoundFile",
+    "soundfile",
     "tqdm",
     "matplotlib",
     "pydantic",
