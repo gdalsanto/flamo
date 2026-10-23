@@ -312,7 +312,17 @@ class EagerTrainer:
             - **log** (bool): Print timing / plateau messages. Default: True.
             - **train_dir** (str): Directory for checkpoints (required if save_checkpoints). Default: None.
             - **save_checkpoints** (bool): Save ``state_dict`` each step. Default: False.
+            - **restore_best** (bool): At the end, load the parameters with the lowest
+              total loss seen during the optimization instead of keeping the last
+              ones. There is no held-out data, so the best state is the one that
+              minimizes the objective itself. The last state is kept in
+              :attr:`last_state`. Default: False.
+            - **grad_clip** (float): If given, clip the gradient norm to this value
+              before each update. Default: None.
             - **device** (str): Device for optimization. Default: 'cpu'.
+
+        After :meth:`optimize`, :attr:`best_step` and :attr:`best_loss` hold the
+        step and total loss of the best state (``restore_best=True`` only).
 
         Examples::
 
@@ -335,6 +345,8 @@ class EagerTrainer:
         log: bool = True,
         train_dir: str = None,
         save_checkpoints: bool = False,
+        restore_best: bool = False,
+        grad_clip: Optional[float] = None,
         device: str = "cpu",
     ):
         self.device = device
@@ -346,6 +358,9 @@ class EagerTrainer:
         self.log = log
         self.train_dir = train_dir
         self.save_checkpoints = save_checkpoints
+        self.restore_best = restore_best
+        self.grad_clip = grad_clip
+        self.best_step, self.best_loss, self.last_state = None, None, None
         self.n_loss = 0
         self.criterion, self.alpha, self.requires_model = [], [], []
 
@@ -428,6 +443,9 @@ class EagerTrainer:
 
         best_loss = float("inf")
         counter = 0
+        best_state = None
+        self.best_step, self.last_state = None, None
+        self.best_loss = float("inf") if self.restore_best else None
         st = time.time()
         pbar = trange(self.max_steps, desc="Optimizing", disable=not self.log)
         for step in pbar:
@@ -435,10 +453,16 @@ class EagerTrainer:
                 self.optimizer.zero_grad()
                 est = self.net(input)
                 loss = self._compute_loss(est, target, self.loss_history)
+                total = loss.item()
+                # the loss belongs to the parameters before this step's update
+                if self.restore_best and total < self.best_loss:
+                    best_state = self._state_copy()
+                    self.best_step, self.best_loss = step, total
                 loss.backward()
+                if self.grad_clip is not None:
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(), self.grad_clip)
                 self.optimizer.step()
                 self.scheduler.step()
-                total = loss.item()
             else:  # lbfgs
 
                 def closure():
@@ -446,12 +470,18 @@ class EagerTrainer:
                     est = self.net(input)
                     loss = self._compute_loss(est, target)
                     loss.backward()
+                    if self.grad_clip is not None:
+                        torch.nn.utils.clip_grad_norm_(self.net.parameters(), self.grad_clip)
                     return loss
 
                 self.optimizer.step(closure)
                 with torch.no_grad():
                     est = self.net(input)
                     total = self._compute_loss(est, target, self.loss_history).item()
+                # here the loss is evaluated after the step
+                if self.restore_best and total < self.best_loss:
+                    best_state = self._state_copy()
+                    self.best_step, self.best_loss = step, total
 
             self.loss_history["total"].append(total)
             pbar.set_postfix_str(f"loss: {total:.6f}")
@@ -476,9 +506,18 @@ class EagerTrainer:
                         print(f"Plateau reached at step {step}.")
                     break
 
+        if self.restore_best and best_state is not None:
+            self.last_state = self._state_copy()
+            self.net.load_state_dict(best_state)
+            if self.log:
+                print(f"Restored the best state (step {self.best_step}, loss {self.best_loss:.6f}).")
         if self.log:
             print(f"Optimization time: {time.time() - st:.3f}s")
         return self.loss_history
+
+    def _state_copy(self) -> dict:
+        r"""Detached copy of the system's ``state_dict``."""
+        return {k: v.detach().clone() for k, v in self.net.state_dict().items()}
 
     def save_model(self, step: int):
         r"""Save the model parameters to ``train_dir/checkpoints/model_e<step>.pt``."""
